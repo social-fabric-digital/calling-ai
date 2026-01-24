@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "Qual idioma você gostaria de usar?",
+    "searchPlaceholder": "Pesquise seu idioma..."
+  },
+  "landing": {
+    "welcomeTitle": "Bem-vindo ao Calling",
+    "welcomeSubtitle": "Parabéns por dar mais um passo em direção à sua vocação.",
+    "featuresTitle": "Recursos",
+    "discoverIkigai": "Descubra seu Ikigai",
+    "discoverIkigaiDesc": "Explore a interseção entre paixão, missão, vocação e profissão para encontrar seu verdadeiro propósito.",
+    "setGoals": "Defina metas significativas",
+    "setGoalsDesc": "Transforme seu propósito geral em objetivos diários e acionáveis que o movem para frente todos os dias.",
+    "trackProgress": "Acompanhe seu progresso",
+    "trackProgressDesc": "Visualize seu crescimento com insights intuitivos e reflexões que mantêm suas ações alinhadas com sua alma.",
+    "startJourney": "Começar minha jornada",
+    "alreadyHaveAccount": "Já tem uma conta?",
+    "login": "Entrar"
+  },
+  "home": {
+    "hello": "Olá",
+    "questionOfTheDay": "Pergunta do dia",
+    "enterAnswer": "Digite sua resposta",
+    "saveEntry": "Salvar entrada",
+    "explore": "Explorar",
+    "cosmicInsight": "Perspectiva Cósmica",
+    "cosmicInsightSubtitle": "Orientação diária",
+    "clarityMap": "Mapa de Clareza",
+    "clarityMapSubtitle": "Desembace sua mente",
+    "progressThisWeek": "Progresso Esta Semana",
+    "progressSubtitle": "Verifique seu progresso.",
+    "ikigaiCompass": "Bússola Ikigai",
+    "ikigaiCompassSubtitle": "Encontre seu propósito",
+    "howsItGoing": "Como está indo hoje?",
+    "makingProgress": "Estou progredindo",
+    "findingWay": "Encontrando meu caminho",
+    "stuck": "Estou preso",
+    "feelingAnxious": "Sentindo-se ansioso?",
+    "feelingAnxiousBody": "Clique em mim se os medos estão assumindo o controle, vamos respirar juntos."
+  },
+  "common": {
+    "continue": "Continuar",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "previous": "Anterior",
+    "done": "Concluído",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso"
+  }
+}

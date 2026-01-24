@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "आप कौन सी भाषा का उपयोग करना चाहेंगे?",
+    "searchPlaceholder": "अपनी भाषा खोजें..."
+  },
+  "landing": {
+    "welcomeTitle": "Calling में आपका स्वागत है",
+    "welcomeSubtitle": "अपने उद्देश्य की ओर एक अतिरिक्त कदम उठाने के लिए बधाई।",
+    "featuresTitle": "सुविधाएं",
+    "discoverIkigai": "अपना इकिगाई खोजें",
+    "discoverIkigaiDesc": "अपने जुनून, मिशन, व्यवसाय और पेशे के प्रतिच्छेदन का अन्वेषण करें ताकि अपना वास्तविक उद्देश्य खोज सकें।",
+    "setGoals": "सार्थक लक्ष्य निर्धारित करें",
+    "setGoalsDesc": "अपने व्यापक उद्देश्य को क्रियाशील, दैनिक उद्देश्यों में बदलें जो आपको हर दिन आगे बढ़ाते हैं।",
+    "trackProgress": "अपनी प्रगति ट्रैक करें",
+    "trackProgressDesc": "सहज अंतर्दृष्टि और प्रतिबिंबों के साथ अपनी वृद्धि को देखें जो आपके कार्यों को आपकी आत्मा के साथ संरेखित रखते हैं।",
+    "startJourney": "अपनी यात्रा शुरू करें",
+    "alreadyHaveAccount": "पहले से ही एक खाता है?",
+    "login": "लॉगिन"
+  },
+  "home": {
+    "hello": "नमस्ते",
+    "questionOfTheDay": "दिन का प्रश्न",
+    "enterAnswer": "अपना उत्तर दर्ज करें",
+    "saveEntry": "प्रविष्टि सहेजें",
+    "explore": "अन्वेषण करें",
+    "cosmicInsight": "ब्रह्मांडीय अंतर्दृष्टि",
+    "cosmicInsightSubtitle": "दैनिक मार्गदर्शन",
+    "clarityMap": "स्पष्टता मानचित्र",
+    "clarityMapSubtitle": "अपने मन को स्पष्ट करें",
+    "progressThisWeek": "इस सप्ताह की प्रगति",
+    "progressSubtitle": "अपनी प्रगति जांचें।",
+    "ikigaiCompass": "इकिगाई कम्पास",
+    "ikigaiCompassSubtitle": "अपना उद्देश्य खोजें",
+    "howsItGoing": "आज कैसा चल रहा है?",
+    "makingProgress": "मैं प्रगति कर रहा हूं",
+    "findingWay": "मैं अपना रास्ता खोज रहा हूं",
+    "stuck": "मैं अटका हुआ हूं",
+    "feelingAnxious": "चिंतित महसूस कर रहे हैं?",
+    "feelingAnxiousBody": "यदि डर हावी हो रहे हैं तो मुझ पर क्लिक करें, आइए एक साथ सांस लें।"
+  },
+  "common": {
+    "continue": "जारी रखें",
+    "cancel": "रद्द करें",
+    "save": "सहेजें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "close": "बंद करें",
+    "back": "वापस",
+    "next": "अगला",
+    "previous": "पिछला",
+    "done": "पूर्ण",
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "success": "सफलता"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "languageSelection": {
+    "title": "¿Qué idioma te gustaría usar?",
+    "searchPlaceholder": "Busca tu idioma..."
+  },
+  "landing": {
+    "welcomeTitle": "Bienvenido a Calling",
+    "welcomeSubtitle": "Felicitaciones por dar un paso más hacia tu vocación.",
+    "featuresTitle": "Características",
+    "discoverIkigai": "Descubre tu Ikigai",
+    "discoverIkigaiDesc": "Explora la intersección de tu pasión, misión, vocación y profesión para encontrar tu verdadero propósito.",
+    "setGoals": "Establece metas significativas",
+    "setGoalsDesc": "Transforma tu propósito general en objetivos diarios y accionables que te impulsen todos los días.",
+    "trackProgress": "Rastrea tu progreso",
+    "trackProgressDesc": "Visualiza tu crecimiento con ideas intuitivas y reflexiones que mantengan tus acciones alineadas con tu alma.",
+    "startJourney": "Comenzar mi viaje",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "login": "Iniciar sesión"
+  },
+  "home": {
+    "hello": "Hola",
+    "questionOfTheDay": "Pregunta del día",
+    "enterAnswer": "Ingresa tu respuesta",
+    "saveEntry": "Guardar entrada",
+    "explore": "Explorar",
+    "cosmicInsight": "Perspectiva Cósmica",
+    "cosmicInsightSubtitle": "Guía diaria",
+    "clarityMap": "Mapa de Claridad",
+    "clarityMapSubtitle": "Despeja tu mente",
+    "progressThisWeek": "Progreso Esta Semana",
+    "progressSubtitle": "Revisa tu progreso.",
+    "ikigaiCompass": "Brújula Ikigai",
+    "ikigaiCompassSubtitle": "Encuentra tu propósito",
+    "howsItGoing": "¿Cómo va tu día?",
+    "makingProgress": "Estoy progresando",
+    "findingWay": "Encontrando mi camino",
+    "stuck": "Estoy atascado",
+    "feelingAnxious": "¿Te sientes ansioso?",
+    "feelingAnxiousBody": "Haz clic en mí si los miedos se apoderan, respiremos juntos."
+  },
+  "common": {
+    "continue": "Continuar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "done": "Hecho",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "explorePath": "Explorar este camino",
+    "dontKnow": "Realmente no lo sé",
+    "gotIt": "¡Entendido!"
+  }
+}

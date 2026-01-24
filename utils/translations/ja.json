@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "どの言語を使用しますか？",
+    "searchPlaceholder": "言語を検索..."
+  },
+  "landing": {
+    "welcomeTitle": "Callingへようこそ",
+    "welcomeSubtitle": "あなたの使命に向かって一歩前進したことをお祝いします。",
+    "featuresTitle": "機能",
+    "discoverIkigai": "あなたの生きがいを発見",
+    "discoverIkigaiDesc": "情熱、使命、職業、専門性の交差点を探索して、あなたの真の目的を見つけましょう。",
+    "setGoals": "意味のある目標を設定",
+    "setGoalsDesc": "あなたの全体的な目的を、毎日前進させる実行可能な日々の目標に変換します。",
+    "trackProgress": "進捗を追跡",
+    "trackProgressDesc": "あなたの行動を魂と一致させる直感的な洞察と反省で成長を可視化します。",
+    "startJourney": "旅を始める",
+    "alreadyHaveAccount": "すでにアカウントをお持ちですか？",
+    "login": "ログイン"
+  },
+  "home": {
+    "hello": "こんにちは",
+    "questionOfTheDay": "今日の質問",
+    "enterAnswer": "答えを入力",
+    "saveEntry": "エントリを保存",
+    "explore": "探索",
+    "cosmicInsight": "宇宙の洞察",
+    "cosmicInsightSubtitle": "毎日のガイダンス",
+    "clarityMap": "明確性マップ",
+    "clarityMapSubtitle": "心をクリアに",
+    "progressThisWeek": "今週の進捗",
+    "progressSubtitle": "進捗を確認してください。",
+    "ikigaiCompass": "生きがいコンパス",
+    "ikigaiCompassSubtitle": "あなたの目的を見つける",
+    "howsItGoing": "今日はどうですか？",
+    "makingProgress": "進歩しています",
+    "findingWay": "道を見つけています",
+    "stuck": "行き詰まっています",
+    "feelingAnxious": "不安を感じていますか？",
+    "feelingAnxiousBody": "恐怖が支配している場合は私をクリックしてください。一緒に呼吸しましょう。"
+  },
+  "common": {
+    "continue": "続ける",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "back": "戻る",
+    "next": "次へ",
+    "previous": "前へ",
+    "done": "完了",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功"
+  }
+}

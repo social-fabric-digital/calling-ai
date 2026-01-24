@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "Quale lingua vorresti usare?",
+    "searchPlaceholder": "Cerca la tua lingua..."
+  },
+  "landing": {
+    "welcomeTitle": "Benvenuto su Calling",
+    "welcomeSubtitle": "Congratulazioni per aver fatto un passo in più verso la tua vocazione.",
+    "featuresTitle": "Funzionalità",
+    "discoverIkigai": "Scopri il tuo Ikigai",
+    "discoverIkigaiDesc": "Esplora l'intersezione tra passione, missione, vocazione e professione per trovare il tuo vero scopo.",
+    "setGoals": "Imposta obiettivi significativi",
+    "setGoalsDesc": "Trasforma il tuo scopo generale in obiettivi quotidiani e concreti che ti fanno avanzare ogni giorno.",
+    "trackProgress": "Monitora i tuoi progressi",
+    "trackProgressDesc": "Visualizza la tua crescita con intuizioni e riflessioni intuitive che mantengono le tue azioni allineate con la tua anima.",
+    "startJourney": "Inizia il mio viaggio",
+    "alreadyHaveAccount": "Hai già un account?",
+    "login": "Accedi"
+  },
+  "home": {
+    "hello": "Ciao",
+    "questionOfTheDay": "Domanda del giorno",
+    "enterAnswer": "Inserisci la tua risposta",
+    "saveEntry": "Salva voce",
+    "explore": "Esplora",
+    "cosmicInsight": "Intuizione Cosmica",
+    "cosmicInsightSubtitle": "Guida quotidiana",
+    "clarityMap": "Mappa della Chiarezza",
+    "clarityMapSubtitle": "Schiarisci la tua mente",
+    "progressThisWeek": "Progressi Questa Settimana",
+    "progressSubtitle": "Controlla i tuoi progressi.",
+    "ikigaiCompass": "Bussola Ikigai",
+    "ikigaiCompassSubtitle": "Trova il tuo scopo",
+    "howsItGoing": "Come va oggi?",
+    "makingProgress": "Sto facendo progressi",
+    "findingWay": "Sto trovando la mia strada",
+    "stuck": "Sono bloccato",
+    "feelingAnxious": "Ti senti ansioso?",
+    "feelingAnxiousBody": "Clicca su di me se le paure prendono il sopravvento, respiriamo insieme."
+  },
+  "common": {
+    "continue": "Continua",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "close": "Chiudi",
+    "back": "Indietro",
+    "next": "Avanti",
+    "previous": "Precedente",
+    "done": "Fatto",
+    "loading": "Caricamento...",
+    "error": "Errore",
+    "success": "Successo"
+  }
+}

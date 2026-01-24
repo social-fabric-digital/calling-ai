@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "Welche Sprache möchten Sie verwenden?",
+    "searchPlaceholder": "Suche nach deiner Sprache..."
+  },
+  "landing": {
+    "welcomeTitle": "Willkommen bei Calling",
+    "welcomeSubtitle": "Glückwunsch, dass Sie einen weiteren Schritt in Richtung Ihrer Berufung gemacht haben.",
+    "featuresTitle": "Funktionen",
+    "discoverIkigai": "Entdecken Sie Ihr Ikigai",
+    "discoverIkigaiDesc": "Erkunden Sie die Schnittstelle zwischen Leidenschaft, Mission, Berufung und Beruf, um Ihren wahren Zweck zu finden.",
+    "setGoals": "Setzen Sie bedeutsame Ziele",
+    "setGoalsDesc": "Verwandeln Sie Ihren übergreifenden Zweck in umsetzbare, tägliche Ziele, die Sie jeden Tag voranbringen.",
+    "trackProgress": "Verfolgen Sie Ihren Fortschritt",
+    "trackProgressDesc": "Visualisieren Sie Ihr Wachstum mit intuitiven Erkenntnissen und Reflexionen, die Ihre Handlungen mit Ihrer Seele in Einklang halten.",
+    "startJourney": "Meine Reise beginnen",
+    "alreadyHaveAccount": "Haben Sie bereits ein Konto?",
+    "login": "Anmelden"
+  },
+  "home": {
+    "hello": "Hallo",
+    "questionOfTheDay": "Frage des Tages",
+    "enterAnswer": "Geben Sie Ihre Antwort ein",
+    "saveEntry": "Eintrag speichern",
+    "explore": "Erkunden",
+    "cosmicInsight": "Kosmische Einsicht",
+    "cosmicInsightSubtitle": "Tägliche Anleitung",
+    "clarityMap": "Klarheitskarte",
+    "clarityMapSubtitle": "Klären Sie Ihren Geist",
+    "progressThisWeek": "Fortschritt Diese Woche",
+    "progressSubtitle": "Überprüfen Sie Ihren Fortschritt.",
+    "ikigaiCompass": "Ikigai-Kompass",
+    "ikigaiCompassSubtitle": "Finden Sie Ihren Zweck",
+    "howsItGoing": "Wie läuft es heute?",
+    "makingProgress": "Ich mache Fortschritte",
+    "findingWay": "Ich finde meinen Weg",
+    "stuck": "Ich stecke fest",
+    "feelingAnxious": "Fühlen Sie sich ängstlich?",
+    "feelingAnxiousBody": "Klicken Sie auf mich, wenn Ängste überhand nehmen, atmen wir zusammen."
+  },
+  "common": {
+    "continue": "Weiter",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "previous": "Vorherige",
+    "done": "Fertig",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg"
+  }
+}

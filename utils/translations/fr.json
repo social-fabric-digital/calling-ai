@@ -1,0 +1,59 @@
+{
+  "languageSelection": {
+    "title": "Quelle langue souhaitez-vous utiliser?",
+    "searchPlaceholder": "Recherchez votre langue..."
+  },
+  "landing": {
+    "welcomeTitle": "Bienvenue sur Calling",
+    "welcomeSubtitle": "Félicitations pour avoir fait un pas de plus vers votre vocation.",
+    "featuresTitle": "Fonctionnalités",
+    "discoverIkigai": "Découvrez votre Ikigai",
+    "discoverIkigaiDesc": "Explorez l'intersection de votre passion, mission, vocation et profession pour trouver votre véritable but.",
+    "setGoals": "Fixez des objectifs significatifs",
+    "setGoalsDesc": "Transformez votre objectif global en objectifs quotidiens et actionnables qui vous font avancer chaque jour.",
+    "trackProgress": "Suivez vos progrès",
+    "trackProgressDesc": "Visualisez votre croissance avec des insights intuitifs et des réflexions qui maintiennent vos actions alignées avec votre âme.",
+    "startJourney": "Commencer mon voyage",
+    "alreadyHaveAccount": "Vous avez déjà un compte?",
+    "login": "Connexion"
+  },
+  "home": {
+    "hello": "Bonjour",
+    "questionOfTheDay": "Question du jour",
+    "enterAnswer": "Entrez votre réponse",
+    "saveEntry": "Enregistrer l'entrée",
+    "explore": "Explorer",
+    "cosmicInsight": "Perspective Cosmique",
+    "cosmicInsightSubtitle": "Guidance quotidienne",
+    "clarityMap": "Carte de Clarté",
+    "clarityMapSubtitle": "Clarifiez votre esprit",
+    "progressThisWeek": "Progrès Cette Semaine",
+    "progressSubtitle": "Vérifiez vos progrès.",
+    "ikigaiCompass": "Boussole Ikigai",
+    "ikigaiCompassSubtitle": "Trouvez votre but",
+    "howsItGoing": "Comment ça va aujourd'hui?",
+    "makingProgress": "Je progresse",
+    "findingWay": "Je trouve mon chemin",
+    "stuck": "Je suis bloqué",
+    "feelingAnxious": "Vous sentez-vous anxieux?",
+    "feelingAnxiousBody": "Cliquez sur moi si les peurs prennent le dessus, respirons ensemble."
+  },
+  "common": {
+    "continue": "Continuer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "done": "Terminé",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "explorePath": "Explorer ce chemin",
+    "dontKnow": "Je ne sais vraiment pas",
+    "gotIt": "Compris!"
+  }
+}

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Destiny",
-    "slug": "Destiny",
+    "name": "Calling",
+    "slug": "Calling",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "destiny",
+    "scheme": "calling",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

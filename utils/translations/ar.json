@@ -1,0 +1,56 @@
+{
+  "languageSelection": {
+    "title": "ما اللغة التي تريد استخدامها؟",
+    "searchPlaceholder": "ابحث عن لغتك..."
+  },
+  "landing": {
+    "welcomeTitle": "مرحباً بك في Calling",
+    "welcomeSubtitle": "تهانينا على اتخاذ خطوة إضافية نحو دعوتك.",
+    "featuresTitle": "الميزات",
+    "discoverIkigai": "اكتشف إيكيغاي الخاص بك",
+    "discoverIkigaiDesc": "استكشف تقاطع شغفك ومهمتك ووظيفتك ومهنتك للعثور على هدفك الحقيقي.",
+    "setGoals": "ضع أهدافاً ذات معنى",
+    "setGoalsDesc": "حول هدفك الشامل إلى أهداف يومية قابلة للتنفيذ تدفعك للأمام كل يوم.",
+    "trackProgress": "تتبع تقدمك",
+    "trackProgressDesc": "تصور نموك من خلال الرؤى والتفكير البديهي الذي يحافظ على محاذاة أفعالك مع روحك.",
+    "startJourney": "ابدأ رحلتي",
+    "alreadyHaveAccount": "هل لديك حساب بالفعل؟",
+    "login": "تسجيل الدخول"
+  },
+  "home": {
+    "hello": "مرحباً",
+    "questionOfTheDay": "سؤال اليوم",
+    "enterAnswer": "أدخل إجابتك",
+    "saveEntry": "حفظ الإدخال",
+    "explore": "استكشف",
+    "cosmicInsight": "البصيرة الكونية",
+    "cosmicInsightSubtitle": "إرشاد يومي",
+    "clarityMap": "خريطة الوضوح",
+    "clarityMapSubtitle": "وضح عقلك",
+    "progressThisWeek": "التقدم هذا الأسبوع",
+    "progressSubtitle": "تحقق من تقدمك.",
+    "ikigaiCompass": "بوصلة إيكيغاي",
+    "ikigaiCompassSubtitle": "ابحث عن هدفك",
+    "howsItGoing": "كيف تسير الأمور اليوم؟",
+    "makingProgress": "أنا أحرز تقدماً",
+    "findingWay": "أجد طريقي",
+    "stuck": "أنا عالق",
+    "feelingAnxious": "تشعر بالقلق؟",
+    "feelingAnxiousBody": "انقر علي إذا كانت المخاوف تسيطر، دعنا نتنفس معاً."
+  },
+  "common": {
+    "continue": "متابعة",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق",
+    "done": "تم",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجاح"
+  }
+}
