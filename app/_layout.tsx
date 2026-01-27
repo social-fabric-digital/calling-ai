@@ -3,34 +3,43 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { loadLanguagePreference } from '@/utils/i18n';
-import '@/utils/i18n'; // Initialize i18n
+// import { useColorScheme } from '@/hooks/use-color-scheme'; // Temporarily disabled to fix re-render issue
+// Temporarily disable i18n to test if it's causing re-render issues
+// import { loadLanguagePreference } from '@/utils/i18n';
+// import '@/utils/i18n'; // Initialize i18n
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
+// Move screenOptions outside component to prevent re-renders
+const screenOptions = {
+  headerShown: false,
+  gestureEnabled: false,
+};
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [languageLoaded, setLanguageLoaded] = useState(false);
   const splashHiddenRef = useRef(false);
   
   // Load saved language preference on app start BEFORE rendering screens
+  // Temporarily disabled to test re-render issue
   useEffect(() => {
-    const initLanguage = async () => {
-      try {
-        await loadLanguagePreference();
-        setLanguageLoaded(true);
-      } catch (error) {
-        console.error('Error loading language preference:', error);
-        setLanguageLoaded(true); // Still allow app to render even if language load fails
-      }
-    };
-    initLanguage();
+    // const initLanguage = async () => {
+    //   try {
+    //     await loadLanguagePreference();
+    //     setLanguageLoaded(true);
+    //   } catch (error) {
+    //     console.error('Error loading language preference:', error);
+    //     setLanguageLoaded(true); // Still allow app to render even if language load fails
+    //   }
+    // };
+    // initLanguage();
+    setLanguageLoaded(true); // Set immediately for testing
   }, []);
   
   const [fontsLoaded] = useFonts({
@@ -69,24 +78,18 @@ export default function RootLayout() {
     return null;
   }
 
+  // Superwall is a native module - not available in Expo Go, so we skip it
+  // In development builds, you would wrap this with <SuperwallProvider apiKey={apiKey}>
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            gestureEnabled: false, // Default off; enable per-screen when needed
-          }}
-        >
-          <Stack.Screen name="language-selection" options={{ headerShown: false }} />
-          <Stack.Screen name="landing" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="onboarding"
-            options={{ headerShown: false, gestureEnabled: true }}
-          />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="account" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      <ThemeProvider value={DefaultTheme}>
+        <Stack screenOptions={screenOptions}>
+          <Stack.Screen name="language-selection" />
+          <Stack.Screen name="landing" />
+          <Stack.Screen name="onboarding" options={{ gestureEnabled: true }} />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="account" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         <StatusBar style="dark" />
       </ThemeProvider>

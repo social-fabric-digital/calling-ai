@@ -87,6 +87,36 @@ export default function HomeScreen() {
   const queueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showClarityMap, setShowClarityMap] = useState(false);
   const [showAtlasChat, setShowAtlasChat] = useState(false);
+  
+  // Animated values for rectangle button press effects
+  const cosmicInsightScale = useRef(new Animated.Value(1)).current;
+  const clarityMapScale = useRef(new Animated.Value(1)).current;
+  const progressScale = useRef(new Animated.Value(1)).current;
+  const ikigaiScale = useRef(new Animated.Value(1)).current;
+  
+  // Keyboard-like press animation function
+  const handleRectanglePress = (scaleAnim: Animated.Value, callback: () => void) => {
+    // Dip down animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95, // Dip down 5%
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      // Bounce back up with spring
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 300,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    // Execute the callback after a short delay
+    setTimeout(() => {
+      callback();
+    }, 150);
+  };
   const [chatMessages, setChatMessages] = useState<Array<{ type: 'atlas' | 'user'; text: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -305,15 +335,25 @@ export default function HomeScreen() {
     setShowMoodSelector(true);
   };
 
-  // Check if guide should be shown on startup
+  // Check if guide should be shown on startup (only once, initially)
   useEffect(() => {
     const checkGuide = async () => {
-      const shouldShow = await shouldShowGuideOnStartup();
-      if (shouldShow) {
-        // Delay slightly so the home screen loads first
-        setTimeout(() => {
-          setShowGuideModal(true);
-        }, 500);
+      try {
+        // Check if guide has been shown before
+        const guideShownBefore = await AsyncStorage.getItem('@guide_shown_before');
+        const shouldShow = await shouldShowGuideOnStartup();
+        
+        // Only show if it hasn't been shown before AND user hasn't dismissed it
+        if (!guideShownBefore && shouldShow) {
+          // Delay slightly so the home screen loads first
+          setTimeout(() => {
+            setShowGuideModal(true);
+            // Mark that guide has been shown
+            AsyncStorage.setItem('@guide_shown_before', 'true');
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error checking guide:', error);
       }
     };
     checkGuide();
@@ -1451,80 +1491,80 @@ export default function HomeScreen() {
         <View style={styles.gridContainer}>
           {/* Row 1 */}
           <View style={styles.gridRow}>
-            <TouchableOpacity 
-              style={styles.gridButton} 
-              activeOpacity={0.8}
-              onPress={handleCosmicInsightClick}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+            <Animated.View style={{ transform: [{ scale: cosmicInsightScale }] }}>
+              <TouchableOpacity 
+                style={[styles.gridButton, styles.gridButtonLeft]} 
+                activeOpacity={1}
+                onPress={() => handleRectanglePress(cosmicInsightScale, handleCosmicInsightClick)}
+              >
+                <ImageBackground
+                  source={require('../../assets/images/rectangle.png')}
                   style={styles.buttonGradient}
+                  imageStyle={styles.buttonImageStyle}
                 >
+                <View style={styles.buttonTextContainer}>
                   <Text style={styles.buttonTitle}>{t('home.cosmicInsight')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.cosmicInsightSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
+                </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            </Animated.View>
 
-            <TouchableOpacity 
-              style={styles.gridButton} 
-              activeOpacity={0.8}
-              onPress={() => setShowClarityMap(true)}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+            <Animated.View style={{ transform: [{ scale: clarityMapScale }] }}>
+              <TouchableOpacity 
+                style={[styles.gridButton, styles.gridButtonRight]} 
+                activeOpacity={1}
+                onPress={() => handleRectanglePress(clarityMapScale, () => setShowClarityMap(true))}
+              >
+                <ImageBackground
+                  source={require('../../assets/images/rectangle.png')}
                   style={styles.buttonGradient}
+                  imageStyle={styles.buttonImageStyle}
                 >
-                  <Text style={styles.buttonTitle}>{t('home.clarityMap')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.clarityMapSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
+                  <View style={styles.buttonTextContainer}>
+                    <Text style={styles.buttonTitle}>{t('home.clarityMap')}</Text>
+                  </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
 
           {/* Row 2 */}
           <View style={styles.gridRow}>
-            <TouchableOpacity
-              style={styles.gridButton}
-              activeOpacity={0.8}
-              onPress={() => router.push('/progress')}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+            <Animated.View style={{ transform: [{ scale: progressScale }] }}>
+              <TouchableOpacity
+                style={[styles.gridButton, styles.gridButtonLeft]}
+                activeOpacity={1}
+                onPress={() => handleRectanglePress(progressScale, () => router.push('/progress'))}
+              >
+                <ImageBackground
+                  source={require('../../assets/images/rectangle.png')}
                   style={styles.buttonGradient}
+                  imageStyle={styles.buttonImageStyle}
                 >
-                  <Text style={styles.buttonTitle}>{t('home.progressThisWeek')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.progressSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
+                  <View style={styles.buttonTextContainer}>
+                    <Text style={styles.buttonTitle}>{t('home.progressThisWeek')}</Text>
+                  </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            </Animated.View>
 
-            <TouchableOpacity 
-              style={styles.gridButton} 
-              activeOpacity={0.8}
-              onPress={() => router.push('/ikigai-compass')}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+            <Animated.View style={{ transform: [{ scale: ikigaiScale }] }}>
+              <TouchableOpacity 
+                style={[styles.gridButton, styles.gridButtonRight]} 
+                activeOpacity={1}
+                onPress={() => handleRectanglePress(ikigaiScale, () => router.push('/ikigai-compass'))}
+              >
+                <ImageBackground
+                  source={require('../../assets/images/rectangle.png')}
                   style={styles.buttonGradient}
+                  imageStyle={styles.buttonImageStyle}
                 >
-                  <Text style={styles.buttonTitle}>{t('home.ikigaiCompass')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.ikigaiCompassSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
+                  <View style={styles.buttonTextContainer}>
+                    <Text style={styles.buttonTitle}>{t('home.ikigaiCompass')}</Text>
+                  </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
 
@@ -1536,10 +1576,14 @@ export default function HomeScreen() {
             onUpdatePress={handleUpdateMood}
           />
         ) : (
-          <View style={styles.moodCard}>
+          <ImageBackground
+            source={require('../../assets/images/goal.background.png')}
+            style={styles.moodCard}
+            imageStyle={styles.moodCardImage}
+          >
             <Text style={styles.moodCardTitle}>How are you feeling today?</Text>
             <MoodSelector showQuestion={false} onMoodSaved={handleMoodSaved} />
-          </View>
+          </ImageBackground>
         )}
           
           {/* Radiating light effect - centered on selected button */}
@@ -2090,7 +2134,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   moodCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
@@ -2099,6 +2142,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
+  },
+  moodCardImage: {
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
   moodCardTitle: {
     ...HeadingStyle,
@@ -2282,15 +2330,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 24, // Increased gap from 16 to 24 for more spacing between cards
   },
   gridButton: {
-    width: (width - 50 - 16) / 2, // Screen width minus padding minus gap
+    width: (((width - 50 - 24) / 2) + 50) * 0.9 * 0.8 * 1.1, // Width increased by 10% (multiply by 1.1) - fixed width for all rectangles (25px padding on each side)
+    height: ((72 * 1.4) + 45) * 0.75, // Original height (146px) decreased by 25% = ~110px - fixed height for all rectangles
     borderRadius: 8,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.6,
     shadowRadius: 20,
     elevation: 12, // For Android
+  },
+  gridButtonLeft: {
+    marginLeft: -5, // Move left column 5px to the left
+  },
+  gridButtonRight: {
+    marginLeft: -50, // Move right column 50px to the left
   },
   gridButtonInner: {
     borderRadius: 8,
@@ -2299,18 +2355,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonGradient: {
-    flex: 1,
     width: '100%',
-    padding: 20,
-    minHeight: 72, // Original height - allows content to fit properly
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  buttonImageStyle: {
+    borderRadius: 8,
+    resizeMode: 'stretch',
+  },
+  buttonTextContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20 * 1.4, // Increased padding by 40% (from 20 to 28)
+    paddingVertical: 20 * 1.4,
+    width: '100%',
   },
   buttonTitle: {
     ...HeadingStyle,
     color: '#342846',
     fontSize: 16, // Reduced from 18
     textAlign: 'center',
+    lineHeight: 20, // Added line height for better two-line text spacing
+    width: '100%',
+    alignSelf: 'center',
   },
   buttonSubtitle: {
     ...BodyStyle,
@@ -2771,13 +2841,15 @@ const styles = StyleSheet.create({
   chatInputContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 23.04,
+    paddingBottom: 60, // Increased by another 30px (30 + 30 = 60)
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     gap: 12,
   },
   chatInput: {
     flex: 1,
+    maxWidth: '70%',
     ...BodyStyle,
     borderWidth: 1,
     borderColor: '#342846',
@@ -2787,7 +2859,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     fontSize: 14,
     lineHeight: 20,
-    height: 44,
+    minHeight: 48, // Match send button height (12*2 + 24 for text)
   },
   sendButton: {
     backgroundColor: '#342846',
@@ -2795,8 +2867,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, // Minimum 20px padding (was 16)
     paddingVertical: 12,
     justifyContent: 'center',
-    minWidth: 60,
-    maxWidth: 80,
+    minWidth: 80,
+    maxWidth: 100,
+    minHeight: 48, // Explicit height to match input (12*2 + 24 for text)
+    marginLeft: 15, // Move right 15px
   },
   sendButtonText: {
     ...BodyStyle,

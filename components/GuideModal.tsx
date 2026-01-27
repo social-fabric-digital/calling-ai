@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -24,7 +25,8 @@ const brandColors = {
 
 interface GuideSection {
   id: string;
-  icon: string;
+  icon: string | number; // Can be emoji string or require() image
+  iconType: 'emoji' | 'image';
   title: string;
   whatItDoes: string;
   whenToUse: string;
@@ -34,7 +36,8 @@ interface GuideSection {
 const guideSections: GuideSection[] = [
   {
     id: 'clarity-map',
-    icon: '🧠',
+    icon: require('../assets/images/claritymap.png'),
+    iconType: 'image',
     title: 'Clarity Map',
     whatItDoes: 'Sort your racing thoughts in 3 minutes',
     whenToUse: 'Use this when your mind feels cluttered or overwhelmed',
@@ -42,7 +45,8 @@ const guideSections: GuideSection[] = [
   },
   {
     id: 'ikigai-compass',
-    icon: '🧭',
+    icon: require('../assets/images/ikigaicompass.png'),
+    iconType: 'image',
     title: 'Your Ikigai Compass',
     whatItDoes: 'Your personalized purpose and path',
     whenToUse: 'Visit when you need direction or feel lost',
@@ -50,7 +54,8 @@ const guideSections: GuideSection[] = [
   },
   {
     id: 'progress',
-    icon: '📊',
+    icon: require('../assets/images/progress.png'),
+    iconType: 'image',
     title: 'Progress This Week',
     whatItDoes: 'Track your weekly activity and growth',
     whenToUse: 'Check in to see how you\'re doing and claim badges',
@@ -58,11 +63,21 @@ const guideSections: GuideSection[] = [
   },
   {
     id: 'focus-sanctuary',
-    icon: '🌲',
+    icon: require('../assets/images/focussanctuary.png'),
+    iconType: 'image',
     title: 'Focus Sanctuary',
     whatItDoes: 'Meditate while watching a forest grow',
     whenToUse: 'Use when you need to calm down or center yourself',
     howItHelps: 'Find peace without pressure or instructions',
+  },
+  {
+    id: 'today-insight',
+    icon: require('../assets/images/focus.png'),
+    iconType: 'image',
+    title: 'Today\'s Insight',
+    whatItDoes: 'Your daily cosmic guidance and reflection',
+    whenToUse: 'Check in each morning to set your intention for the day',
+    howItHelps: 'Receive personalized insights that help you navigate your day with clarity and purpose',
   },
 ];
 
@@ -128,8 +143,20 @@ function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemPro
         onPress={onToggle}
       >
         <View style={styles.sectionHeaderLeft}>
-          <Text style={styles.sectionIcon}>{section.icon}</Text>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.iconContainer}>
+            {section.iconType === 'image' ? (
+              <Image 
+                source={section.icon as number} 
+                style={styles.sectionIconImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.sectionIcon}>{section.icon}</Text>
+            )}
+          </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+          </View>
         </View>
         <Animated.Text style={[styles.chevron, { transform: [{ rotate }] }]}>
           ▼
@@ -263,7 +290,7 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>How to Use Destiny</Text>
+          <Text style={styles.headerTitle}>How to Use Calling</Text>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -402,7 +429,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 60,
   },
   sectionHeaderPressed: {
     backgroundColor: 'rgba(52, 40, 70, 0.08)',
@@ -411,15 +440,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'flex-start',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   sectionIcon: {
     fontSize: 24,
-    marginRight: 12,
+    lineHeight: 24,
+  },
+  sectionIconImage: {
+    width: 35,
+    height: 35,
+  },
+  titleContainer: {
+    justifyContent: 'center',
+    flex: 1,
   },
   sectionTitle: {
     ...HeadingStyle,
     fontSize: 16,
     color: brandColors.text,
+    lineHeight: 20,
   },
   chevron: {
     fontSize: 12,

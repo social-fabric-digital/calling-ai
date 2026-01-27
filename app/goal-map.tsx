@@ -34,6 +34,7 @@ export default function GoalMapScreen() {
   const [currentProgress, setCurrentProgress] = useState(0); // Progress for current quest (0/5)
   const [currentProgressTotal, setCurrentProgressTotal] = useState(5); // Total tasks (5)
   const [headingHeight, setHeadingHeight] = useState(0); // Height of the heading text
+  const [goalReminder, setGoalReminder] = useState<string>(''); // Reminder/description of why user wants to achieve this goal
   
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -72,6 +73,10 @@ export default function GoalMapScreen() {
           // Set current level (next level to complete)
           const nextLevel = stepIndex + 2; // Next level after completed ones
           setCurrentLevel(nextLevel > totalSteps ? totalSteps : (nextLevel < 1 ? 1 : nextLevel));
+          
+          // Load goal reminder (why they want to achieve this goal)
+          // Using obstacle field as reminder, can be updated if a dedicated reminder field exists
+          setGoalReminder(goal.obstacle || goal.fear || '');
         }
       }
     } catch (error) {
@@ -191,7 +196,7 @@ export default function GoalMapScreen() {
   const circleRadius = 35; // Larger circles for unlocked stages
   const circleWidth = 70; // Circle diameter
   const cardWidth = 180; // Approximate card width
-  const cardMargin = 8; // Margin between circle and card (8px as requested)
+  const cardMargin = 15; // Margin between circle and card (15px spacing - increased by 10px)
   const availableWidth = width - (horizontalPadding * 2);
   
   // Calculate vertical spacing - ensure all 4 levels fit on screen above the banner
@@ -204,7 +209,9 @@ export default function GoalMapScreen() {
   // Circle and card dimensions
   const level1CircleHeight = 49; // Level 1 circle is smaller (30% reduction)
   const otherCircleHeight = 70; // Other levels use standard circle size
-  const cardHeight = 80; // Approximate card height including margins
+  // Card height: padding (12*2=24) + label (~15) + heading (~26) = ~65px
+  // Using 65px for accurate vertical centering
+  const cardHeight = 65; // Actual card height: padding 24px + content ~41px
   const circleToCardSpacing = 6; // Space between circle and its card (6px as requested)
   
   // Layout: Levels go down vertically in order: 1 → 2 → 3 → 4
@@ -256,16 +263,17 @@ export default function GoalMapScreen() {
   const level1CircleLeft = leftSideCircleLeft;
   const level3CircleLeft = leftSideCircleLeft;
   
-  // Align both Level 1 and Level 3 cards to the same left position
-  const leftSideCardLeft = horizontalPadding + level1CircleHeight + cardMargin;
-  const level1CardLeft = leftSideCardLeft;
-  const level3CardLeft = leftSideCardLeft;
+  // Level 1 card position (uses level1CircleHeight = 49px)
+  const level1CardLeft = horizontalPadding + level1CircleHeight + cardMargin;
+  
+  // Level 3 card position (uses otherCircleHeight = 70px when not locked)
+  const level3CardLeft = horizontalPadding + otherCircleHeight + cardMargin;
   
   // Levels 2-4 numbered circles
-  const level2CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40;
+  const level2CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37; // Moved right 37px total (17px + 20px)
   const level2CardLeft = level2CircleLeft + otherCircleHeight + cardMargin;
   
-  const level4CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40;
+  const level4CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37; // Moved right 37px total (17px + 20px)
   const level4CardLeft = level4CircleLeft + otherCircleHeight + cardMargin;
 
   // Generate stage positions dynamically based on number of stages
@@ -279,15 +287,27 @@ export default function GoalMapScreen() {
     
     for (let i = 0; i < numStages && i < 4; i++) {
       const stageNumber = i + 1;
+      // Calculate locked circle adjustment to ensure 5px spacing
+      // For level 1: locked circle (50px) should end where regular circle (49px) ends
+      // For other levels: locked circle (50px) should end where regular circle (70px) ends
+      let lockedCircleAdjustment;
+      if (stageNumber === 1) {
+        // Level 1: regular circle ends at circleLeft + 49, locked should end at same position
+        // Locked circle starts at: (circleLeft + 49) - 50 = circleLeft - 1
+        lockedCircleAdjustment = -1; // Move left by 1px
+      } else {
+        // Other levels: regular circle ends at circleLeft + 70, locked should end at same position  
+        // Locked circle starts at: (circleLeft + 70) - 50 = circleLeft + 20
+        lockedCircleAdjustment = 20; // Move right by 20px
+      }
+      
       positions.push({
         circleTop: circleTops[i],
         cardTop: cardTops[i],
         circleLeft: circleLefts[i],
         cardLeft: cardLefts[i],
         cardSide: cardSides[i],
-        lockedCircleAdjustment: stageNumber === 1 
-          ? lockedCircleWidth - level1CircleHeight 
-          : otherCircleHeight - lockedCircleWidth,
+        lockedCircleAdjustment,
       });
     }
     
@@ -394,7 +414,9 @@ export default function GoalMapScreen() {
           }
         }}
       >
-        <Text style={styles.goalName}>{goalName.toUpperCase()}</Text>
+        <View style={styles.goalNameContainer}>
+          <Text style={styles.goalName}>{goalName.toUpperCase()}</Text>
+        </View>
       </View>
 
       {/* Quest Map Container */}
@@ -411,7 +433,8 @@ export default function GoalMapScreen() {
               <TouchableOpacity
                 style={[styles.stageContainer, { 
                   top: position.circleTop, 
-                  left: position.circleLeft + (status === 'locked' ? position.lockedCircleAdjustment : 0)
+                  left: position.circleLeft + (status === 'locked' ? position.lockedCircleAdjustment : 0),
+                  opacity: status === 'unlocked' ? 0.35 : 1, // 35% opacity for unlocked levels
                 }]}
                 onPress={() => handleStagePress(stageNumber)}
                 activeOpacity={0.8}
@@ -424,9 +447,13 @@ export default function GoalMapScreen() {
                     end={{ x: 0, y: 1 }}
                     style={isFirstStage ? styles.level1CircleGradient : styles.level1CircleGradient}
                   >
-                    <Text style={isFirstStage ? styles.level1Number : styles.level1Number}>{stageNumber}</Text>
+                    <Text style={isFirstStage ? styles.checkmarkSmall : styles.checkmark}>✓</Text>
                   </ExpoLinearGradient>
-                ) : status === 'current' || status === 'unlocked' ? (
+                ) : status === 'current' ? (
+                  <View style={isFirstStage ? styles.level1CurrentCircle : styles.currentCircleWhite}>
+                    <Text style={isFirstStage ? styles.currentNumberWhiteSmall : styles.currentNumberWhite}>{stageNumber}</Text>
+                  </View>
+                ) : status === 'unlocked' ? (
                   <ExpoLinearGradient
                     colors={['#6B5B95', '#9B8FB8']}
                     start={{ x: 0, y: 0 }}
@@ -444,7 +471,11 @@ export default function GoalMapScreen() {
               
               {/* Card for Stage */}
               <TouchableOpacity
-                style={[styles.cardContainer, { top: position.cardTop, left: position.cardLeft }]}
+                style={[
+                  styles.cardContainer, 
+                  { top: position.cardTop, left: position.cardLeft },
+                  status === 'unlocked' && { opacity: 0.35 }, // 35% opacity for unlocked levels
+                ]}
                 onPress={() => handleStagePress(stageNumber)}
                 activeOpacity={0.8}
                 disabled={status === 'locked'}
@@ -452,9 +483,14 @@ export default function GoalMapScreen() {
                 {status === 'completed' ? (
                   <View style={[styles.currentLevelBox, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft]}>
                     <Text style={styles.completedLevelLabel}>Level {stageNumber}</Text>
-                    <Text style={styles.completedLevelNameHeading}>{stageName}</Text>
+                    <Text style={styles.completedLevelNameHeading}>Completed!</Text>
                   </View>
-                ) : status === 'current' || status === 'unlocked' ? (
+                ) : status === 'current' ? (
+                  <View style={[styles.currentLevelBoxWhite, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft]}>
+                    <Text style={styles.currentLevelLabelPurple}>Level {stageNumber}</Text>
+                    <Text style={styles.currentLevelNamePurple}>{stageName}</Text>
+                  </View>
+                ) : status === 'unlocked' ? (
                   <View style={[styles.currentLevelBox, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft, styles.incompleteCard]}>
                     <Text style={styles.incompleteLevelLabel}>Level {stageNumber}</Text>
                     <Text style={styles.levelNameHeading}>{stageName}</Text>
@@ -558,6 +594,13 @@ export default function GoalMapScreen() {
           </View>
         </Animated.View>
       )}
+
+      {/* Goal Reminder Banner - Always visible at bottom */}
+      {goalReminder && (
+        <View style={styles.goalReminderBanner}>
+          <Text style={styles.goalReminderText}>{goalReminder}</Text>
+        </View>
+      )}
     </ImageBackground>
   );
 }
@@ -603,10 +646,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 5,
   },
+  goalNameContainer: {
+    backgroundColor: '#1b2d46', // Blue color for goal name container
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: 'center',
+  },
   goalName: {
     ...HeadingStyle,
     color: '#FFFFFF', // White color
-    fontSize: 24,
+    fontSize: 18, // Reduced by 25% (from 24 to 18)
     textAlign: 'center',
     flexWrap: 'wrap',
     flexShrink: 1,
@@ -666,6 +716,52 @@ const styles = StyleSheet.create({
   level1Number: {
     color: '#fff',
     fontSize: 22, // Reduced proportionally (32 * 0.7 ≈ 22)
+    fontWeight: 'bold',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  checkmarkSmall: {
+    color: '#fff',
+    fontSize: 22, // Reduced proportionally for level 1
+    fontWeight: 'bold',
+  },
+  currentCircleWhite: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  level1CurrentCircle: {
+    width: 49, // 70px * 0.7 = 49px (30% reduction)
+    height: 49,
+    borderRadius: 24.5,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  currentNumberWhite: {
+    color: '#342846', // Purple text on white circle
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  currentNumberWhiteSmall: {
+    color: '#342846', // Purple text on white circle for level 1
+    fontSize: 22, // Reduced proportionally for level 1
     fontWeight: 'bold',
   },
   level1Card: {
@@ -749,6 +845,35 @@ const styles = StyleSheet.create({
   completedLevelNameHeading: {
     ...HeadingStyle,
     color: '#342846', // Purple for completed levels (on white card)
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  currentLevelBoxWhite: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 25, // 25px vertical spacing between cards
+    minWidth: 200, // Minimum width for consistency
+    maxWidth: 280, // Maximum width to allow expansion for longer text
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  currentLevelLabelPurple: {
+    ...BodyStyle,
+    color: '#342846', // Purple for current level label
+    fontSize: 11,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  currentLevelNamePurple: {
+    ...HeadingStyle,
+    color: '#342846', // Purple for current level name
     fontSize: 18,
     marginBottom: 8,
   },
@@ -860,6 +985,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 100,
+    // When goal reminder banner is visible, position above it
+    marginBottom: 0, // Will be adjusted dynamically if needed
   },
   bannerContent: {
     flexDirection: 'row',
@@ -910,6 +1037,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  goalReminderBanner: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 75 : 55,
+    left: 25,
+    right: 25,
+    backgroundColor: '#fff',
+    borderRadius: 16, // Rounded on all corners
+    paddingHorizontal: 25,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 99, // Below newQuestBanner (zIndex 100) but above other content
+    // When newQuestBanner is visible, it will appear above this banner
+  },
+  goalReminderText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'left',
   },
   infoModalOverlay: {
     flex: 1,

@@ -533,14 +533,7 @@ interface IkigaiFormProps {
   whatCanBePaidFor: string;
   setWhatCanBePaidFor: (value: string) => void;
   onPageChange?: (page: number) => void;
-}
-
-interface PathForwardFormProps {
-  dreamGoal: string;
-  setDreamGoal: (value: string) => void;
-  fearOrBarrier: string;
-  setFearOrBarrier: (value: string) => void;
-  onContinue?: () => void;
+  onContinue?: () => Promise<void>;
 }
 
 interface LoadingStepProps {
@@ -845,6 +838,7 @@ function IkigaiForm({
   whatCanBePaidFor,
   setWhatCanBePaidFor,
   onPageChange,
+  onContinue,
 }: IkigaiFormProps) {
   const { t } = useTranslation();
   const [assistanceModal, setAssistanceModal] = useState<string | null>(null);
@@ -921,7 +915,7 @@ function IkigaiForm({
           <Text style={styles.formTitle}>{t('onboarding.step4TitleLine2')}</Text>
         </View>
 
-        {/* Progress Lines with Counter */}
+        {/* Progress Lines */}
         <View style={styles.ikigaiProgressWrapper}>
           <View style={styles.ikigaiProgressContainer}>
             {[0, 1, 2, 3].map((index) => (
@@ -933,11 +927,6 @@ function IkigaiForm({
                 ]}
               />
             ))}
-          </View>
-          <View style={styles.ikigaiProgressCounterContainer}>
-            <Text style={styles.ikigaiProgressText}>
-              {currentPage + 1}/4
-            </Text>
           </View>
         </View>
 
@@ -966,7 +955,9 @@ function IkigaiForm({
           {/* Heading */}
           <Text style={styles.ikigaiFieldLabel}>{t('onboarding.whatDoYouLove')}</Text>
           {/* Subheading */}
-          <Text style={styles.fieldBodyText}>{t('onboarding.whatDoYouLoveSubtext')}</Text>
+          <View style={styles.fieldBodyTextContainer}>
+            <Text style={styles.fieldBodyText}>{t('onboarding.whatDoYouLoveSubtext')}</Text>
+          </View>
           {/* Click */}
           <Text style={styles.clickText}>{t('onboarding.click')}</Text>
           {/* Emoji */}
@@ -988,7 +979,11 @@ function IkigaiForm({
                   },
                 ]}
               >
-                <Text style={styles.starIcon}>🤎</Text>
+                <Image 
+                  source={require('../assets/images/love.png')} 
+                  style={styles.starIconImage}
+                  resizeMode="contain"
+                />
               </Animated.View>
             </TouchableOpacity>
           </View>
@@ -1011,7 +1006,9 @@ function IkigaiForm({
           {/* Heading */}
           <Text style={styles.ikigaiFieldLabel}>{t('onboarding.whatAreYouGoodAt')}</Text>
           {/* Subheading */}
-          <Text style={styles.fieldBodyText}>{t('onboarding.whatAreYouGoodAtSubtext')}</Text>
+          <View style={styles.fieldBodyTextContainer}>
+            <Text style={styles.fieldBodyText}>{t('onboarding.whatAreYouGoodAtSubtext')}</Text>
+          </View>
           {/* Click */}
           <Text style={styles.clickText}>{t('onboarding.click')}</Text>
           {/* Emoji */}
@@ -1033,7 +1030,11 @@ function IkigaiForm({
                   },
                 ]}
               >
-                <Text style={styles.starIcon}>🏆</Text>
+                <Image 
+                  source={require('../assets/images/good.png')} 
+                  style={styles.starIconImage}
+                  resizeMode="contain"
+                />
               </Animated.View>
             </TouchableOpacity>
           </View>
@@ -1056,7 +1057,9 @@ function IkigaiForm({
           {/* Heading */}
           <Text style={styles.ikigaiFieldLabel}>{t('onboarding.whatDoesWorldNeed')}</Text>
           {/* Subheading */}
-          <Text style={styles.fieldBodyText}>{t('onboarding.whatDoesWorldNeedSubtext')}</Text>
+          <View style={styles.fieldBodyTextContainer}>
+            <Text style={styles.fieldBodyText}>{t('onboarding.whatDoesWorldNeedSubtext')}</Text>
+          </View>
           {/* Click */}
           <Text style={styles.clickText}>{t('onboarding.click')}</Text>
           {/* Emoji */}
@@ -1078,7 +1081,11 @@ function IkigaiForm({
                   },
                 ]}
               >
-                <Text style={styles.starIcon}>🌳</Text>
+                <Image 
+                  source={require('../assets/images/world.png')} 
+                  style={styles.starIconImage}
+                  resizeMode="contain"
+                />
               </Animated.View>
             </TouchableOpacity>
           </View>
@@ -1101,7 +1108,9 @@ function IkigaiForm({
           {/* Heading */}
           <Text style={styles.ikigaiFieldLabel}>{t('onboarding.whatCanBePaidForQuestion')}</Text>
           {/* Subheading */}
-          <Text style={styles.fieldBodyText}>{t('onboarding.whatCanBePaidForSubtext')}</Text>
+          <View style={styles.fieldBodyTextContainer}>
+            <Text style={styles.fieldBodyText}>{t('onboarding.whatCanBePaidForSubtext')}</Text>
+          </View>
           {/* Click */}
           <Text style={styles.clickText}>{t('onboarding.click')}</Text>
           {/* Emoji */}
@@ -1123,7 +1132,11 @@ function IkigaiForm({
                   },
                 ]}
               >
-                <Text style={styles.starIcon}>💰</Text>
+                <Image 
+                  source={require('../assets/images/paid.png')} 
+                  style={styles.starIconImage}
+                  resizeMode="contain"
+                />
               </Animated.View>
             </TouchableOpacity>
           </View>
@@ -1142,27 +1155,28 @@ function IkigaiForm({
       </ScrollView>
 
       {/* Navigation Buttons */}
-      <View style={styles.ikigaiNavigationButtons}>
-        <TouchableOpacity
-          style={[styles.ikigaiNavButton, styles.ikigaiNavButtonLeft]}
-          onPress={() => {
-            if (currentPage > 0) {
-              const newPage = currentPage - 1;
-              setCurrentPage(newPage);
-              scrollViewRef.current?.scrollTo({ x: newPage * width, animated: true });
-              if (onPageChange) {
-                onPageChange(newPage);
+      <View style={[styles.ikigaiNavigationButtons, currentPage === 0 && styles.ikigaiNavigationButtonsCentered]}>
+        {(currentPage === 1 || currentPage === 2 || currentPage === 3) && (
+          <TouchableOpacity
+            style={[styles.ikigaiNavButton, styles.ikigaiNavButtonLeft]}
+            onPress={() => {
+              if (currentPage > 0) {
+                const newPage = currentPage - 1;
+                setCurrentPage(newPage);
+                scrollViewRef.current?.scrollTo({ x: newPage * width, animated: true });
+                if (onPageChange) {
+                  onPageChange(newPage);
+                }
               }
-            }
-          }}
-          disabled={currentPage === 0}
-        >
-          <View style={styles.ikigaiNavButtonContent}>
-            <MaterialIcons name="arrow-back" size={18} color="#342846" style={styles.ikigaiNavButtonIcon} />
-            <Text style={styles.ikigaiNavButtonTextLeft}>{t('onboarding.back')}</Text>
-          </View>
-        </TouchableOpacity>
-        {currentPage < 3 && (
+            }}
+          >
+            <View style={styles.ikigaiNavButtonContent}>
+              <MaterialIcons name="arrow-back" size={18} color="#342846" style={styles.ikigaiNavButtonIcon} />
+              <Text style={styles.ikigaiNavButtonTextLeft}>{t('onboarding.back')}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        {currentPage < 3 ? (
           <TouchableOpacity
             style={[styles.ikigaiNavButton, styles.ikigaiNavButtonRight]}
             onPress={() => {
@@ -1178,6 +1192,19 @@ function IkigaiForm({
           >
             <Text style={styles.ikigaiNavButtonText}>{t('onboarding.nextQuestion')}</Text>
           </TouchableOpacity>
+        ) : (
+          currentPage === 3 && onContinue && (
+            <TouchableOpacity
+              style={[styles.ikigaiNavButton, styles.ikigaiNavButtonRight, styles.ikigaiContinueButton]}
+              onPress={async () => {
+                if (onContinue) {
+                  await onContinue();
+                }
+              }}
+            >
+              <Text style={styles.ikigaiNavButtonText}>{t('common.continue')}</Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
       </View>
@@ -1224,75 +1251,6 @@ function IkigaiForm({
         </Pressable>
       </Modal>
     </>
-  );
-}
-
-function PathForwardForm({
-  dreamGoal,
-  setDreamGoal,
-  fearOrBarrier,
-  setFearOrBarrier,
-  onContinue,
-}: PathForwardFormProps) {
-  const { t } = useTranslation();
-
-  return (
-    <ScrollView 
-      style={styles.formContainer}
-      contentContainerStyle={styles.formContent}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.aboutYouTitle}>{t('onboarding.step5Title')}</Text>
-      
-      {/* Dream Goal Question */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.pathForwardFieldLabel}>{t('onboarding.yourBoldestVision')}</Text>
-        <Text style={styles.pathForwardFieldBodyText}>{t('onboarding.whatsDreamGoal')}</Text>
-        <View style={styles.bodyTextFieldWrapper}>
-          <TextInput
-            style={styles.textField}
-            value={dreamGoal}
-            onChangeText={setDreamGoal}
-            placeholder=""
-            placeholderTextColor="#999"
-            multiline
-            editable={true}
-            autoFocus={false}
-          />
-        </View>
-      </View>
-
-      {/* Fear or Barrier Question */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.pathForwardFieldLabel}>{t('onboarding.theInnerWall')}</Text>
-        <Text style={styles.pathForwardFieldBodyText}>{t('onboarding.whatsFearOrBarrier')}</Text>
-        <View style={styles.bodyTextFieldWrapper}>
-          <TextInput
-            style={styles.textField}
-            value={fearOrBarrier}
-            onChangeText={setFearOrBarrier}
-            placeholder=""
-            placeholderTextColor="#999"
-            multiline
-            editable={true}
-            autoFocus={false}
-            textAlignVertical="top"
-          />
-        </View>
-      </View>
-      
-      {/* Continue Button */}
-      {onContinue && (
-        <TouchableOpacity 
-          style={styles.pathForwardContinueButton}
-          onPress={onContinue}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pathForwardContinueButtonText}>{t('common.continue')}</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
   );
 }
 
@@ -1377,6 +1335,283 @@ function LoadingStep({ onComplete, isActive }: LoadingStepProps) {
           );
         })}
       </View>
+    </View>
+  );
+}
+
+interface CurrentLifeContextStepProps {
+  currentSituation: string;
+  setCurrentSituation: (value: string) => void;
+  biggestConstraint: string;
+  setBiggestConstraint: (value: string) => void;
+  whatMattersMost: string[];
+  setWhatMattersMost: (value: string[]) => void;
+  onContinue: () => void;
+}
+
+function CurrentLifeContextStep({
+  currentSituation,
+  setCurrentSituation,
+  biggestConstraint,
+  setBiggestConstraint,
+  whatMattersMost,
+  setWhatMattersMost,
+  onContinue,
+}: CurrentLifeContextStepProps) {
+  const { t } = useTranslation();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  
+  // Prevent any auto-advance - ensure onContinue is only called via explicit button press
+  const onContinueRef = useRef(onContinue);
+  useEffect(() => {
+    onContinueRef.current = onContinue;
+  }, [onContinue]);
+
+  const questions = [
+    {
+      id: 'situation',
+      question: t('onboarding.currentSituationQuestion'),
+      options: [
+        t('onboarding.situationOption1'),
+        t('onboarding.situationOption2'),
+        t('onboarding.situationOption3'),
+        t('onboarding.situationOption4'),
+        t('onboarding.situationOption5'),
+        t('onboarding.situationOption6'),
+      ],
+      singleSelect: true,
+      value: currentSituation,
+      setValue: (val: string) => setCurrentSituation(val),
+    },
+    {
+      id: 'constraint',
+      question: t('onboarding.biggestConstraintQuestion'),
+      options: [
+        t('onboarding.constraintOption1'),
+        t('onboarding.constraintOption2'),
+        t('onboarding.constraintOption3'),
+        t('onboarding.constraintOption4'),
+        t('onboarding.constraintOption5'),
+      ],
+      singleSelect: true,
+      value: biggestConstraint,
+      setValue: (val: string) => setBiggestConstraint(val),
+    },
+    {
+      id: 'whatMatters',
+      question: t('onboarding.whatMattersQuestion'),
+      options: [
+        t('onboarding.mattersOption1'),
+        t('onboarding.mattersOption2'),
+        t('onboarding.mattersOption3'),
+        t('onboarding.mattersOption4'),
+        t('onboarding.mattersOption5'),
+        t('onboarding.mattersOption6'),
+        t('onboarding.mattersOption7'),
+        t('onboarding.mattersOption8'),
+      ],
+      singleSelect: false,
+      value: whatMattersMost,
+      setValue: (val: string[]) => setWhatMattersMost(val),
+    },
+  ];
+
+  const currentQuestion = questions[currentQuestionIndex];
+
+  const handleOptionSelect = (option: string) => {
+    if (currentQuestion.singleSelect) {
+      (currentQuestion.setValue as (val: string) => void)(option);
+      // Auto-advance to next question for single-select questions (first two)
+      if (currentQuestionIndex < questions.length - 1) {
+        setTimeout(() => {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        }, 300); // Small delay for better UX
+      }
+    } else {
+      // Multi-select logic (up to 3)
+      const currentValues = currentQuestion.value as string[];
+      if (currentValues.includes(option)) {
+        // Deselect
+        (currentQuestion.setValue as (val: string[]) => void)(currentValues.filter(v => v !== option));
+      } else if (currentValues.length < 3) {
+        // Select (if less than 3)
+        (currentQuestion.setValue as (val: string[]) => void)([...currentValues, option]);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const canContinue = currentQuestionIndex === questions.length - 1 && 
+    (currentQuestion.singleSelect 
+      ? (currentQuestion.value as string).length > 0 
+      : (currentQuestion.value as string[]).length > 0);
+
+  // Ensure no auto-advance - only allow manual continue button press
+  const handleContinue = () => {
+    if (canContinue && onContinueRef.current) {
+      onContinueRef.current();
+    }
+  };
+
+  return (
+    <View style={styles.formContainer}>
+      <View style={[styles.formContainer, styles.lifeContextContent]}>
+        {/* Header */}
+        <View style={styles.lifeContextHeader}>
+          <Text style={styles.lifeContextTitle}>{t('onboarding.currentLifeContext')}</Text>
+          <Text style={styles.lifeContextSubtitle}>{t('onboarding.currentLifeContextSubtitle')}</Text>
+        </View>
+
+        {/* Question Card */}
+        <ImageBackground 
+          source={require('../assets/images/goal.background.png')}
+          style={[styles.questionCard, currentQuestionIndex === 2 && styles.questionCardTall]}
+          imageStyle={styles.questionCardImage}
+          resizeMode="cover"
+        >
+          {/* Back Arrow */}
+          {currentQuestionIndex > 0 && (
+            <TouchableOpacity 
+              style={styles.questionCardBackButton}
+              onPress={handleBack}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="arrow-back" size={24} color="#342846" />
+            </TouchableOpacity>
+          )}
+
+          {/* Question */}
+          <Text style={styles.questionCardTitle}>{currentQuestion.question}</Text>
+
+          {/* Options */}
+          {currentQuestionIndex === 2 ? (
+            <View style={styles.optionsScrollWrapper}>
+              <ScrollView 
+                style={styles.optionsScrollContainer}
+                contentContainerStyle={styles.optionsContainer}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                indicatorStyle="white"
+              >
+                {currentQuestion.options.map((option, index) => {
+                  const isSelected = (currentQuestion.value as string[]).includes(option);
+                  const isDisabled = !isSelected && (currentQuestion.value as string[]).length >= 3;
+
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.optionButton,
+                        isSelected && styles.optionButtonSelected,
+                        isDisabled && styles.optionButtonDisabled,
+                      ]}
+                      onPress={() => handleOptionSelect(option)}
+                      disabled={isDisabled}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.optionButtonText,
+                        isSelected && styles.optionButtonTextSelected,
+                        isDisabled && styles.optionButtonTextDisabled,
+                      ]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={styles.optionsContainer}>
+              {currentQuestion.options.map((option, index) => {
+                const isSelected = currentQuestion.singleSelect
+                  ? currentQuestion.value === option
+                  : (currentQuestion.value as string[]).includes(option);
+                const isDisabled = !currentQuestion.singleSelect && 
+                  !isSelected && 
+                  (currentQuestion.value as string[]).length >= 3;
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.optionButton,
+                      isSelected && styles.optionButtonSelected,
+                      isDisabled && styles.optionButtonDisabled,
+                    ]}
+                    onPress={() => handleOptionSelect(option)}
+                    disabled={isDisabled}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.optionButtonText,
+                      isSelected && styles.optionButtonTextSelected,
+                      isDisabled && styles.optionButtonTextDisabled,
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Progress indicator */}
+          <View style={styles.questionProgress}>
+            {questions.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.questionProgressDot,
+                  index === currentQuestionIndex && styles.questionProgressDotActive,
+                  index < currentQuestionIndex && styles.questionProgressDotCompleted,
+                ]}
+              />
+            ))}
+          </View>
+
+          {/* Next Button - Removed from first two questions, only show if needed on last question */}
+          {false && currentQuestionIndex < questions.length - 1 && (
+            <TouchableOpacity
+              style={[
+                styles.lifeContextNextButton,
+                !(currentQuestion.singleSelect 
+                  ? (currentQuestion.value as string).length > 0 
+                  : (currentQuestion.value as string[]).length > 0) && styles.lifeContextNextButtonDisabled
+              ]}
+              onPress={() => {
+                if (currentQuestion.singleSelect 
+                  ? (currentQuestion.value as string).length > 0 
+                  : (currentQuestion.value as string[]).length > 0) {
+                  setCurrentQuestionIndex(currentQuestionIndex + 1);
+                }
+              }}
+              disabled={!(currentQuestion.singleSelect 
+                ? (currentQuestion.value as string).length > 0 
+                : (currentQuestion.value as string[]).length > 0)}
+              activeOpacity={1}
+            >
+              <Text style={styles.lifeContextNextButtonText}>{t('onboarding.nextQuestion')}</Text>
+            </TouchableOpacity>
+          )}
+        </ImageBackground>
+      </View>
+
+      {/* Continue Button - Only show on last question */}
+      {canContinue && (
+        <TouchableOpacity 
+          style={styles.lifeContextContinueButton}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.lifeContextContinueButtonText}>{t('common.continue')}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1704,73 +1939,76 @@ function CallingAwaitsStep({
   }, [birthMonth, birthDate, birthYear, birthCity, birthHour, birthMinute, birthPeriod, whatYouLove, whatYouGoodAt, whatWorldNeeds, whatCanBePaidFor, fear, whatExcites]);
 
   return (
-    <ScrollView 
-      style={styles.formContainer}
-      contentContainerStyle={styles.destinyContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Top Section: Icon, Name, and Title */}
-      <View style={styles.destinyTopSection}>
-        {/* User Icon */}
-        <View style={styles.userIconContainer}>
-          <View style={styles.userIconCircle}>
-            <Text style={styles.userIconText}>{userName ? userName.charAt(0).toUpperCase() : 'A'}</Text>
-          </View>
-        </View>
-
-      {/* Name */}
-        <Text style={styles.destinyNameText}>{userName || 'Arina'}</Text>
-        
-        {/* Title */}
-        <Text style={styles.destinyTitleText}>{t('onboarding.callingAwaits')}</Text>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>{t('onboarding.generatingProfile')}</Text>
-        </View>
-      ) : (
-        <>
-          {/* Natural Gifts Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{t('onboarding.yourNaturalGifts')}</Text>
-            <View style={styles.dividerLine} />
+    <View style={styles.formContainer}>
+      <ScrollView 
+        style={styles.formContainer}
+        contentContainerStyle={styles.destinyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Section: Icon, Name, and Title */}
+        <View style={styles.destinyTopSection}>
+          {/* User Icon */}
+          <View style={styles.userIconContainer}>
+            <View style={styles.userIconCircle}>
+              <Text style={styles.userIconText}>{userName ? userName.charAt(0).toUpperCase() : 'A'}</Text>
+            </View>
           </View>
 
-          {/* Natural Gifts - Individual Cards */}
-          <View style={styles.giftsContainer}>
-            {content?.naturalGifts.map((gift, index) => (
-              <ImageBackground 
-                key={index} 
-                source={require('../assets/images/purple.background.jpeg')}
-                style={styles.giftCard}
-                imageStyle={styles.giftCardImage}
-                resizeMode="cover"
-              >
-                <Text style={styles.giftCardHeading}>{gift.name}</Text>
-                <Text style={styles.giftCardBody}>{gift.description}</Text>
-              </ImageBackground>
-        ))}
-      </View>
+        {/* Name */}
+          <Text style={styles.destinyNameText}>{userName || 'Arina'}</Text>
+          
+          {/* Title */}
+          <Text style={styles.destinyTitleText}>{t('onboarding.callingAwaits')}</Text>
+        </View>
 
-          {/* Bottom Section: Ikigai Map */}
-          <View style={styles.ikigaiMapSection}>
-            <Text style={styles.ikigaiMapTitle}>{t('onboarding.ikigaiMapTitle')}</Text>
-            <Text style={styles.ikigaiPurposeText}>{content?.centerSummary || 'Your unique path to purpose and fulfillment.'}</Text>
-            
-            {/* Continue Button */}
-            <TouchableOpacity 
-              style={styles.destinyContinueButton}
-              onPress={onContinue}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.destinyContinueButtonText}>{t('common.continue')}</Text>
-            </TouchableOpacity>
-      </View>
-        </>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>{t('onboarding.generatingProfile')}</Text>
+          </View>
+        ) : (
+          <>
+            {/* Natural Gifts Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{t('onboarding.yourNaturalGifts')}</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Natural Gifts - Individual Cards */}
+            <View style={styles.giftsContainer}>
+              {content?.naturalGifts.map((gift, index) => (
+                <ImageBackground 
+                  key={index} 
+                  source={require('../assets/images/purple.background.jpeg')}
+                  style={styles.giftCard}
+                  imageStyle={styles.giftCardImage}
+                  resizeMode="cover"
+                >
+                  <Text style={styles.giftCardHeading}>{gift.name}</Text>
+                  <Text style={styles.giftCardBody}>{gift.description}</Text>
+                </ImageBackground>
+          ))}
+        </View>
+
+            {/* Bottom Section: Ikigai Map */}
+            <View style={styles.ikigaiMapSection}>
+              <Text style={styles.ikigaiMapTitle}>{t('onboarding.ikigaiMapTitle')}</Text>
+              <Text style={styles.ikigaiPurposeText}>{content?.centerSummary || 'Your unique path to purpose and fulfillment.'}</Text>
+            </View>
+          </>
+        )}
+      </ScrollView>
+      {/* Continue Button - Fixed at bottom */}
+      {!isLoading && (
+        <TouchableOpacity 
+          style={styles.destinyContinueButton}
+          onPress={onContinue}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.destinyContinueButtonText}>{t('common.continue')}</Text>
+        </TouchableOpacity>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -1941,7 +2179,7 @@ function PathsAlignedStep({
             <MaterialIcons name="auto-fix-high" size={20} color="#FFFFFF" />
           </View>
           <View style={styles.customPathTextContainer}>
-            <Text style={styles.customPathHeading}>{t('onboarding.customPathHeading')}</Text>
+            <Text style={styles.customPathHeading}>{t('onboarding.customPathHeadingPath')}</Text>
             <Text style={styles.customPathBody}>{t('onboarding.defineCustomParameters')}</Text>
           </View>
         </View>
@@ -2270,6 +2508,439 @@ function PathExplorationStep({
 }
 
 // Custom Path Form Component
+interface CustomPathDreamFormProps {
+  onComplete: (pathData: {
+    pathName: string;
+    pathDescription: string;
+    startingPoint: string;
+    mainObstacle: string;
+    obstacleOther?: string;
+    timeline: string;
+  }) => void;
+  onBack?: () => void;
+}
+
+function CustomPathDreamForm({ onComplete, onBack }: CustomPathDreamFormProps) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const [pathName, setPathName] = useState('');
+  const [pathDescription, setPathDescription] = useState('');
+  const [startingPoint, setStartingPoint] = useState('');
+  const [mainObstacle, setMainObstacle] = useState('');
+  const [obstacleOther, setObstacleOther] = useState('');
+  const [timeline, setTimeline] = useState('');
+  const [showObstacleDropdown, setShowObstacleDropdown] = useState(false);
+  const [showHelperModal, setShowHelperModal] = useState(false);
+  const [showPathDescriptionHelper, setShowPathDescriptionHelper] = useState(false);
+  const [showStartingPointHelper, setShowStartingPointHelper] = useState(false);
+  
+  // Error states
+  const [pathNameError, setPathNameError] = useState('');
+  const [pathDescriptionError, setPathDescriptionError] = useState('');
+  const [startingPointError, setStartingPointError] = useState('');
+
+  const obstacleOptions = [
+    "I don't have the skills yet.",
+    "I don't have enough time.",
+    "I don't have enough money.",
+    "I don't know where to start.",
+    "I'm afraid of failing or judgment.",
+    "I need credentials or formal education.",
+    "Other."
+  ];
+
+  const timelineOptions = [
+    "1-3 months, quick wins",
+    "3-6 months, steady transformation",
+    "6-12 months, major career shift",
+    "1+ years, long-term vision"
+  ];
+
+  const validateForm = () => {
+    let isValid = true;
+
+    // Validate path name
+    if (pathName.trim().length < 25) {
+      setPathNameError("Please be more specific.");
+      isValid = false;
+    } else {
+      setPathNameError('');
+    }
+
+    // Validate path description
+    if (pathDescription.trim().length < 25) {
+      setPathDescriptionError("Please bring at least 25 characters to this path.");
+      isValid = false;
+    } else {
+      setPathDescriptionError('');
+    }
+
+    // Validate starting point
+    if (startingPoint.trim().length < 25) {
+      setStartingPointError("Please bring at least 25 characters to this path.");
+      isValid = false;
+    } else {
+      setStartingPointError('');
+    }
+
+    // Validate obstacle
+    if (!mainObstacle.trim()) {
+      isValid = false;
+    }
+
+    // Validate timeline
+    if (!timeline.trim()) {
+      isValid = false;
+    }
+
+    // If "Other" is selected, validate obstacleOther
+    if (mainObstacle === "Other." && !obstacleOther.trim()) {
+      isValid = false;
+    }
+
+    // Show alert if validation fails
+    if (!isValid) {
+      if (!pathName.trim() || pathName.trim().length < 10) {
+        // Error already set above
+      } else if (!pathDescription.trim() || pathDescription.trim().length < 50) {
+        // Error already set above
+      } else if (!startingPoint.trim() || startingPoint.trim().length < 50) {
+        // Error already set above
+      } else if (!mainObstacle.trim()) {
+        alert('Please select your biggest challenge.');
+      } else if (!timeline.trim()) {
+        alert('Please select when you want to see meaningful progress.');
+      } else if (mainObstacle === "Other. Describe below" && !obstacleOther.trim()) {
+        alert('Please describe your specific challenge.');
+      }
+    }
+
+    return isValid;
+  };
+
+  const handleSubmit = () => {
+    if (validateForm()) {
+      onComplete({
+        pathName: pathName.trim(),
+        pathDescription: pathDescription.trim(),
+        startingPoint: startingPoint.trim(),
+        mainObstacle: mainObstacle.trim(),
+        obstacleOther: mainObstacle === "Other. Describe below" ? obstacleOther.trim() : undefined,
+        timeline: timeline.trim(),
+      });
+    }
+  };
+
+  return (
+    <ImageBackground
+      source={require('../assets/images/noise.background.png')}
+      style={[styles.formContainer, { 
+        position: 'absolute',
+        top: -insets.top,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: height + insets.top,
+      }]}
+      imageStyle={styles.customPathFormBackgroundImage}
+      resizeMode="cover"
+    >
+      {/* Header with Back Arrow and Helper Icon */}
+      <View style={[styles.customPathHeader, { paddingTop: insets.top }]}>
+        {onBack && (
+          <TouchableOpacity 
+            style={styles.customPathBackButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#342846" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.customPathHeaderTitle}>Create your own path</Text>
+        <TouchableOpacity
+          style={styles.customPathHelperButton}
+          onPress={() => setShowHelperModal(true)}
+        >
+          <MaterialIcons name="help-outline" size={24} color="#342846" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.formContainerScrollView}
+        contentContainerStyle={[styles.customPathFormContent, { paddingBottom: insets.bottom + 100 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* App Heading */}
+        <ImageBackground
+          source={require('../assets/images/purple.background.jpeg')}
+          style={styles.customPathAppHeadingCard}
+          imageStyle={styles.purpleBackgroundImage}
+          resizeMode="cover"
+        >
+          <Text style={styles.customPathAppHeading}>
+            Tell us about the direction you want to pursue. We'll use this to generate personalized goals that match your vision.
+          </Text>
+        </ImageBackground>
+
+        {/* Path Name Field */}
+        <View style={styles.customPathFieldContainer}>
+          <Text style={styles.customPathFieldLabel}>What do you want to become?</Text>
+          <View style={[styles.bodyTextFieldWrapper, pathNameError && styles.fieldError]}>
+            <TextInput
+              style={styles.textField}
+              value={pathName}
+              onChangeText={(text) => {
+                setPathName(text);
+                if (text.trim().length >= 25) {
+                  setPathNameError('');
+                }
+              }}
+              placeholder='Name your path in two-five words. Example: "a freelance illustrator"'
+              placeholderTextColor="#999"
+            />
+          </View>
+          {pathNameError ? (
+            <Text style={styles.fieldErrorText}>{pathNameError}</Text>
+          ) : null}
+        </View>
+
+        {/* Path Description Field */}
+        <View style={styles.customPathFieldContainer}>
+          <View style={styles.customPathLabelWithHelper}>
+            <Text style={styles.customPathFieldLabel}>Describe this path</Text>
+            <TouchableOpacity
+              style={styles.customPathHelperIcon}
+              onPress={() => setShowPathDescriptionHelper(true)}
+            >
+              <MaterialIcons name="help-outline" size={20} color="#342846" />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.bodyTextFieldWrapper, pathDescriptionError && styles.fieldError]}>
+            <TextInput
+              style={[styles.textField, styles.textArea]}
+              value={pathDescription}
+              onChangeText={(text) => {
+                setPathDescription(text);
+                if (text.trim().length >= 25) {
+                  setPathDescriptionError('');
+                }
+              }}
+              placeholder="What does success on this path look like? What will you be doing?"
+              placeholderTextColor="#999"
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+          {pathDescriptionError ? (
+            <Text style={styles.fieldErrorText}>{pathDescriptionError}</Text>
+          ) : null}
+        </View>
+
+        {/* Starting Point Field */}
+        <View style={styles.customPathFieldContainer}>
+          <View style={styles.customPathLabelWithHelper}>
+            <Text style={styles.customPathFieldLabel}>Where are you starting from?</Text>
+            <TouchableOpacity
+              style={styles.customPathHelperIcon}
+              onPress={() => setShowStartingPointHelper(true)}
+            >
+              <MaterialIcons name="help-outline" size={20} color="#342846" />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.bodyTextFieldWrapper, startingPointError && styles.fieldError]}>
+            <TextInput
+              style={[styles.textField, styles.textArea]}
+              value={startingPoint}
+              onChangeText={(text) => {
+                setStartingPoint(text);
+                if (text.trim().length >= 25) {
+                  setStartingPointError('');
+                }
+              }}
+              placeholder="What relevant skills, experience or resources do you already have?"
+              placeholderTextColor="#999"
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+          {startingPointError ? (
+            <Text style={styles.fieldErrorText}>{startingPointError}</Text>
+          ) : null}
+        </View>
+
+        {/* Main Obstacle Field */}
+        <View style={styles.customPathFieldContainer}>
+          <Text style={[styles.customPathFieldLabel, { marginBottom: 8 }]}>Select your biggest challenge.</Text>
+          <View style={styles.customPathDropdownWrapper}>
+            <TouchableOpacity
+              style={styles.customPathDropdownButton}
+              onPress={() => setShowObstacleDropdown(!showObstacleDropdown)}
+            >
+              <Text 
+                style={styles.customPathDropdownText}
+              >
+                {mainObstacle || ''}
+              </Text>
+              <Text style={styles.customPathDropdownArrow}>{showObstacleDropdown ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showObstacleDropdown && (
+              <View style={styles.customPathDropdown}>
+                <ScrollView style={styles.cityDropdownScrollView} nestedScrollEnabled>
+                  {obstacleOptions.map((option, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.cityDropdownItem}
+                      onPress={() => {
+                        setMainObstacle(option);
+                        setShowObstacleDropdown(false);
+                        if (option !== "Other.") {
+                          setObstacleOther('');
+                        }
+                      }}
+                    >
+                      <Text style={styles.cityDropdownText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+          {mainObstacle === "Other." && (
+            <View style={styles.bodyTextFieldWrapper}>
+              <TextInput
+                style={styles.textField}
+                value={obstacleOther}
+                onChangeText={setObstacleOther}
+                placeholder="Describe your specific challenge"
+                placeholderTextColor="#999"
+                multiline
+                textAlignVertical="center"
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Timeline Expectation Field */}
+        <View style={styles.customPathFieldContainer}>
+          <Text style={[styles.customPathFieldLabel, { marginBottom: 8 }]}>When do you want to see meaningful progress</Text>
+          {timelineOptions.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.radioButtonContainer}
+              onPress={() => setTimeline(option)}
+            >
+              <View style={styles.radioButton}>
+                {timeline === option && <View style={styles.radioButtonInner} />}
+              </View>
+              <Text style={styles.radioButtonLabel}>{option}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Generate Goals Button */}
+        <TouchableOpacity 
+          style={[styles.establishGoalButton, { marginTop: 5, marginBottom: 100 }]}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.establishGoalButtonText}>Generate my goals</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Helper Modal */}
+      <Modal
+        visible={showHelperModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowHelperModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowHelperModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.assistanceTextContainer}
+          >
+            <TouchableOpacity
+              onPress={() => setShowHelperModal(false)}
+              style={styles.closeAssistanceButton}
+            >
+              <Text style={styles.closeAssistanceButtonText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.assistanceText}>
+              You define the path, we help you walk it. Share your vision below and we'll create specific goals tailored to your situation.
+            </Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Path Description Helper Modal */}
+      <Modal
+        visible={showPathDescriptionHelper}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPathDescriptionHelper(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPathDescriptionHelper(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.assistanceTextContainer}
+          >
+            <TouchableOpacity
+              onPress={() => setShowPathDescriptionHelper(false)}
+              style={styles.closeAssistanceButton}
+            >
+              <Text style={styles.closeAssistanceButtonText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.assistanceText}>
+              Be specific so we can generate relevant goals.
+            </Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Starting Point Helper Modal */}
+      <Modal
+        visible={showStartingPointHelper}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowStartingPointHelper(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowStartingPointHelper(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.assistanceTextContainer}
+          >
+            <TouchableOpacity
+              onPress={() => setShowStartingPointHelper(false)}
+              style={styles.closeAssistanceButton}
+            >
+              <Text style={styles.closeAssistanceButtonText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.assistanceText}>
+              This helps us create realistic first steps.
+            </Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </ImageBackground>
+  );
+}
+
 interface CustomPathFormProps {
   onComplete: (pathData: {
     goalTitle: string;
@@ -2277,10 +2948,12 @@ interface CustomPathFormProps {
     milestones: string[];
     targetTimeline: string;
   }) => void;
+  onBack?: () => void;
 }
 
-function CustomPathForm({ onComplete }: CustomPathFormProps) {
+function CustomPathForm({ onComplete, onBack }: CustomPathFormProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [goalTitle, setGoalTitle] = useState('');
   const [description, setDescription] = useState('');
   const [milestones, setMilestones] = useState<string[]>(['', '']);
@@ -2324,12 +2997,31 @@ function CustomPathForm({ onComplete }: CustomPathFormProps) {
   };
 
   return (
-    <ScrollView
+    <ImageBackground
+      source={require('../assets/images/goal.background.png')}
       style={styles.formContainer}
-      contentContainerStyle={styles.customPathFormContent}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
+      imageStyle={styles.customPathFormBackgroundImage}
+      resizeMode="cover"
     >
+      {/* Header with Back Arrow */}
+      {onBack && (
+        <View style={[styles.customPathHeader, { paddingTop: insets.top }]}>
+          <TouchableOpacity 
+            style={styles.customPathBackButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#342846" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+        </View>
+      )}
+      <ScrollView
+        style={styles.formContainerScrollView}
+        contentContainerStyle={styles.customPathFormContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Core Objective Card */}
       <View style={styles.customGoalCard}>
         <Text style={[styles.customGoalCardTitle, styles.coreObjectiveTitle]}>{t('onboarding.coreObjective')}</Text>
@@ -2485,6 +3177,62 @@ function CustomPathForm({ onComplete }: CustomPathFormProps) {
 
       {/* Quote */}
       <Text style={styles.goalQuote}>"{t('onboarding.goalQuote')}"</Text>
+      </ScrollView>
+    </ImageBackground>
+  );
+}
+
+interface ObstaclePageProps {
+  pathName: string;
+  onContinue: (obstacle: string) => void;
+}
+
+function ObstaclePage({ pathName, onContinue }: ObstaclePageProps) {
+  const { t } = useTranslation();
+  const [obstacle, setObstacle] = useState('');
+
+  const handleContinue = () => {
+    if (obstacle.trim()) {
+      onContinue(obstacle.trim());
+    }
+  };
+
+  return (
+    <ScrollView
+      style={styles.formContainer}
+      contentContainerStyle={styles.obstaclePageContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.obstaclePageTitle}>
+        {t('onboarding.whatMightHoldYouBack', { pathName })}
+      </Text>
+      <Text style={styles.obstaclePageSubtext}>
+        {t('onboarding.whatMightHoldYouBackSubtext')}
+      </Text>
+
+      <View style={styles.obstacleFieldContainer}>
+        <View style={styles.bodyTextFieldWrapper}>
+          <TextInput
+            style={[styles.textField, styles.obstacleTextField]}
+            value={obstacle}
+            onChangeText={setObstacle}
+            placeholder=""
+            placeholderTextColor="#999"
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+      </View>
+
+      <TouchableOpacity 
+        style={[styles.obstacleContinueButton, !obstacle.trim() && styles.obstacleContinueButtonDisabled]}
+        onPress={handleContinue}
+        disabled={!obstacle.trim()}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.obstacleContinueButtonText}>{t('onboarding.continue')}</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -2868,16 +3616,17 @@ function PaywallStep({
   ).current;
 
   return (
-    <ScrollView 
-      ref={scrollViewRef}
-      style={styles.formContainer}
-      contentContainerStyle={styles.paywallContent}
-      showsVerticalScrollIndicator={false}
-      scrollEnabled={!isSwiping}
-      nestedScrollEnabled={true}
-      scrollEventThrottle={16}
-      bounces={false}
-    >
+    <View style={styles.formContainer}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.formContainer}
+        contentContainerStyle={styles.paywallContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!isSwiping}
+        nestedScrollEnabled={true}
+        scrollEventThrottle={16}
+        bounces={false}
+      >
       <Text style={styles.paywallTitle}>{t('common.yourMission')}</Text>
       
       {/* Active Goal Section */}
@@ -2931,13 +3680,6 @@ function PaywallStep({
             </View>
           );
         })}
-        
-        {/* Final Star */}
-        <View style={styles.finalStarContainer}>
-          <View style={styles.finalStarWrapper}>
-            <Text style={styles.finalStarEmoji}>⭐</Text>
-          </View>
-        </View>
       </View>
 
       {/* What you'll get section */}
@@ -2984,12 +3726,12 @@ function PaywallStep({
           />
         ))}
       </View>
-
-      {/* Continue button */}
-      <TouchableOpacity style={styles.paywallContinueButton} onPress={onStartJourney}>
-        <Text style={styles.paywallContinueButtonText}>{t('common.continue')}</Text>
-      </TouchableOpacity>
     </ScrollView>
+    {/* Continue button - Fixed at bottom */}
+    <TouchableOpacity style={styles.paywallContinueButton} onPress={onStartJourney}>
+      <Text style={styles.paywallContinueButtonText}>{t('common.continue')}</Text>
+    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -3031,7 +3773,7 @@ const getOnboardingSteps = (t: (key: string) => string) => [
     content: '',
     showImage: false,
     isForm: false,
-    isPathForward: true,
+    isLifeContext: true,
   },
   { 
     id: 6, 
@@ -3943,6 +4685,17 @@ export default function OnboardingScreen() {
       loadNameForPledge();
     }
   }, [currentStep, name]);
+
+  // Reset Path Forward forms when entering Current Life Context step (step 5, index 4)
+  // This ensures the Path Forward screen doesn't appear after Ikigai
+  useEffect(() => {
+    if (currentStep === 4) { // Step 5 (Current Life Context) is index 4
+      setShowCustomPathDreamForm(false);
+      setShowCustomPathForm(false);
+      setShowObstaclePage(false);
+      setExploringPathId(null);
+    }
+  }, [currentStep]);
   const [citySuggestions, setCitySuggestions] = useState<CityData[]>([]);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [showAmPmDropdown, setShowAmPmDropdown] = useState(false);
@@ -3963,6 +4716,9 @@ export default function OnboardingScreen() {
   const [whatYouGoodAt, setWhatYouGoodAt] = useState('');
   const [whatWorldNeeds, setWhatWorldNeeds] = useState('');
   const [whatCanBePaidFor, setWhatCanBePaidFor] = useState('');
+  const [currentSituation, setCurrentSituation] = useState('');
+  const [biggestConstraint, setBiggestConstraint] = useState('');
+  const [whatMattersMost, setWhatMattersMost] = useState<string[]>([]);
   
   // Path Forward form state
   const [dreamGoal, setDreamGoal] = useState('');
@@ -3970,6 +4726,7 @@ export default function OnboardingScreen() {
   
   // Custom path state
   const [showCustomPathForm, setShowCustomPathForm] = useState(false);
+  const [showCustomPathDreamForm, setShowCustomPathDreamForm] = useState(false);
   const [customPathData, setCustomPathData] = useState<{
     pathName: string;
     pathDescription: string;
@@ -3989,44 +4746,60 @@ export default function OnboardingScreen() {
   const [journeyLoadingItems, setJourneyLoadingItems] = useState<string[]>([]);
   const [selectedGoalTitle, setSelectedGoalTitle] = useState<string>('');
   
+  // Obstacle page state
+  const [showObstaclePage, setShowObstaclePage] = useState(false);
+  const [selectedPathNameForObstacle, setSelectedPathNameForObstacle] = useState<string>('');
+  const [pathObstacle, setPathObstacle] = useState<string>('');
+  
   // Update refs when state changes
   currentStepRef.current = currentStep;
 
   const goToNext = async () => {
-    const step = currentStepRef.current;
-    
-    // Validation for About You step (step 3, index 2)
-    if (step === 2) {
-      if (!name.trim() || !birthMonth.trim() || !birthDate.trim() || !birthYear.trim() || !birthCity.trim()) {
-        alert(t('onboarding.fillRequiredFields'));
-        return;
-      }
-      // If birth time fields are not hidden, validate them
-      if (!hideBirthTimeFields && !dontKnowTime) {
-        if (!birthHour.trim() || !birthMinute.trim()) {
-          alert(t('onboarding.fillBirthTime'));
-          return;
-        }
-      }
-      // Save name and birth date to AsyncStorage when user completes About You step
-      if (name.trim()) {
-        try {
+    try {
+      const step = currentStepRef.current;
+      console.log('goToNext called, current step:', step);
+      
+      // EXPLICITLY DISABLE ALL VALIDATION - Users can proceed from any step without filling required fields
+      // This ensures no validation can block navigation, especially for About You and Pledge steps
+      // NO VALIDATION CHECKS ALLOWED - proceed directly to next step
+      
+      // Validation for About You step (step.id === 2, index 1) - DISABLED: Users can continue without filling fields
+      // No validation required - users can proceed with empty or partially filled fields
+      if (step === 1) {
+      // Save any available data to AsyncStorage (but don't require any fields)
+      try {
+        if (name && name.trim()) {
           await AsyncStorage.setItem('userName', name.trim());
-          // Save birth date components
-          await AsyncStorage.setItem('birthMonth', birthMonth.trim());
-          await AsyncStorage.setItem('birthDate', birthDate.trim());
-          await AsyncStorage.setItem('birthYear', birthYear.trim());
-          await AsyncStorage.setItem('birthCity', birthCity.trim());
-          // Save birth time if available
-          if (birthHour.trim() && birthMinute.trim() && !hideBirthTimeFields) {
-            await AsyncStorage.setItem('birthHour', birthHour.trim());
-            await AsyncStorage.setItem('birthMinute', birthMinute.trim());
-            await AsyncStorage.setItem('birthPeriod', birthAmPm.trim());
-          }
-        } catch (error) {
-          console.error('Error saving user data:', error);
         }
+        // Save birth date components if available (not required)
+        if (birthMonth && birthMonth.trim()) await AsyncStorage.setItem('birthMonth', birthMonth.trim());
+        if (birthDate && birthDate.trim()) await AsyncStorage.setItem('birthDate', birthDate.trim());
+        if (birthYear && birthYear.trim()) await AsyncStorage.setItem('birthYear', birthYear.trim());
+        if (birthCity && birthCity.trim()) await AsyncStorage.setItem('birthCity', birthCity.trim());
+        // Save birth time if available
+        if (birthHour && birthMinute && birthHour.trim() && birthMinute.trim() && !hideBirthTimeFields) {
+          await AsyncStorage.setItem('birthHour', birthHour.trim());
+          await AsyncStorage.setItem('birthMinute', birthMinute.trim());
+          await AsyncStorage.setItem('birthPeriod', birthAmPm.trim());
+        }
+      } catch (error) {
+        console.error('Error saving user data:', error);
       }
+      // Always proceed to next step regardless of field values - no validation required
+    }
+    
+    // Pledge step (step.id === 3, index 2) - DISABLED: Users can continue without signature or any fields
+    // No validation required - users can proceed without signing the pledge
+    if (step === 2) {
+      // Save signature if available (but not required)
+      try {
+        if (signature && signature.trim()) {
+          await AsyncStorage.setItem('pledgeSignature', signature);
+        }
+      } catch (error) {
+        console.error('Error saving signature:', error);
+      }
+      // Always proceed to next step regardless of signature - no validation required
     }
     
     // Save Ikigai answers when completing Ikigai step (step index 3, which is step.id === 4)
@@ -4039,19 +4812,14 @@ export default function OnboardingScreen() {
       } catch (error) {
         console.error('Error saving Ikigai data:', error);
       }
-    }
-
-    // Save signature if available
-    if (signature) {
-      try {
-        await AsyncStorage.setItem('pledgeSignature', signature);
-      } catch (error) {
-        console.error('Error saving signature:', error);
-      }
+      // Ensure Path Forward form is NOT shown after Ikigai - go directly to Current Life Context
+      setShowCustomPathDreamForm(false);
+      setShowCustomPathForm(false);
     }
     
     if (step < ONBOARDING_STEPS.length - 1) {
       const nextStep = step + 1;
+      // Proceed with navigation - NO VALIDATION
       Animated.timing(slideAnim, {
         toValue: -nextStep * width,
         duration: 300,
@@ -4059,33 +4827,58 @@ export default function OnboardingScreen() {
       }).start();
       setCurrentStep(nextStep);
     } else {
-      // Ensure name and birth date are saved before navigating
-      if (name.trim()) {
-        try {
+      // Ensure name and birth date are saved before navigating (if available, not required)
+      try {
+        if (name && name.trim()) {
           await AsyncStorage.setItem('userName', name.trim());
-          // Save birth date components
-          await AsyncStorage.setItem('birthMonth', birthMonth.trim());
-          await AsyncStorage.setItem('birthDate', birthDate.trim());
-          await AsyncStorage.setItem('birthYear', birthYear.trim());
-          await AsyncStorage.setItem('birthCity', birthCity.trim());
-          // Save birth time if available
-          if (birthHour.trim() && birthMinute.trim() && !hideBirthTimeFields) {
-            await AsyncStorage.setItem('birthHour', birthHour.trim());
-            await AsyncStorage.setItem('birthMinute', birthMinute.trim());
-            await AsyncStorage.setItem('birthPeriod', birthAmPm.trim());
-          }
-        } catch (error) {
-          console.error('Error saving user data:', error);
         }
+        // Save birth date components if available (not required)
+        if (birthMonth && birthMonth.trim()) await AsyncStorage.setItem('birthMonth', birthMonth.trim());
+        if (birthDate && birthDate.trim()) await AsyncStorage.setItem('birthDate', birthDate.trim());
+        if (birthYear && birthYear.trim()) await AsyncStorage.setItem('birthYear', birthYear.trim());
+        if (birthCity && birthCity.trim()) await AsyncStorage.setItem('birthCity', birthCity.trim());
+        // Save birth time if available
+        if (birthHour && birthMinute && birthHour.trim() && birthMinute.trim() && !hideBirthTimeFields) {
+          await AsyncStorage.setItem('birthHour', birthHour.trim());
+          await AsyncStorage.setItem('birthMinute', birthMinute.trim());
+          await AsyncStorage.setItem('birthPeriod', birthAmPm.trim());
+        }
+      } catch (error) {
+        console.error('Error saving user data:', error);
       }
-      // Navigate to main app (tabs)
+      // Navigate to main app (tabs) - no validation required
       router.replace('/(tabs)');
+    }
+    } catch (error) {
+      // Silently handle any errors - don't show alerts or block navigation
+      console.error('Error in goToNext (non-blocking):', error);
+      // Still proceed with navigation even if there's an error
+      const step = currentStepRef.current;
+      if (step < ONBOARDING_STEPS.length - 1) {
+        const nextStep = step + 1;
+        Animated.timing(slideAnim, {
+          toValue: -nextStep * width,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+        setCurrentStep(nextStep);
+      }
     }
   };
 
   const goToPrevious = () => {
     const step = currentStepRef.current;
+    // If showing obstacle page, go back to path exploration or custom path form
+    if (showObstaclePage) {
+      setShowObstaclePage(false);
+      setPathObstacle('');
+      return;
+    }
     // If showing custom path form, go back to paths list
+    if (showCustomPathDreamForm) {
+      setShowCustomPathDreamForm(false);
+      return;
+    }
     if (showCustomPathForm) {
       setShowCustomPathForm(false);
       return;
@@ -4118,7 +4911,7 @@ export default function OnboardingScreen() {
       {!showJourneyLoading && (
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={goToPrevious}>
-            <Text style={styles.backButtonText}>←</Text>
+            <MaterialIcons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
             <View style={styles.headerProgressContainer}>
               <View style={styles.headerProgressBar}>
@@ -4136,7 +4929,7 @@ export default function OnboardingScreen() {
                 onPress={() => setShowIkigaiModal(true)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.ikigaiHelpButtonText}>?</Text>
+                <MaterialIcons name="help-outline" size={24} color="#342846" />
               </TouchableOpacity>
             )}
         </View>
@@ -4200,21 +4993,25 @@ export default function OnboardingScreen() {
                 whatCanBePaidFor={whatCanBePaidFor}
                 setWhatCanBePaidFor={setWhatCanBePaidFor}
                 onPageChange={setIkigaiCurrentPage}
+                onContinue={goToNext}
               />
-            ) : step.id === 6 ? (
-              <PathForwardForm
-                dreamGoal={dreamGoal}
-                setDreamGoal={setDreamGoal}
-                fearOrBarrier={fearOrBarrier}
-                setFearOrBarrier={setFearOrBarrier}
+            ) : step.id === 5 ? (
+              // Current Life Context step - explicitly prevent Path Forward forms from showing
+              <CurrentLifeContextStep
+                currentSituation={currentSituation}
+                setCurrentSituation={setCurrentSituation}
+                biggestConstraint={biggestConstraint}
+                setBiggestConstraint={setBiggestConstraint}
+                whatMattersMost={whatMattersMost}
+                setWhatMattersMost={setWhatMattersMost}
                 onContinue={() => goToNext()}
               />
-            ) : step.id === 7 ? (
+            ) : step.id === 6 ? (
               <LoadingStep 
-                isActive={currentStep === 6}
+                isActive={currentStep === 5}
                 onComplete={() => goToNext()} 
               />
-            ) : step.id === 8 ? (
+            ) : step.id === 7 ? (
               <CallingAwaitsStep 
                 userName={name}
                 birthMonth={birthMonth}
@@ -4265,21 +5062,15 @@ export default function OnboardingScreen() {
                     }
                   }}
                 />
-              ) : showCustomPathForm ? (
-                <CustomPathForm
-                  onComplete={async (pathData) => {
-                    // Save custom path data
-                    setCustomPathData({
-                      pathName: pathData.goalTitle,
-                      pathDescription: pathData.description,
-                      keyStrengths: '',
-                      desiredOutcome: pathData.description,
-                      timeCommitment: pathData.targetTimeline,
-                      uniqueApproach: pathData.milestones.join(', '),
-                      milestones: pathData.milestones.filter(m => m.trim()),
-                    });
-                    setShowCustomPathForm(false);
-                    setSelectedGoalTitle(pathData.goalTitle);
+              ) : showObstaclePage ? (
+                <ObstaclePage
+                  pathName={selectedPathNameForObstacle}
+                  onContinue={async (obstacle) => {
+                    setPathObstacle(obstacle);
+                    setShowObstaclePage(false);
+                    
+                    // Now proceed with goal creation using the obstacle
+                    const isCustomGoal = customPathData !== null;
                     
                     try {
                       // Set loading items
@@ -4287,26 +5078,44 @@ export default function OnboardingScreen() {
                         'Analyzing your unique strengths',
                         'Mapping your path to success',
                         'Building your personalized roadmap',
+                        'Preparing your journey',
                       ];
                       setJourneyLoadingItems(loadingItems);
                       
-                      // Create goal with milestones
-                      const milestoneSteps = pathData.milestones
-                        .filter(m => m.trim())
-                        .map((milestone, index) => ({
+                      let completeGoal;
+                      
+                      if (isCustomGoal && customPathData && customPathData.milestones.length > 0) {
+                        // Use milestones from custom path data
+                        const milestoneSteps = customPathData.milestones.map((milestone, index) => ({
                           name: milestone.trim(),
                           description: milestone.trim(),
                           order: index + 1,
                         }));
-                      
-                      const completeGoal = {
-                        name: pathData.goalTitle,
-                        steps: milestoneSteps,
-                        numberOfSteps: milestoneSteps.length,
-                        estimatedDuration: pathData.targetTimeline,
-                        hardnessLevel: 'Medium' as const,
-                        fear: fearOrBarrier || 'Fear of failure',
-                      };
+                        
+                        completeGoal = {
+                          name: customPathData.pathName,
+                          steps: milestoneSteps,
+                          numberOfSteps: milestoneSteps.length,
+                          estimatedDuration: customPathData.timeCommitment,
+                          hardnessLevel: 'Medium' as const,
+                          fear: obstacle || fearOrBarrier || 'Fear of failure',
+                        };
+                      } else {
+                        // Using fallback goal structure
+                        completeGoal = {
+                          name: selectedGoalTitle,
+                          steps: [
+                            { name: 'Step 1', description: 'Begin your journey by taking the first action.', order: 1 },
+                            { name: 'Step 2', description: 'Continue building momentum with focused effort.', order: 2 },
+                            { name: 'Step 3', description: 'Reach a significant milestone in your progress.', order: 3 },
+                            { name: 'Step 4', description: 'Complete your goal and celebrate your achievement.', order: 4 },
+                          ],
+                          numberOfSteps: 4,
+                          estimatedDuration: '3 months',
+                          hardnessLevel: 'Medium' as const,
+                          fear: obstacle || fearOrBarrier || 'Fear of failure',
+                        };
+                      }
                       
                       // Save goal to AsyncStorage
                       const goalToSave = {
@@ -4317,6 +5126,7 @@ export default function OnboardingScreen() {
                         estimatedDuration: completeGoal.estimatedDuration,
                         hardnessLevel: completeGoal.hardnessLevel,
                         fear: completeGoal.fear,
+                        obstacle: obstacle, // Store obstacle separately for AI consideration
                         progressPercentage: 0,
                         isActive: true,
                         isQueued: false,
@@ -4344,18 +5154,64 @@ export default function OnboardingScreen() {
                       const updatedGoals = [goalToSave, ...existingGoals];
                       await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
                       
-                      // Show loading page
                       setShowJourneyLoading(true);
                     } catch (error) {
-                      console.error('Error creating custom goal:', error);
+                      console.error('Error creating goal:', error);
                       // Fallback to placeholder loading items
                       setJourneyLoadingItems([
                         'Analyzing your unique strengths',
                         'Mapping your path to success',
                         'Building your personalized roadmap',
+                        'Preparing your journey',
                       ]);
                       setShowJourneyLoading(true);
                     }
+                  }}
+                />
+              ) : (showCustomPathDreamForm && step.id === 8) ? (
+                // Only show CustomPathDreamForm on step 8 (Paths Aligned), not on other steps
+                <CustomPathDreamForm
+                  onBack={goToPrevious}
+                  onComplete={async (pathData) => {
+                    // Save custom path data
+                    setCustomPathData({
+                      pathName: pathData.pathName,
+                      pathDescription: pathData.pathDescription,
+                      keyStrengths: pathData.startingPoint,
+                      desiredOutcome: pathData.pathDescription,
+                      timeCommitment: pathData.timeline,
+                      uniqueApproach: pathData.mainObstacle + (pathData.obstacleOther ? ': ' + pathData.obstacleOther : ''),
+                      milestones: [],
+                    });
+                    setDreamGoal(pathData.pathDescription);
+                    setFearOrBarrier(pathData.mainObstacle + (pathData.obstacleOther ? ': ' + pathData.obstacleOther : ''));
+                    setShowCustomPathDreamForm(false);
+                    setSelectedGoalTitle(pathData.pathName);
+                    // Show obstacle page before creating the goal
+                    setSelectedPathNameForObstacle(pathData.pathName);
+                    setShowObstaclePage(true);
+                  }}
+                />
+              ) : (showCustomPathForm && step.id === 8) ? (
+                // Only show CustomPathForm on step 8 (Paths Aligned), not on other steps
+                <CustomPathForm
+                  onBack={goToPrevious}
+                  onComplete={async (pathData) => {
+                    // Save custom path data
+                    setCustomPathData({
+                      pathName: pathData.goalTitle,
+                      pathDescription: pathData.description,
+                      keyStrengths: '',
+                      desiredOutcome: pathData.description,
+                      timeCommitment: pathData.targetTimeline,
+                      uniqueApproach: pathData.milestones.join(', '),
+                      milestones: pathData.milestones.filter(m => m.trim()),
+                    });
+                    setShowCustomPathForm(false);
+                    setSelectedGoalTitle(pathData.goalTitle);
+                    // Show obstacle page before creating the goal
+                    setSelectedPathNameForObstacle(pathData.goalTitle);
+                    setShowObstaclePage(true);
                   }}
                 />
               ) : exploringPathId ? (
@@ -4388,140 +5244,9 @@ export default function OnboardingScreen() {
                     const path = generatedPaths.find(p => p.id === goalId);
                     const finalGoalTitle = goalTitle || path?.title || 'Your personalized goal';
                     setSelectedGoalTitle(finalGoalTitle);
-                    
-                    try {
-                      // AI generation disabled to save credits
-                      // Generate loading items
-                      // const loadingItems = await generateLoadingItems(
-                      //   finalGoalTitle,
-                      //   birthMonth || '',
-                      //   birthDate || '',
-                      //   birthYear || '',
-                      //   birthCity,
-                      //   birthHour,
-                      //   birthMinute,
-                      //   birthAmPm,
-                      //   whatYouLove,
-                      //   whatYouGoodAt,
-                      //   whatWorldNeeds,
-                      //   whatCanBePaidFor,
-                      //   fearOrBarrier,
-                      //   dreamGoal
-                      // );
-                      
-                      // Using fallback loading items instead
-                      const loadingItems = [
-                        'Analyzing your unique strengths',
-                        'Mapping your path to success',
-                        'Building your personalized roadmap',
-                        'Preparing your journey',
-                      ];
-                      setJourneyLoadingItems(loadingItems);
-                      
-                      // Check if this is a custom goal (exploringPathId === -1)
-                      const isCustomGoal = exploringPathId === -1;
-                      let completeGoal;
-                      
-                      if (isCustomGoal && customPathData && customPathData.milestones.length > 0) {
-                        // Use milestones from custom path data
-                        const milestoneSteps = customPathData.milestones.map((milestone, index) => ({
-                          name: milestone.trim(),
-                          description: milestone.trim(),
-                          order: index + 1,
-                        }));
-                        
-                        completeGoal = {
-                          name: customPathData.pathName,
-                          steps: milestoneSteps,
-                          numberOfSteps: milestoneSteps.length,
-                          estimatedDuration: customPathData.timeCommitment,
-                          hardnessLevel: 'Medium' as const,
-                          fear: fearOrBarrier || 'Fear of failure',
-                        };
-                      } else {
-                        // AI generation disabled to save credits
-                        // Generate complete goal with hardness level, fear, and steps
-                        // const completeGoal = await generateCompleteGoal(
-                        //   finalGoalTitle,
-                        //   birthMonth || '',
-                        //   birthDate || '',
-                        //   birthYear || '',
-                        //   birthCity,
-                        //   birthHour,
-                        //   birthMinute,
-                        //   birthAmPm,
-                        //   whatYouLove,
-                        //   whatYouGoodAt,
-                        //   whatWorldNeeds,
-                        //   whatCanBePaidFor,
-                        //   fearOrBarrier,
-                        //   dreamGoal
-                        // );
-                        
-                        // Using fallback goal structure instead
-                        completeGoal = {
-                          name: finalGoalTitle,
-                          steps: [
-                            { name: 'Step 1', description: 'Begin your journey by taking the first action.', order: 1 },
-                            { name: 'Step 2', description: 'Continue building momentum with focused effort.', order: 2 },
-                            { name: 'Step 3', description: 'Reach a significant milestone in your progress.', order: 3 },
-                            { name: 'Step 4', description: 'Complete your goal and celebrate your achievement.', order: 4 },
-                          ],
-                          numberOfSteps: 4,
-                          estimatedDuration: '3 months',
-                          hardnessLevel: 'Medium' as const,
-                          fear: 'Fear of failure',
-                        };
-                      }
-                      
-                      // Save goal to AsyncStorage
-                      const goalToSave = {
-                        id: Date.now().toString(),
-                        name: completeGoal.name,
-                        steps: completeGoal.steps,
-                        numberOfSteps: completeGoal.numberOfSteps,
-                        estimatedDuration: completeGoal.estimatedDuration,
-                        hardnessLevel: completeGoal.hardnessLevel,
-                        fear: completeGoal.fear,
-                        progressPercentage: 0,
-                        isActive: true,
-                        isQueued: false,
-                        createdAt: new Date().toISOString(),
-                        currentStepIndex: 0,
-                      };
-                      
-                      // Load existing goals and add new one
-                      const existingGoalsData = await AsyncStorage.getItem('userGoals');
-                      const existingGoals = existingGoalsData ? JSON.parse(existingGoalsData) : [];
-                      
-                      // Check if we already have 3 active goals
-                      const activeGoals = existingGoals.filter((g: any) => g.isActive === true);
-                      if (activeGoals.length >= 3) {
-                        // Mark new goal as queued
-                        goalToSave.isActive = false;
-                        goalToSave.isQueued = true;
-                      } else {
-                        // Mark new goal as active
-                        goalToSave.isActive = true;
-                        goalToSave.isQueued = false;
-                      }
-                      
-                      // Add new goal to the beginning of the list
-                      const updatedGoals = [goalToSave, ...existingGoals];
-                      await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
-                      
-                      setShowJourneyLoading(true);
-                    } catch (error) {
-                      console.error('Error generating goal:', error);
-                      // Fallback to placeholder loading items
-                    setJourneyLoadingItems([
-                      'Analyzing your unique strengths',
-                      'Mapping your path to success',
-                      'Building your personalized roadmap',
-                      'Preparing your journey',
-                    ]);
-                    setShowJourneyLoading(true);
-                    }
+                    // Show obstacle page before creating the goal
+                    setSelectedPathNameForObstacle(finalGoalTitle);
+                    setShowObstaclePage(true);
                   }}
                 />
               ) : (
@@ -4551,11 +5276,32 @@ export default function OnboardingScreen() {
                     setExploringPathId(pathId);
                   }}
                   onWorkOnDreamGoal={() => {
-                    // Show custom path form
-                    setShowCustomPathForm(true);
+                    // Show custom path dream form (dream and fear questions)
+                    setShowCustomPathDreamForm(true);
                   }}
                 />
               )
+            ) : step.id === 9 ? (
+              <PaywallStep 
+                goalTitle={selectedGoalTitle || dreamGoal || 'become a full-time graphic designer'}
+                onStartJourney={() => {
+                  // Navigate to paywall screen
+                  router.push('/paywall');
+                }}
+                birthMonth={birthMonth}
+                birthDate={birthDate}
+                birthYear={birthYear}
+                birthCity={birthCity}
+                birthHour={birthHour}
+                birthMinute={birthMinute}
+                birthPeriod={birthAmPm}
+                whatYouLove={whatYouLove}
+                whatYouGoodAt={whatYouGoodAt}
+                whatWorldNeeds={whatWorldNeeds}
+                whatCanBePaidFor={whatCanBePaidFor}
+                fear={fearOrBarrier}
+                whatExcites={dreamGoal}
+              />
             ) : step.id === 10 ? (
               <PaywallStep 
                 goalTitle={selectedGoalTitle || dreamGoal || 'become a full-time graphic designer'}
@@ -4639,7 +5385,11 @@ export default function OnboardingScreen() {
         >
           <View style={styles.ikigaiModalOverlay}>
             <View style={styles.ikigaiModalContent}>
-              <Text style={styles.ikigaiModalIcon}>🎯</Text>
+              <Image 
+                source={require('../assets/images/target (1).png')} 
+                style={styles.ikigaiModalIcon}
+                resizeMode="contain"
+              />
               <Text style={styles.ikigaiModalTitle}>{t('onboarding.ikigaiModalTitle')}</Text>
               <Text style={styles.ikigaiModalText}>
                 {t('onboarding.ikigaiModalText')}
@@ -4662,11 +5412,18 @@ export default function OnboardingScreen() {
               {t('onboarding.birthLocationHelper')}
             </Text>
           )}
-          {currentStep !== 4 && currentStep !== 5 && currentStep !== 6 && exploringPathId === null && (
+          {currentStep !== 4 && currentStep !== 5 && currentStep !== 6 && currentStep !== 7 && exploringPathId === null && !showObstaclePage && !showCustomPathForm && (
             // For Ikigai step (currentStep === 3), only show continue button on last question (page 3 = "What can you be paid for?")
             // Pledge step (currentStep === 2) should show continue button with "I Vow" text
             (currentStep === 3 && ikigaiCurrentPage !== 3) ? null : (
-            <TouchableOpacity style={styles.continueButton} onPress={goToNext}>
+            <TouchableOpacity 
+              style={styles.continueButton} 
+              onPress={async () => {
+                // Explicitly bypass any validation - allow navigation from pledge step without any field requirements
+                // Directly call goToNext without any validation checks
+                await goToNext();
+              }}
+            >
               <Text style={styles.continueButtonText}>
                 {currentStep === 2 ? t('common.iVow') : currentStep === ONBOARDING_STEPS.length - 1 ? t('common.getStarted') : t('common.continue')}
               </Text>
@@ -4709,7 +5466,14 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backButtonText: {
     fontSize: 24,
@@ -4742,13 +5506,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepContainer: {
+    flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 0, // Container padding handled by stepContent
+    position: 'relative',
   },
   stepContent: {
     alignItems: 'center',
-    paddingHorizontal: 25, // Minimum 20px padding (25px meets requirement and prevents text wrapping)
+    paddingHorizontal: 40,
     width: '100%',
   },
   stepTitle: {
@@ -4775,8 +5541,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 24,
+    paddingHorizontal: 40,
     paddingBottom: 40,
+    zIndex: 1000,
+    backgroundColor: 'transparent',
   },
   continueButton: {
     backgroundColor: '#342846',
@@ -4784,27 +5557,38 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 40,
     alignItems: 'center',
+    width: '100%',
   },
   continueButtonText: {
     ...ButtonHeadingStyle,
     color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   formContainer: {
     flex: 1,
     width: '100%',
+    height: '100%',
     position: 'relative',
     zIndex: 1,
   },
+  formContainerScrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  customPathFormBackgroundImage: {
+    resizeMode: 'cover',
+  },
   formContent: {
-    paddingHorizontal: 25, // Keep at 25px (meets minimum 20px requirement)
-    paddingTop: 100,
-    paddingBottom: 50,
-    minHeight: '100%',
+    paddingHorizontal: 40,
+    paddingTop: 20,
+    paddingBottom: 100,
+    flexGrow: 1,
   },
   ikigaiFormContent: {
-    paddingHorizontal: 20,
-    paddingRight: 20, // Reduced to make cards wider
-    paddingLeft: 20, // Reduced to make cards wider
+    paddingHorizontal: 40,
+    paddingRight: 40,
+    paddingLeft: 40,
     paddingTop: 120,
     paddingBottom: 200, // Increased padding to ensure last field stays above keyboard
     minHeight: '100%',
@@ -4818,12 +5602,12 @@ const styles = StyleSheet.create({
   ikigaiCardContainer: {
     width: width,
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 180,
+    paddingHorizontal: 40,
+    paddingTop: 115,
     paddingBottom: 20,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginTop: -20,
+    marginTop: -85,
     overflow: 'visible',
   },
   ikigaiPagination: {
@@ -4867,8 +5651,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pathForwardContent: {
-    paddingLeft: 25,
-    paddingRight: 25,
+    paddingLeft: 40,
+    paddingRight: 40,
     paddingTop: 40,
     paddingBottom: 80,
     width: '100%',
@@ -4887,7 +5671,7 @@ const styles = StyleSheet.create({
   pathForwardCardContainer: {
     width: width,
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
     paddingTop: 20,
     paddingBottom: 20,
     justifyContent: 'center',
@@ -4898,7 +5682,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'flex-start',
     paddingTop: 20,
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
+    paddingHorizontal: 40,
     paddingBottom: 20,
     overflow: 'visible',
     width: '100%',
@@ -4927,23 +5711,26 @@ const styles = StyleSheet.create({
     width: 24,
   },
   pathForwardContinueButton: {
-    position: 'absolute',
-    bottom: 40,
-    left: 25,
-    right: 25,
     alignItems: 'center',
-    zIndex: 10,
     backgroundColor: '#342846',
     borderRadius: 999,
     paddingVertical: 16,
     paddingHorizontal: 40,
     alignSelf: 'center',
     minWidth: 200,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    marginHorizontal: 20,
+    marginBottom: 40,
+    zIndex: 1000,
   },
   pathForwardContinueButtonText: {
+    ...ButtonHeadingStyle,
     color: '#fff',
     fontSize: 18,
-    fontWeight: '400',
+    fontWeight: '600',
   },
   pathForwardFieldLabel: {
     ...HeadingStyle,
@@ -4953,6 +5740,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minHeight: 24,
+    backgroundColor: 'transparent',
   },
   pathForwardFieldBodyText: {
     ...BodyStyle,
@@ -4964,12 +5752,14 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 20,
     paddingHorizontal: 45,
+    backgroundColor: 'transparent',
   },
   ikigaiProgressWrapper: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: -60,
     width: '100%',
   },
   ikigaiProgressContainer: {
@@ -5001,34 +5791,50 @@ const styles = StyleSheet.create({
   },
   ikigaiNavigationButtons: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingLeft: 25,
+    paddingRight: 25,
+    paddingBottom: 40,
     paddingTop: 10,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: 'transparent',
-    gap: 36,
+    gap: 0,
     zIndex: 5,
     pointerEvents: 'box-none',
   },
+  ikigaiNavigationButtonsCentered: {
+    justifyContent: 'center',
+  },
+  ikigaiNavButtonCentered: {
+    alignSelf: 'center',
+  },
   ikigaiNavButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 999,
     backgroundColor: '#342846',
-    minWidth: 100,
+    minWidth: 200,
     alignItems: 'center',
     justifyContent: 'center',
     pointerEvents: 'auto',
   },
   ikigaiNavButtonLeft: {
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    paddingLeft: 28,
+    paddingRight: 28,
+    minWidth: 140,
+    marginLeft: 0,
   },
   ikigaiNavButtonRight: {
+    paddingRight: 40,
+    marginRight: 0,
+  },
+  ikigaiContinueButton: {
+    minWidth: 200,
   },
   ikigaiNavButtonContent: {
     flexDirection: 'row',
@@ -5042,16 +5848,36 @@ const styles = StyleSheet.create({
   ikigaiNavButtonText: {
     ...ButtonHeadingStyle,
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 18,
   },
   ikigaiNavButtonTextLeft: {
     ...ButtonHeadingStyle,
     color: '#342846',
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 18,
+  },
+  ikigaiLastQuestionBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 48,
+    borderRadius: 999,
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+  },
+  ikigaiLastQuestionBackButtonText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 20,
+    marginLeft: 8,
+    fontWeight: '600',
   },
   ikigaiTitleContainer: {
     alignItems: 'center',
@@ -5072,17 +5898,19 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     color: '#342846',
     textAlign: 'center',
-    marginTop: -60,
-    marginBottom: 0,
+    marginTop: 0,
+    marginBottom: 30,
     lineHeight: 25,
   },
   ikigaiHelpButton: {
-    padding: 8, // Same padding as back button
-  },
-  ikigaiHelpButtonText: {
-    fontSize: 20,
-    color: '#342846',
-    fontWeight: 'bold',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   ikigaiModalOverlay: {
     flex: 1,
@@ -5104,8 +5932,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   ikigaiModalIcon: {
-    fontSize: 48,
-    textAlign: 'center',
+    width: 62,
+    height: 62,
+    alignSelf: 'center',
     marginBottom: 16,
   },
   ikigaiModalTitle: {
@@ -5127,14 +5956,15 @@ const styles = StyleSheet.create({
     color: '#342846',
   },
   ikigaiModalButton: {
-    backgroundColor: '#baccd7',
+    backgroundColor: '#342846',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
   },
   ikigaiModalButtonText: {
+    ...BodyStyle,
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
   },
   formBodyText: {
@@ -5144,7 +5974,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingTop: 0,
     lineHeight: 20,
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
   },
   formBodyTextRussian: {
     // Removed special positioning - fields now at original height
@@ -5154,13 +5984,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center', // Center answer fields horizontally
     width: '100%', // Full width for centering
+    backgroundColor: 'transparent',
+    minHeight: 100,
   },
   ikigaiFieldContainer: {
     marginBottom: 0,
     position: 'relative',
     alignItems: 'center', // Center answer fields horizontally
-    paddingTop: 20,
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
+    paddingTop: 135,
+    paddingHorizontal: 40,
     paddingBottom: 20,
     overflow: 'visible', // Ensure stars aren't clipped
     width: '100%', // Full width for centering
@@ -5288,22 +6120,26 @@ const styles = StyleSheet.create({
   ikigaiFieldLabel: {
     ...HeadingStyle,
     color: '#342846',
-    marginTop: -175,
-    marginBottom: 15,
+    marginTop: -165,
+    marginBottom: 45,
     fontSize: 20,
     textAlign: 'center',
     width: '100%',
   },
+  fieldBodyTextContainer: {
+    width: '130%',
+    alignSelf: 'center',
+    marginTop: -5,
+    marginBottom: 20,
+  },
   fieldBodyText: {
     ...BodyStyle,
     color: '#342846',
-    marginTop: -5,
-    marginBottom: 20,
-    fontSize: 12,
+    fontSize: 16,
     width: '100%',
     textAlign: 'center',
     opacity: 0.7,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   textFieldWrapper: {
     backgroundColor: '#FFFFFF',
@@ -5331,12 +6167,12 @@ const styles = StyleSheet.create({
     minHeight: 90, // Reduced height for more compact layout
     marginTop: 8, // Reduced spacing between body text and answer field
     alignSelf: 'flex-start', // Align to left
-    // Subtle brown shadow
+    // Purple 3D shadow
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8, // For Android
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12, // For Android
     zIndex: 1, // Ensure it's above other elements
   },
   nameFieldWrapper: {
@@ -5354,7 +6190,7 @@ const styles = StyleSheet.create({
     width: '100%', // Ensure full width for centering
     maxWidth: 300,
     alignSelf: 'center',
-    marginTop: 55,
+    marginTop: 30,
     zIndex: 10,
     // Subtle brown shadow
     shadowColor: '#342846',
@@ -5376,6 +6212,8 @@ const styles = StyleSheet.create({
     color: '#342846',
     fontSize: 14, // Reduced by 2px from 16 (affects placeholder helper text)
     lineHeight: 19.2, // Reduced by 20% from 24 (24 * 0.8 = 19.2)
+    flexWrap: 'wrap',
+    textAlign: 'center', // Center align text horizontally
     textAlignVertical: 'center', // Center align text vertically
     width: '100%', // Full width
   },
@@ -5795,6 +6633,10 @@ const styles = StyleSheet.create({
   starIcon: {
     fontSize: 17.92,
   },
+  starIconImage: {
+    width: 49,
+    height: 49,
+  },
   assistanceButton: {
     marginTop: 8,
     alignSelf: 'flex-start', // Align to the left, same as field and question
@@ -5803,7 +6645,8 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#342846',
     fontSize: 14,
-    textAlign: 'left', // Keep text aligned left
+    textAlign: 'center', // Center align text
+    marginBottom: 1.4, // 10% of fontSize (14 * 0.1 = 1.4)
   },
   star: {
     color: '#342846',
@@ -5869,7 +6712,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     padding: 40,
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -5901,7 +6744,7 @@ const styles = StyleSheet.create({
   journeyLoadingContainer: {
     flex: 1,
     width: '100%',
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -5930,15 +6773,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   destinyContent: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
     minHeight: '100%',
   },
   destinyTopSection: {
     alignItems: 'center',
-    marginBottom: 32,
-    paddingTop: 20,
+    marginBottom: 20,
+    paddingTop: 0,
   },
   userIconContainer: {
     marginBottom: 16,
@@ -5975,7 +6818,8 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginTop: 0,
+    marginBottom: 24,
     width: '100%',
   },
   dividerLine: {
@@ -6048,16 +6892,25 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   destinyContinueButton: {
-    backgroundColor: '#342846',
+    backgroundColor: '#bfacca',
     borderRadius: 999,
     paddingVertical: 16,
     paddingHorizontal: 40,
     minWidth: 200,
     alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    marginHorizontal: 20,
+    marginBottom: 40,
+    zIndex: 1000,
   },
   destinyContinueButtonText: {
     ...ButtonHeadingStyle,
     color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   ikigaiContainer: {
     alignItems: 'center',
@@ -6178,7 +7031,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, // Minimum 20px padding (was 10)
   },
   pathsContent: {
-    paddingHorizontal: 25, // Keep at 25px (meets minimum 20px requirement)
+    paddingHorizontal: 40,
     paddingTop: 0,
     paddingBottom: 20,
     minHeight: '100%',
@@ -6191,7 +7044,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: -32,
     marginBottom: 24,
-    paddingHorizontal: 0, // Padding handled by pathsContent parent (25px)
+    paddingHorizontal: 0, // Padding handled by pathsContent parent (40px)
     lineHeight: 18,
   },
   pathCardContainer: {
@@ -6353,11 +7206,10 @@ const styles = StyleSheet.create({
     height: width * 0.6,
   },
   pathExplorationContent: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
     paddingTop: 20,
     paddingBottom: 20,
     minHeight: '100%',
-    alignItems: 'center',
   },
   pathNameTitle: {
     ...HeadingStyle,
@@ -6527,7 +7379,7 @@ const styles = StyleSheet.create({
   paywallContent: {
     paddingHorizontal: 25,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 200,
     minHeight: '100%',
     alignItems: 'center',
   },
@@ -6674,7 +7526,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 0,
-    marginBottom: 0,
+    marginBottom: 40,
     marginLeft: 0,
     marginRight: 16,
     paddingTop: 0,
@@ -6861,17 +7713,143 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 40,
     alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    marginHorizontal: 20,
     marginBottom: 40,
-    marginHorizontal: 25,
+    zIndex: 1000,
   },
   paywallContinueButtonText: {
     ...ButtonHeadingStyle,
     color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   customPathFormContent: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 40,
     paddingTop: 0,
     paddingBottom: 100,
+  },
+  customPathHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 20,
+    position: 'relative',
+  },
+  customPathHeaderTitle: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  customPathBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    left: 40,
+    top: '50%',
+    marginTop: -20,
+  },
+  customPathHelperButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#342846',
+    position: 'absolute',
+    right: 40,
+    top: '50%',
+    marginTop: -20,
+  },
+  customPathAppHeadingCard: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    // Purple 3D shadow
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12, // For Android
+  },
+  customPathAppHeading: {
+    ...BodyStyle,
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  purpleBackgroundImage: {
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  fieldError: {
+    borderColor: '#FF0000',
+    borderWidth: 1,
+  },
+  fieldErrorText: {
+    ...BodyStyle,
+    color: '#FF0000',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  textArea: {
+    minHeight: 120,
+    paddingTop: 12,
+  },
+  radioButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  radioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#342846',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#342846',
+  },
+  radioButtonLabel: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 14,
+    flex: 1,
+  },
+  assistanceTextContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginHorizontal: 40,
+    maxWidth: '80%',
+    borderWidth: 1,
+    borderColor: '#342846',
   },
   customPathFormSubtitle: {
     ...BodyStyle,
@@ -6884,13 +7862,23 @@ const styles = StyleSheet.create({
   },
   customPathFieldContainer: {
     marginBottom: 32,
+    position: 'relative',
+  },
+  customPathLabelWithHelper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  customPathHelperIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
   customPathFieldLabel: {
     ...HeadingStyle,
     color: '#342846',
     fontSize: 16,
-    marginBottom: 8,
-    textAlign: 'left',
+    textAlign: 'center',
   },
   customPathFieldHelper: {
     ...BodyStyle,
@@ -6899,6 +7887,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     opacity: 0.7,
     lineHeight: 16,
+  },
+  customPathDropdownWrapper: {
+    position: 'relative',
+    zIndex: 10,
+    marginTop: 8,
   },
   customPathDropdownButton: {
     backgroundColor: '#FFFFFF',
@@ -6911,12 +7904,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 50,
+    flexWrap: 'wrap',
+    // Purple 3D shadow
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12, // For Android
   },
   customPathDropdownText: {
     ...BodyStyle,
     color: '#342846',
     fontSize: 16,
     flex: 1,
+    flexShrink: 1,
   },
   customPathDropdownPlaceholder: {
     color: '#999',
@@ -7051,6 +8052,60 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
   },
+  obstaclePageContent: {
+    paddingHorizontal: 40,
+    paddingTop: 40,
+    paddingBottom: 100,
+    alignItems: 'center',
+  },
+  obstaclePageTitle: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  obstaclePageSubtext: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 20,
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  obstacleFieldContainer: {
+    width: '100%',
+    marginBottom: 32,
+  },
+  obstacleTextField: {
+    minHeight: 150,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  obstacleContinueButton: {
+    alignItems: 'center',
+    backgroundColor: '#342846',
+    borderRadius: 999,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    alignSelf: 'center',
+    minWidth: 200,
+    marginTop: 20,
+  },
+  obstacleContinueButtonDisabled: {
+    backgroundColor: '#D0D0D0',
+    opacity: 0.6,
+  },
+  obstacleContinueButtonText: {
+    ...ButtonHeadingStyle,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
   goalQuote: {
     ...BodyStyle,
     color: '#342846',
@@ -7093,6 +8148,248 @@ const styles = StyleSheet.create({
   },
   milestoneTextField: {
     width: '100%',
+  },
+  question: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 18,
+    flex: 1,
+    textAlign: 'left',
+  },
+  bodyText: {
+    ...BodyStyle,
+    color: '#342846',
+    marginBottom: 20,
+    fontSize: 12,
+    width: '100%',
+    textAlign: 'left',
+    opacity: 0.7,
+    lineHeight: 16,
+  },
+  answerField: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    borderRadius: 8,
+    overflow: 'visible',
+    marginBottom: 32,
+    minHeight: 130,
+    width: '100%',
+    alignSelf: 'flex-start',
+    marginTop: 16,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  answerInput: {
+    ...BodyStyle,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    color: '#342846',
+    fontSize: 14,
+    minHeight: 130,
+    textAlignVertical: 'top',
+    lineHeight: 19.2,
+  },
+  lightBulbEmoji: {
+    fontSize: 24,
+  },
+  assistanceModal: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#342846',
+    marginTop: 8,
+  },
+  closeAssistanceButton: {
+    alignSelf: 'flex-end',
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  closeAssistanceButtonText: {
+    fontSize: 24,
+    color: '#342846',
+    fontWeight: 'bold',
+  },
+  lifeContextContent: {
+    paddingHorizontal: 25,
+    paddingTop: 10,
+    paddingBottom: 100,
+    minHeight: '100%',
+  },
+  lifeContextHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingTop: 0,
+  },
+  lifeContextTitle: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 28,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lifeContextSubtitle: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+  },
+  questionCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    position: 'relative',
+    overflow: 'hidden',
+    // 3D shadow effect
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  questionCardImage: {
+    borderRadius: 16,
+  },
+  questionCardTall: {
+    minHeight: 500,
+  },
+  questionCardBackButton: {
+    position: 'absolute',
+    top: 18,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  questionCardTitle: {
+    ...HeadingStyle,
+    color: '#FFFFFF',
+    fontSize: 20,
+    textAlign: 'center',
+    marginBottom: 16,
+    marginTop: 53,
+    paddingHorizontal: 8,
+  },
+  optionsContainer: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  optionsScrollWrapper: {
+    position: 'relative',
+    maxHeight: 400,
+    marginBottom: 16,
+  },
+  optionsScrollContainer: {
+    maxHeight: 400,
+    paddingRight: 8,
+  },
+  optionButton: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  optionButtonSelected: {
+    backgroundColor: 'rgba(52, 40, 70, 0.6)',
+    borderColor: '#342846',
+  },
+  optionButtonDisabled: {
+    opacity: 0.5,
+  },
+  optionButtonText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  optionButtonTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  optionButtonTextDisabled: {
+    opacity: 0.5,
+  },
+  questionProgress: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  questionProgressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D0D0D0',
+  },
+  questionProgressDotActive: {
+    backgroundColor: '#342846',
+    width: 24,
+  },
+  questionProgressDotCompleted: {
+    backgroundColor: '#342846',
+  },
+  lifeContextNextButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    marginTop: 12,
+    alignSelf: 'center',
+    minWidth: 150,
+    opacity: 1,
+  },
+  lifeContextNextButtonDisabled: {
+    backgroundColor: '#D0D0D0',
+    opacity: 0.5,
+  },
+  lifeContextNextButtonText: {
+    ...ButtonHeadingStyle,
+    color: '#342846',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  lifeContextContinueButton: {
+    backgroundColor: '#342846',
+    borderRadius: 999,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    minWidth: 200,
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    marginHorizontal: 20,
+    marginBottom: 40,
+    zIndex: 1000,
+  },
+  lifeContextContinueButtonText: {
+    ...ButtonHeadingStyle,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
 

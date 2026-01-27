@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MaterialIcons } from '@expo/vector-icons';
 import {
     ActivityIndicator,
     Alert,
@@ -12,6 +13,7 @@ import {
     Dimensions,
     Easing,
     Image,
+    ImageBackground,
     Keyboard,
     Modal,
     Platform,
@@ -79,9 +81,9 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
   const sortingBlobFloatY = useRef(new Animated.Value(0)).current;
   const sortingBlobBaseY = useRef(new Animated.Value(0)).current;
   
-  // Example blobs animations - positioned below subheading with 20px spacing
-  const blobMaxWidth = 140; // maxWidth from styles
-  const blobSpacing = 20;
+  // Example blobs animations - positioned below subheading with spacing
+  const blobMaxWidth = 135; // 10% smaller than 150px
+  const blobSpacing = 30; // Increased horizontal spacing between bubbles
   const totalWidth = (blobMaxWidth * 3) + (blobSpacing * 2); // 3 blobs + 2 gaps
   const startX = (width - totalWidth) / 2; // Center the group
   
@@ -169,22 +171,22 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
     
     // Calculate positions relative to the dumpBubblesContainer
-    // Container starts at: 300 (floating bubbles position)
+    // Container starts at: 190 (20px below subheading bottom)
     // Position bubbles in the same area as example blobs (centered vertically in container)
-    const containerTop = 300; // Container top position (matches exampleBlobsContainer)
+    const containerTop = 190; // Container top position (matches exampleBlobsContainer, 20px below subheading)
     const bubbleCenterY = 75; // Center bubbles vertically in the container (middle of 150px height container)
     
     // Spread bubbles across the screen with minimum spacing for readability
     let x: number;
     let y: number;
-    const minSpacing = 60; // Minimum distance between bubbles (increased for readability)
-    const bubbleWidth = 150; // Max bubble width
-    const bubbleHeight = 100; // Approximate bubble height
+    const minSpacing = 50; // Minimum distance between bubbles (adjusted for smaller bubbles)
+    const bubbleWidth = 135; // Bubble width (10% smaller than 150px)
+    const bubbleHeight = 135; // Bubble height (10% smaller than 150px)
     
     if (thoughts.length === 0) {
-      // First bubble starts at continue button y-axis, slightly left
+      // First bubble starts below subheading, slightly left
       x = width * 0.2;
-      y = bubbleCenterY;
+      y = Math.max(0, bubbleCenterY); // Ensure bubble is at least at container top (respects subheading margin)
     } else {
       // Try to place bubble with minimum spacing from existing bubbles
       let attempts = 0;
@@ -192,16 +194,16 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
       
       // Default fallback position
       x = width * 0.5;
-      y = bubbleCenterY;
+      y = Math.max(30, bubbleCenterY); // Ensure bubble is at least 30px from container top (respects subheading margin even with floating)
       
       while (!validPosition && attempts < 50) {
         // Distribute bubbles around the example blob area (same area as example blobs)
         const index = thoughts.length;
         const zones = [
-          { x: width * 0.15, y: bubbleCenterY - 20 }, // Left, slightly above center
-          { x: width * 0.85, y: bubbleCenterY - 15 }, // Right, slightly above center
-          { x: width * 0.25, y: bubbleCenterY }, // Left, at center level
-          { x: width * 0.75, y: bubbleCenterY }, // Right, at center level
+          { x: width * 0.15, y: Math.max(30, bubbleCenterY - 20) }, // Left, slightly above center (but never above container top)
+          { x: width * 0.85, y: Math.max(30, bubbleCenterY - 15) }, // Right, slightly above center (but never above container top)
+          { x: width * 0.25, y: Math.max(30, bubbleCenterY) }, // Left, at center level
+          { x: width * 0.75, y: Math.max(30, bubbleCenterY) }, // Right, at center level
           { x: width * 0.1, y: bubbleCenterY + 20 }, // Lower left, slightly below center
           { x: width * 0.9, y: bubbleCenterY + 15 }, // Lower right, slightly below center
           { x: width * 0.3, y: bubbleCenterY + 10 }, // Left side, slightly below center
@@ -217,8 +219,10 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
         y = zone.y + variationY;
         
         // Keep within bounds - allow bubbles to float around the example blob area
+        // Ensure bubbles never go above container top to respect subheading's 20px bottom margin
+        // Minimum y is 30px relative to container (so floating animation with -30px translateY keeps bubbles at container top)
         x = Math.max(30, Math.min(width - bubbleWidth - 30, x));
-        y = Math.max(bubbleCenterY - 30, Math.min(bubbleCenterY + 50, y)); // Keep bubbles around center y-axis (±30-50px range)
+        y = Math.max(30, Math.min(bubbleCenterY + 50, y)); // Keep bubbles below subheading (minimum 30px relative to container top)
         
         // Check if this position is at least minSpacing away from all existing bubbles
         // Use a more generous spacing calculation that accounts for bubble size
@@ -1045,9 +1049,17 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
   }, [stage, thoughts.length]);
 
   const renderExampleBlob = (blob: typeof exampleBlobs[0], index: number) => {
-    const blobColor = bubbleColors[index % bubbleColors.length];
-    const blobShape = generateBlobShape(index, 120); // Increased size for example blobs to fit text
+    const bubbleSize = 135; // 10% smaller than 150px
+    const blobShape = generateBlobShape(index, bubbleSize);
     const rotation = (index % 7) * 3 - 9;
+    
+    // Cycle through the three thought bubble images
+    const thoughtBubbleImages = [
+      require('../assets/images/bubble1.png'),
+      require('../assets/images/bubble2.png'),
+      require('../assets/images/bubble3.png'),
+    ];
+    const bubbleImage = thoughtBubbleImages[index % 3];
 
     return (
       <Animated.View
@@ -1058,7 +1070,9 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
           {
             left: blob.x,
             top: blob.y,
-            backgroundColor: blobColor,
+            width: bubbleSize,
+            height: bubbleSize,
+            overflow: 'hidden',
             transform: [
               { translateX: blob.translateX },
               { translateY: blob.translateY },
@@ -1067,24 +1081,37 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
           },
         ]}
       >
-        <Text style={styles.exampleBubbleText} numberOfLines={2}>
-          {blob.text}
-        </Text>
+        <ImageBackground
+          source={bubbleImage}
+          style={styles.bubbleImageBackground}
+          imageStyle={blobShape}
+          resizeMode="cover"
+        >
+          <Text style={styles.exampleBubbleText} numberOfLines={3}>
+            {blob.text}
+          </Text>
+        </ImageBackground>
       </Animated.View>
     );
   };
 
   const renderBubble = (thought: Thought, index: number) => {
     const isCurrentSorting = stage === 'sort' && index === currentSortIndex;
-    
-    // Always use original color - never change color based on category
-    const bubbleColor = thought.originalColor || bubbleColors[index % bubbleColors.length];
 
-    // Generate organic blob shape with randomized border-radius values
-    const blobShape = generateBlobShape(index);
+    // 25% smaller than 200px
+    const bubbleSize = 150;
+    const blobShape = generateBlobShape(index, bubbleSize);
     
     // Add slight rotation for organic blob feel
     const rotation = (index % 7) * 3 - 9; // -9 to +9 degrees rotation
+
+    // Cycle through the three thought bubble images
+    const thoughtBubbleImages = [
+      require('../assets/images/bubble1.png'),
+      require('../assets/images/bubble2.png'),
+      require('../assets/images/bubble3.png'),
+    ];
+    const bubbleImage = thoughtBubbleImages[index % 3];
 
     // For sorting stage, center the current bubble
     const bubbleStyle = isCurrentSorting ? {
@@ -1110,17 +1137,26 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
           styles.bubble,
           blobShape,
           {
-            left: isCurrentSorting ? width / 2 - 75 : thought.x, // Center horizontally when sorting
+            left: isCurrentSorting ? width / 2 - bubbleSize / 2 : thought.x, // Center horizontally when sorting
             top: isCurrentSorting ? height * 0.105 : thought.y, // Position 30% up when sorting
-            backgroundColor: bubbleColor,
+            width: bubbleSize,
+            height: bubbleSize,
+            overflow: 'hidden',
             ...bubbleStyle,
             opacity: thought.opacity,
           },
         ]}
       >
-        <Text style={styles.bubbleText} numberOfLines={3}>
-          {thought.text}
-        </Text>
+        <ImageBackground
+          source={bubbleImage}
+          style={styles.bubbleImageBackground}
+          imageStyle={blobShape}
+          resizeMode="cover"
+        >
+          <Text style={styles.bubbleText} numberOfLines={4}>
+            {thought.text}
+          </Text>
+        </ImageBackground>
       </Animated.View>
     );
   };
@@ -1173,12 +1209,7 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
               )}
 
               <View style={styles.inputContainer}>
-                <LinearGradient
-                  colors={['#fffffe', '#e6e6e6', '#f6fdff']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.answerField}
-                >
+                <View style={styles.answerField}>
                   <TextInput
                     ref={inputRef}
                     style={styles.answerInput}
@@ -1195,7 +1226,7 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
                     multiline
                     autoFocus
                   />
-                </LinearGradient>
+                </View>
                 <TouchableOpacity 
                   style={[
                     styles.submitButton,
@@ -1242,8 +1273,8 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
         {stage === 'sort' && currentSortIndex < thoughts.length && (
           <Animated.View style={[styles.stageContainer, { opacity: stageTransitionOpacity }]}>
             {/* Back button */}
-            <TouchableOpacity style={styles.backButton} onPress={handleBackToDump}>
-              <Text style={styles.backButtonText}>←</Text>
+            <TouchableOpacity style={styles.backButton} onPress={handleBackToDump} activeOpacity={0.7}>
+              <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
 
             {/* Heading */}
@@ -1464,8 +1495,8 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
         {stage === 'insight' && (
           <Animated.View style={[styles.stageContainer, { opacity: stageTransitionOpacity }]}>
             {/* Back button */}
-            <TouchableOpacity style={styles.backButton} onPress={handleClose}>
-              <Text style={styles.backButtonText}>←</Text>
+            <TouchableOpacity style={styles.backButton} onPress={handleClose} activeOpacity={0.7}>
+              <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
 
             <View style={styles.insightBubblesContainer}>
@@ -1742,7 +1773,7 @@ const styles = StyleSheet.create({
   },
   inspirationContainerAbove: {
     position: 'absolute',
-    top: 390, // Position right after subheading
+    top: 360, // 20px below bubble container bottom (190 + 150 + 20 = 360)
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -1768,6 +1799,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 75,
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   answerInput: {
     ...BodyStyle,
@@ -1777,6 +1809,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 75,
     maxHeight: 150,
+    backgroundColor: '#FFFFFF',
   },
   submitButton: {
     backgroundColor: '#342846',
@@ -1805,7 +1838,7 @@ const styles = StyleSheet.create({
   },
   dumpBubblesContainer: {
     position: 'absolute',
-    top: 300, // Same position as exampleBlobsContainer, floating bubbles
+    top: 247, // Moved down 57px from 190px to avoid covering heading/subheading
     left: 0,
     right: 0,
     height: 150, // Same height as exampleBlobsContainer
@@ -1862,7 +1895,7 @@ const styles = StyleSheet.create({
   },
   exampleBlobsContainer: {
     position: 'absolute',
-    top: 300, // Floating bubbles position
+    top: 190, // 20px below subheading (subheading ends at ~170px)
     left: 0,
     right: 0,
     height: 150,
@@ -1872,34 +1905,44 @@ const styles = StyleSheet.create({
   exampleBubble: {
     position: 'absolute',
     padding: 0,
-    maxWidth: 140,
-    minWidth: 110,
+    width: 135,
+    height: 135,
+  },
+  bubbleImageBackground: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   exampleBubbleText: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    paddingTop: 14, // Increased by 35% (from 10)
-    paddingBottom: 14, // Increased by 35% (from 10)
-    paddingLeft: 16, // Increased by 35% (from 12)
-    paddingRight: 16, // Increased by 35% (from 12)
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingLeft: 14,
+    paddingRight: 14,
+    flexWrap: 'wrap',
+    maxWidth: '85%', // Constrain width to allow text wrapping
   },
   bubble: {
     position: 'absolute',
     padding: 0,
-    maxWidth: 150,
-    minWidth: 100,
+    width: 135,
+    height: 135,
   },
   bubbleText: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
     paddingLeft: 12,
     paddingRight: 12,
+    flexWrap: 'wrap',
+    maxWidth: '85%', // Constrain width to allow text wrapping
   },
   backButton: {
     position: 'absolute',
@@ -1908,13 +1951,12 @@ const styles = StyleSheet.create({
     zIndex: 100,
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 28,
-    color: '#342846',
-    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,

@@ -820,7 +820,7 @@ export default function FocusScreen() {
                   }}
                 >
                   <Image
-                    source={require('../../assets/images/small.tree.png')}
+                    source={require('../../assets/images/seed.png')}
                     style={{ width: treeSize, height: treeSize }}
                     resizeMode="contain"
                   />
@@ -1338,7 +1338,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Bold',
     color: '#7a8a9a',
     fontSize: 10,
-    textTransform: 'uppercase',
+    textTransform: 'none', // Changed from 'uppercase' to keep 'min' lowercase
     textAlign: 'center',
     marginTop: 2,
   },
@@ -1540,7 +1540,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Semi-transparent to show forest animation with Atlas in background
     justifyContent: 'center',
     alignItems: 'center',
   },

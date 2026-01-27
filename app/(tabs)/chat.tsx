@@ -232,7 +232,7 @@ export default function ChatScreen() {
           {isLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.sendButtonText}>{t('chat.send')}</Text>
+            <Text style={styles.sendButtonText} numberOfLines={1}>{t('chat.send')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -348,7 +348,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 14.4,
+    paddingBottom: 60, // Increased by another 30px (30 + 30 = 60)
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#fff',
@@ -356,13 +357,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    maxWidth: '70%',
     borderWidth: 1,
     borderColor: '#d0d0d0',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginRight: 10,
-    height: 44,
+    minHeight: 44, // Match send button height
     ...BodyStyle,
     fontSize: 14,
   },
@@ -371,14 +373,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, // Minimum 20px padding (was 16)
     paddingVertical: 10,
     borderRadius: 20,
-    minWidth: 60,
-    maxWidth: 80,
+    minWidth: 80,
+    maxWidth: 100,
+    minHeight: 44, // Explicit height to match input
+    marginLeft: 15, // Move right 15px
   },
   sendButtonText: {
     ...BodyStyle,
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 13,
   },
   sendButtonDisabled: {
     opacity: 0.6,

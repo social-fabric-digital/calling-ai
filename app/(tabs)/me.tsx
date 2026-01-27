@@ -369,7 +369,7 @@ export default function MeScreen() {
 
           {/* Mood Tracker Calendar Section */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>{t('me.moodTracker') || 'Mood Tracker'}</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>Mood Tracker</Text>
             <View style={styles.moodCalendarContainer}>
               <MoodCalendar />
             </View>

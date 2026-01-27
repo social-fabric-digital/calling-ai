@@ -69,7 +69,7 @@ export interface ChatMessage {
   content: string;
 }
 
-async function tryModel(
+export async function tryModel(
   apiKey: string,
   model: string,
   apiMessages: Array<{ role: string; content: string }>,
@@ -850,17 +850,19 @@ export async function generateCallingPaths(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
   let sunSign = '';
   
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
@@ -1093,17 +1095,19 @@ export async function generateCallingAwaitsContent(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
   let sunSign = '';
   
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
@@ -1314,17 +1318,19 @@ export async function generatePathContent(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
   let sunSign = '';
   
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';

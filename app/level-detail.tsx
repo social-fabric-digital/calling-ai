@@ -385,7 +385,7 @@ export default function LevelDetailScreen() {
           style={styles.chatFearButton}
           onPress={handleOpenFearChat}
         >
-          <Text style={styles.chatFearButtonText}>chat about my fear</Text>
+          <Text style={styles.chatFearButtonText}>Chat with Atlas</Text>
         </TouchableOpacity>
 
         {/* Action Buttons */}
@@ -492,7 +492,7 @@ export default function LevelDetailScreen() {
                 style={styles.sendButton}
                 onPress={handleSendMessage}
               >
-                <Text style={styles.sendButtonText}>Send</Text>
+                <Text style={styles.sendButtonText} numberOfLines={1}>Send</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#FFFFFF',
     fontSize: 16,
-    textAlign: 'left',
+    textAlign: 'center',
     lineHeight: 24,
     marginBottom: 12,
   },
@@ -636,15 +636,16 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#FFFFFF',
     fontSize: 16,
-    textAlign: 'left',
+    textAlign: 'center',
     lineHeight: 24,
     marginBottom: 8,
     marginLeft: 0,
-    paddingLeft: 20, // Minimum 20px padding (was 0)
+    paddingLeft: 0, // Remove left padding since text is centered
   },
   dearFaceContainer: {
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 65, // Moved down 65px total (30px + 20px + 15px)
   },
   dearFaceImage: {
     width: width * 0.3, // Made smaller (reduced from 0.39)
@@ -660,6 +661,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
+    marginTop: 30, // Moved down 30px
     alignSelf: 'center',
     minHeight: 44,
   },
@@ -673,7 +675,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     justifyContent: 'space-between',
-    marginTop: 100,
+    marginTop: 50, // Moved up 30px (reduced from 80 to 50)
   },
   didItButton: {
     backgroundColor: '#342846',
@@ -832,7 +834,7 @@ const styles = StyleSheet.create({
   sendButtonText: {
     ...BodyStyle,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16 to ensure text fits on one line
     fontWeight: '600',
   },
   needTimeModalOverlay: {

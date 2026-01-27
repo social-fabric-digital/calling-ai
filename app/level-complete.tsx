@@ -268,7 +268,7 @@ export default function LevelCompleteScreen() {
       points: 'Confidence + 35 Points',
       pointsImage: require('../assets/images/fire.png'),
       skill: 'Your Application Skills',
-      skillImage: require('../assets/images/present.png'),
+      skillImage: require('../assets/images/stars.png'),
     },
     4: {
       badge: 'Goal Achiever Badge',

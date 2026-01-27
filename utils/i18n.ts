@@ -6,6 +6,7 @@ import { initReactI18next } from 'react-i18next';
 const LANGUAGE_STORAGE_KEY = '@selected_language';
 
 // Import translation files
+// Force reload: Updated Ikigai subheadings - 2025
 import en from './translations/en.json';
 import es from './translations/es.json';
 import fr from './translations/fr.json';
@@ -20,8 +21,9 @@ import ar from './translations/ar.json';
 import hi from './translations/hi.json';
 
 // Add more languages as needed - for now, we'll use English as fallback for unsupported languages
+// Cache bust: Force reload translations
 const resources = {
-  en: { translation: en },
+  en: { translation: { ...en } },
   es: { translation: es },
   fr: { translation: fr },
   de: { translation: de },
@@ -36,6 +38,9 @@ const resources = {
 };
 
 // Initialize i18n with default language
+// Debug: Log translation to verify it's loaded correctly
+console.log('Translation loaded - whatDoYouLoveSubtext:', resources.en.translation.onboarding?.whatDoYouLoveSubtext?.substring(0, 50));
+
 i18n
   .use(initReactI18next)
   .init({

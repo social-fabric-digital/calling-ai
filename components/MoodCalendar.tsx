@@ -8,7 +8,7 @@ import {
   MoodEntry,
 } from '@/utils/moodStorage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Brand colors
@@ -35,12 +35,22 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
     setWeekLabel(getWeekLabel(weekStart));
   }, [weekStart]);
   
+  // Initial load on mount
+  useEffect(() => {
+    loadWeekMoods();
+  }, []);
+  
   // Reload moods when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadWeekMoods();
     }, [loadWeekMoods])
   );
+  
+  // Also reload when weekStart changes
+  useEffect(() => {
+    loadWeekMoods();
+  }, [weekStart]);
   
   // Navigate to previous week
   const goToPreviousWeek = () => {

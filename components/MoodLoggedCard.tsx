@@ -1,7 +1,7 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const brandColors = {
   primary: '#342846',
@@ -22,7 +22,11 @@ export function MoodLoggedCard({ emoji, moodText, onUpdatePress }: MoodLoggedCar
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/goal.background.png')}
+      style={styles.container}
+      imageStyle={styles.containerImage}
+    >
       <View style={styles.content}>
         <View style={styles.emojiContainer}>
           <Text style={styles.emoji}>{emoji}</Text>
@@ -41,13 +45,12 @@ export function MoodLoggedCard({ emoji, moodText, onUpdatePress }: MoodLoggedCar
           <Text style={styles.updateButtonText}>Update</Text>
         </Pressable>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 24,
     shadowColor: '#342846',
@@ -56,6 +59,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
+  },
+  containerImage: {
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
   content: {
     flexDirection: 'row',
@@ -86,7 +93,7 @@ const styles = StyleSheet.create({
   title: {
     ...BodyStyle,
     fontSize: 12,
-    color: '#666',
+    color: brandColors.text, // Use brand purple color (#342846)
     marginBottom: 2,
   },
   moodText: {

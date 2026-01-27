@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 const { width } = Dimensions.get('window');
@@ -15,7 +15,7 @@ interface IkigaiSection {
   id: string;
   title: string;
   description: string;
-  emoji: string;
+  icon: any; // Image source
   placeholder: string;
   storageKey: string;
 }
@@ -25,7 +25,7 @@ const ikigaiSections: IkigaiSection[] = [
     id: 'love',
     title: '', // Will be filled from translations
     description: '',
-    emoji: '🤎',
+    icon: require('../assets/images/love.png'),
     placeholder: '',
     storageKey: 'ikigaiWhatYouLove',
   },
@@ -33,7 +33,7 @@ const ikigaiSections: IkigaiSection[] = [
     id: 'good',
     title: '',
     description: '',
-    emoji: '🏆',
+    icon: require('../assets/images/good.png'),
     placeholder: '',
     storageKey: 'ikigaiWhatYouGoodAt',
   },
@@ -41,7 +41,7 @@ const ikigaiSections: IkigaiSection[] = [
     id: 'world',
     title: '',
     description: '',
-    emoji: '🌳',
+    icon: require('../assets/images/world.png'),
     placeholder: '',
     storageKey: 'ikigaiWhatWorldNeeds',
   },
@@ -49,7 +49,7 @@ const ikigaiSections: IkigaiSection[] = [
     id: 'paid',
     title: '',
     description: '',
-    emoji: '💰',
+    icon: require('../assets/images/paid.png'),
     placeholder: '',
     storageKey: 'ikigaiWhatCanBePaidFor',
   },
@@ -248,30 +248,13 @@ export default function IkigaiCompassScreen() {
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => router.back()}
+        activeOpacity={0.7}
       >
-        <Text style={styles.backButtonText}>←</Text>
+        <MaterialIcons name="arrow-back" size={24} color="#342846" />
       </TouchableOpacity>
 
       {/* Title */}
       <Text style={styles.title}>{t('ikigaiCompass.title')}</Text>
-      
-      {/* Progress Circles with Counter - 30px below heading */}
-      <View style={styles.progressWrapper}>
-        <View style={styles.progressContainer}>
-          {translatedSections.map((section, index) => (
-            <View
-              key={section.id}
-              style={[
-                styles.progressCircle,
-                currentPage === index && styles.progressCircleActive,
-              ]}
-            />
-          ))}
-        </View>
-        <Text style={styles.progressText}>
-          {currentPage + 1} {t('ikigaiCompass.outOf')} {translatedSections.length}
-        </Text>
-      </View>
       
       {/* Subtitle */}
       <Text style={styles.subtitle}>
@@ -285,11 +268,22 @@ export default function IkigaiCompassScreen() {
         
         return (
           <View key={section.id} style={styles.sectionContainer}>
-            <View style={styles.sectionCard}>
+            <ImageBackground
+              source={require('../assets/images/goal.background.png')}
+              style={styles.sectionCard}
+              imageStyle={styles.sectionCardImage}
+              resizeMode="cover"
+            >
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionHeaderLeft}>
                   <View style={styles.sectionTitleRow}>
-                    <Text style={styles.sectionEmoji}>{section.emoji}</Text>
+                    <View style={styles.sectionIconContainer}>
+                      <Image 
+                        source={section.icon} 
+                        style={styles.sectionIcon}
+                        resizeMode="contain"
+                      />
+                    </View>
                     <Text style={styles.sectionTitle}>{section.title}</Text>
                   </View>
                   <Text style={styles.sectionDescription}>{section.description}</Text>
@@ -347,7 +341,7 @@ export default function IkigaiCompassScreen() {
                   <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </ImageBackground>
           </View>
         );
       })}
@@ -480,37 +474,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     fontSize: 24,
   },
-  progressWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
-    paddingHorizontal: 20,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  progressCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#D0D0D0',
-    marginHorizontal: 4,
-  },
-  progressCircleActive: {
-    backgroundColor: '#342846',
-    width: 24,
-  },
-  progressText: {
-    ...BodyStyle,
-    color: '#342846',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
   subtitle: {
     ...BodyStyle,
     color: '#342846',
@@ -527,8 +490,11 @@ const styles = StyleSheet.create({
     borderColor: '#342846',
   },
   sectionCard: {
-    backgroundColor: '#ffffff',
     padding: 20,
+    overflow: 'hidden',
+  },
+  sectionCardImage: {
+    borderRadius: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -544,9 +510,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  sectionEmoji: {
-    fontSize: 24,
+  sectionIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 8,
+  },
+  sectionIcon: {
+    width: 24,
+    height: 24,
+    maxWidth: 24,
+    maxHeight: 24,
   },
   sectionTitle: {
     ...HeadingStyle,
@@ -555,7 +530,7 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     ...BodyStyle,
-    color: '#342846',
+    color: '#ffffff',
     fontSize: 14,
     opacity: 0.8,
   },
