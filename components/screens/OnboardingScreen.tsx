@@ -1,17 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function OnboardingScreen({ navigation }: any) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Getting Started</Text>
-        <Text style={styles.subtitle}>Let's set up your profile</Text>
+        <Text style={styles.title}>{tr('Getting Started', 'Начало')}</Text>
+        <Text style={styles.subtitle}>{tr("Let's set up your profile", 'Давай настроим твой профиль')}</Text>
         <TouchableOpacity 
           style={styles.button} 
           onPress={() => {/* Navigation action */}}
         >
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>{tr('Continue', 'Продолжить')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

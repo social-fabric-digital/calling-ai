@@ -1,36 +1,42 @@
 {
   "expo": {
-    "name": "Calling",
-    "slug": "Calling",
-    "version": "1.0.0",
+    "name": "Calling AI",
+    "slug": "calling-app",
+    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "assets/images/calling-logo.png",
     "scheme": "calling",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
+ "ios": {
+  "supportsTablet": true,
+  "bundleIdentifier": "com.socialfactorydigital.calling",
+  "buildNumber": "8",
+  "infoPlist": {
+    "ITSAppUsesNonExemptEncryption": false
+  }
+},
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "assets/images/calling-logo.png",
+        "backgroundImage": "assets/images/calling-logo.png",
+        "monochromeImage": "assets/images/calling-logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "assets/images/calling-logo.png"
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "assets/images/calling-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -38,11 +44,33 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 21
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "supabaseUrl": "https://unyrkyvyngafjubjhkkf.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVueXJreXZ5bmdhZmp1Ympoa2tmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjQ5MjUsImV4cCI6MjA4NTc0MDkyNX0.ZSnPR76qULI3TjOudumVer4Vp_Wa69GlfiT4sfJ9VlM",
+      "router": {},
+      "eas": {
+        "projectId": "8b40653a-d8bf-4e02-87f7-05af2e06abd4"
+      }
     }
   }
 }

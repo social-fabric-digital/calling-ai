@@ -1,0 +1,35 @@
+{
+  "sequence": [
+    "✓ App loaded",
+    "✓ Clicked Start my journey",
+    "✓ Skipped intro",
+    "📍 Current screen: CallingAwaits / Which Direction"
+  ],
+  "screens": [
+    {
+      "step": "Initial load",
+      "text": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧English\n",
+      "fullText": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧English\n",
+      "timestamp": "2026-02-18T01:42:20.727Z"
+    },
+    {
+      "step": "After start",
+      "text": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧EnglishSkipOWN YOUR JOURNEYJoin people building a meaningful and balanced life th",
+      "fullText": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧EnglishSkipOWN YOUR JOURNEYJoin people building a meaningful and balanced life through ikigai wisdom.IKIGAIDISCOVER YOUR IKIGAIFind the intersection of what you love, what you are good at, and what the world needs.Discover personal meaning through gentle and honest reflection.SET MEANINGFUL GOALSTurn your vision into concrete steps aligned with your values.Break big goals into achievable steps and move forward with confidence.TRACK YOUR PROGRESSSee your growth through clear insights and daily check-ins.Spot patterns, celebrate wins, and keep your motivation strong.PERSONALIZED GUIDANCEThe system adapts to your answers and gives personalized insights.Stay connected to your path every day.Next\n",
+      "timestamp": "2026-02-18T01:42:24.364Z"
+    },
+    {
+      "step": "After skip",
+      "text": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧EnglishSkipOWN YOUR JOURNEYJoin people building a meaningful and balanced life th",
+      "fullText": "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.🦋Start my journey→Already have an account? Login🇬🇧EnglishSkipOWN YOUR JOURNEYJoin people building a meaningful and balanced life through ikigai wisdom.IKIGAIDISCOVER YOUR IKIGAIFind the intersection of what you love, what you are good at, and what the world needs.Discover personal meaning through gentle and honest reflection.SET MEANINGFUL GOALSTurn your vision into concrete steps aligned with your values.Break big goals into achievable steps and move forward with confidence.TRACK YOUR PROGRESSSee your growth through clear insights and daily check-ins.Spot patterns, celebrate wins, and keep your motivation strong.PERSONALIZED GUIDANCEThe system adapts to your answers and gives personalized insights.Stay connected to your path every day.NextMEET ATLAS.\nYOUR JOURNEY GUIDEAtlas will stay with you throughout the whole process of finding your calling.ABOUT YOUHelp us personalize your journey.My name isDate of BirthBirth TimeAM▼I don't know my birth timeCity of BirthPLEDGEI, [name], hereby vow to build a life I always wanted to have. I vow from this day forward, for better or worse, to never give up on my dreams and potential.There are a few more questions ahead. Please don't give up on them, every detail matters.React Native WebView does not support this platform.DISCOVERING YOUR\nIKIGAIWhat do you love?This is about joy, not just hobbies. We're looking for activities that make you lose track of time—where effort feels effortless. Be honest; there's no 'right' answer.What are you good at?Skills you've built AND talents that come easily to you both count. Include soft skills like empathy or problem-solving, not just technical abilities.What can you be paid for?This grounds your passion in reality. We're looking for where your skills meet market demand. If you're uncertain, that's okay—we'll suggest paths that help you discover this.What does the world need?This isn't about saving the world—it's about what problems you personally care about solving.Next questionCURRENT LIFE CONTEXTWe need to know where you are to suggest where to go.WHAT BEST DESCRIBES YOUR CURRENT SITUATION?Student exploring optionsEarly in career, feeling stuckMid-career, seeking changeBetween jobs/careersBuilding something newRetired/transitioning to new phaseWHAT'S YOUR BIGGEST CONSTRAINT RIGHT NOW?Time (full-time job/commitments)Money (need stable income)Skills (need to learn new things)Confidence (fear of failure)Clarity (don't know what I want)WHAT MATTERS MOST IN YOUR NEXT CHAPTER? (SELECT UP TO 3)Select up to 3Financial securityCreative expressionHelping othersFlexibility/freedomImpact/legacyLearning & growthConnection/communityRecognitionNextCREATING YOUR CALLING PROFILE...Calculating your astrologyDetermining your numerologyAnalyzing your ikigaiGenerating personalized insightsDiscovering your natural strengths...WHICH DIRECTION CALLS YOU?Choose the direction that truly resonates with you.Best matchVISIONARYDream boldly, act powerfullyPerfect if you're drawn to create something new...ExploreARCHITECTDesign your futureStrong option if your strength is solving problems...ExploreINFLUENCEInspire and changeAligns well with your desire to help others...ExploreCREATE YOUR GOALFormulate as specifically as possibleCREATE YOUR GOALBuild your route with stages you chooseKEY GOALGOAL NAMEWhat do you want to achieve?WHY IS IT IMPORTANTConnect the goal to your inner motivationSTEPSBreak the goal into specific steps1234DEADLINEWhen do you want to achieve this goal?ONE WEEKQuick sprintONE MONTHFocused effortTHREE MONTHSSteady progressSIX MONTHSStrong transformation1+ YEARSLong-term transformationA goal without a plan is just a wish.— Antoine de Saint-ExuperyLock in goalContinue\n",
+      "timestamp": "2026-02-18T01:42:28.146Z"
+    }
+  ],
+  "errors": {
+    "console": [],
+    "page": []
+  },
+  "paywall": null,
+  "accountCreation": null,
+  "finalScreen": "Other: WELCOME TO CALLINGCongratulations on taking one extra step towards your calling.Hi there! I'm Atlas,"
+}

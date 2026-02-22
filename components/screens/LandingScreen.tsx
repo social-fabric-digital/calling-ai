@@ -1,17 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function LandingScreen({ navigation }: any) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to Calling</Text>
-        <Text style={styles.subtitle}>Your journey begins here</Text>
+        <Text style={styles.title}>{tr('Welcome to Calling', 'Добро пожаловать в Предназначение')}</Text>
+        <Text style={styles.subtitle}>{tr('Your path starts here', 'Твой путь начинается здесь')}</Text>
         <TouchableOpacity 
           style={styles.button} 
           onPress={() => {/* Navigation to onboarding */}}
         >
-          <Text style={styles.buttonText}>Get Started</Text>
+          <Text style={styles.buttonText}>{tr('Start', 'Начать')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -1,31 +1,87 @@
-import ClarityMap from '@/components/ClarityMap';
 import { GuideModal, shouldShowGuideOnStartup } from '@/components/GuideModal';
+import HomeWalkthrough, { WalkthroughTargetRect } from '@/components/HomeWalkthrough';
 import { MoodLoggedCard } from '@/components/MoodLoggedCard';
 import { MoodSelector } from '@/components/MoodSelector';
+import AtlasChat from '@/components/screens/ChatScreen';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { trackReflectionEvent } from '@/utils/appTracking';
 import { ChatMessage } from '@/utils/claudeApi';
+import { getCachedAstrologyReport, getSunSign, getPersonalizedDailyInsight } from '@/utils/astrologyCache';
 import { getTodaysMood, MoodEntry } from '@/utils/moodStorage';
+import { isPremium as hasSubscriptionAccess } from '@/utils/subscription';
+import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, KeyboardAvoidingView, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
 const QUESTION_DAY_KEY = '@question_day';
 const LAST_QUESTION_DATE_KEY = '@last_question_date';
+const HOME_WALKTHROUGH_DONE_KEY = '@home_walkthrough_done';
+const JUST_FINISHED_ONBOARDING_KEY = '@just_finished_onboarding';
 
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
   
   // Get translated questions from i18n
   const QUESTION_BANK = useMemo(() => {
     return t('home.questions', { returnObjects: true }) as string[];
   }, [t, i18n.language]);
+  const walkthroughSteps = useMemo(
+    () => [
+      {
+        key: 'cosmicInsight',
+        title: isRussian ? 'ИНСАЙТ НА СЕГОДНЯ' : "TODAY'S INSIGHT",
+        description: isRussian ? 'Ежедневная подсказка для фокуса.' : 'Daily guidance for focus.',
+      },
+      {
+        key: 'clarityMap',
+        title: isRussian ? 'КАРТА ЯСНОСТИ' : 'CLARITY MAP',
+        description: isRussian ? 'Разбери мысли за 3 минуты.' : 'Sort your thoughts in 3 minutes.',
+      },
+      {
+        key: 'progress',
+        title: isRussian ? 'ПРОГРЕСС' : 'PROGRESS',
+        description: isRussian ? 'Смотри свои серии и импульс.' : 'See your streak and momentum.',
+      },
+      {
+        key: 'ikigai',
+        title: isRussian ? 'КОМПАС ИКИГАЙ' : 'IKIGAI COMPASS',
+        description: isRussian ? 'Вернись к своему предназначению.' : 'Reconnect with your purpose.',
+      },
+      {
+        key: 'atlas',
+        title: isRussian ? 'ЧАТ С АТЛАСОМ' : 'CHAT WITH ATLAS',
+        description: isRussian ? 'Быстро разберись со стрессом.' : 'Get quick help with stress.',
+      },
+    ],
+    [isRussian]
+  );
+  
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [moodSelected, setMoodSelected] = useState<string | null>(null);
+  const [dailyAnswer, setDailyAnswer] = useState('');
+  const [userName, setUserName] = useState<string>('');
+  const [goalTitle, setGoalTitle] = useState<string>('');
+  const [goalStepLabel, setGoalStepLabel] = useState<string>('');
+  const [goalStepNumber, setGoalStepNumber] = useState<number | undefined>(undefined);
+  const [totalGoalSteps, setTotalGoalSteps] = useState<number | undefined>(undefined);
+  const [answerCaptured, setAnswerCaptured] = useState(false);
+  const [showEnvelope, setShowEnvelope] = useState(false);
+  const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
+  const [questionDay, setQuestionDay] = useState<number>(1);
+  const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
   
   // Debug: Log current language and force re-render on language change
   useEffect(() => {
@@ -39,17 +95,6 @@ export default function HomeScreen() {
       setCurrentQuestion(QUESTION_BANK[questionIndex]);
     }
   }, [QUESTION_BANK, questionDay]);
-  
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const [moodSelected, setMoodSelected] = useState<string | null>(null);
-  const [dailyAnswer, setDailyAnswer] = useState('');
-  const [userName, setUserName] = useState<string>('');
-  const [answerCaptured, setAnswerCaptured] = useState(false);
-  const [showEnvelope, setShowEnvelope] = useState(false);
-  const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
-  const [questionDay, setQuestionDay] = useState<number>(1);
   const scaleAnim = useState(new Animated.Value(1))[0];
   
   // Radiating effect state
@@ -80,14 +125,57 @@ export default function HomeScreen() {
   // Mood tracking state
   const [todaysMood, setTodaysMood] = useState<MoodEntry | null>(null);
   const [showMoodSelector, setShowMoodSelector] = useState(false);
+  const [isSliderInteracting, setIsSliderInteracting] = useState(false);
+  const [headerContentHeight, setHeaderContentHeight] = useState(0);
   
   // Guide modal state
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showHomeWalkthrough, setShowHomeWalkthrough] = useState(false);
+  const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
+  const [walkthroughTargetRect, setWalkthroughTargetRect] = useState<WalkthroughTargetRect | null>(null);
+
+  const cosmicInsightRef = useRef<View>(null);
+  const clarityMapRef = useRef<View>(null);
+  const progressRef = useRef<View>(null);
+  const ikigaiRef = useRef<View>(null);
+  const atlasRef = useRef<View>(null);
+  const homeScrollRef = useRef<ScrollView>(null);
   
   const queueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showClarityMap, setShowClarityMap] = useState(false);
+  const queueStartTimeRef = useRef<number | null>(null);
+  const insightRequestIdRef = useRef(0);
   const [showAtlasChat, setShowAtlasChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ type: 'atlas' | 'user'; text: string }>>([]);
+  
+  // Animated values for rectangle button press effects
+  const cosmicInsightScale = useRef(new Animated.Value(1)).current;
+  const clarityMapScale = useRef(new Animated.Value(1)).current;
+  const progressScale = useRef(new Animated.Value(1)).current;
+  const ikigaiScale = useRef(new Animated.Value(1)).current;
+  
+  // Keyboard-like press animation function
+  const handleRectanglePress = (scaleAnim: Animated.Value, callback: () => void) => {
+    // Dip down animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95, // Dip down 5%
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      // Bounce back up with spring
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 300,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    // Execute the callback after a short delay
+    setTimeout(() => {
+      callback();
+    }, 150);
+  };
+  const [chatMessages, setChatMessages] = useState<Array<{ type: 'atlas' | 'user'; text: string; timestamp?: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [birthMonth, setBirthMonth] = useState<string>('');
@@ -97,6 +185,11 @@ export default function HomeScreen() {
   const [birthHour, setBirthHour] = useState<string>('');
   const [birthMinute, setBirthMinute] = useState<string>('');
   const [birthPeriod, setBirthPeriod] = useState<string>('');
+  const [birthLatitude, setBirthLatitude] = useState<string>('');
+  const [birthLongitude, setBirthLongitude] = useState<string>('');
+  const [birthTimezone, setBirthTimezone] = useState<string>('');
+  const [currentTimezone, setCurrentTimezone] = useState<string>('');
+  const [insightProfileMessage, setInsightProfileMessage] = useState<string>('');
   
   // Space animation refs
   const starAnimations = useRef(
@@ -190,6 +283,7 @@ export default function HomeScreen() {
   
   // Debounce timer for detecting when user finishes typing
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedDailyQuestionLayoutRef = useRef(false);
 
   // Load user name, question day, and check if answer was captured today
   useEffect(() => {
@@ -201,6 +295,33 @@ export default function HomeScreen() {
           setUserName(name);
         }
         
+        // Load active goal title
+        const goalsData = await AsyncStorage.getItem('userGoals');
+        if (goalsData) {
+          const goals = JSON.parse(goalsData);
+          const activeGoal = goals.find((g: any) => g.isActive === true);
+          if (activeGoal) {
+            setGoalTitle(activeGoal.name);
+            const steps = Array.isArray(activeGoal.steps) ? activeGoal.steps : [];
+            const totalSteps = steps.length > 0 ? Math.min(steps.length, 4) : 4;
+            const stepIndex =
+              typeof activeGoal.currentStepIndex === 'number' ? activeGoal.currentStepIndex : -1;
+            const isCompleted = stepIndex >= totalSteps - 1;
+            const currentStepNumber = isCompleted
+              ? totalSteps
+              : Math.min(Math.max(stepIndex + 2, 1), totalSteps);
+
+            setTotalGoalSteps(totalSteps);
+            setGoalStepNumber(currentStepNumber);
+
+            const stepName =
+              steps[currentStepNumber - 1]?.name || steps[currentStepNumber - 1]?.text || '';
+            if (stepName) {
+              setGoalStepLabel(stepName);
+            }
+          }
+        }
+        
         // Load birth date information
         const month = await AsyncStorage.getItem('birthMonth');
         const date = await AsyncStorage.getItem('birthDate');
@@ -209,6 +330,11 @@ export default function HomeScreen() {
         const hour = await AsyncStorage.getItem('birthHour');
         const minute = await AsyncStorage.getItem('birthMinute');
         const period = await AsyncStorage.getItem('birthPeriod');
+        const latitude = await AsyncStorage.getItem('birthLatitude');
+        const longitude = await AsyncStorage.getItem('birthLongitude');
+        const storedBirthTimezone = await AsyncStorage.getItem('birthTimezone');
+        const storedCurrentTimezone = await AsyncStorage.getItem('currentTimezone');
+        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
         
         if (month) setBirthMonth(month);
         if (date) setBirthDate(date);
@@ -217,6 +343,14 @@ export default function HomeScreen() {
         if (hour) setBirthHour(hour);
         if (minute) setBirthMinute(minute);
         if (period) setBirthPeriod(period);
+        if (latitude) setBirthLatitude(latitude);
+        if (longitude) setBirthLongitude(longitude);
+        if (storedBirthTimezone) setBirthTimezone(storedBirthTimezone);
+        const effectiveCurrentTimezone = storedCurrentTimezone || deviceTimezone;
+        if (effectiveCurrentTimezone) {
+          setCurrentTimezone(effectiveCurrentTimezone);
+          await AsyncStorage.setItem('currentTimezone', effectiveCurrentTimezone);
+        }
         
         // Load question day and last question date
         const storedDay = await AsyncStorage.getItem(QUESTION_DAY_KEY);
@@ -241,29 +375,17 @@ export default function HomeScreen() {
         const questionIndex = currentDay - 1;
         setCurrentQuestion(QUESTION_BANK[questionIndex]);
         
-        // TEMPORARY: Always show question/field for testing
-        // Check if answer was captured today
+        // Check if answer was already captured today and persist hidden state.
         const lastAnswerDate = await AsyncStorage.getItem('lastAnswerDate');
-        
-        // For testing: always show the question and field
-        // Comment out the lines below to restore daily hiding behavior
-        setAnswerCapturedToday(false);
-        setAnswerCaptured(false);
-        setShowEnvelope(false);
-        
-        /* Uncomment below to restore daily hiding behavior
         if (lastAnswerDate === today) {
-          // Answer was already captured today, hide question and field completely
           setAnswerCapturedToday(true);
           setAnswerCaptured(true);
-          // Don't show envelope animation if already answered today
+          setShowEnvelope(false);
         } else {
-          // New day, reset the answer state
           setAnswerCapturedToday(false);
           setAnswerCaptured(false);
           setShowEnvelope(false);
         }
-        */
       } catch (error) {
         console.error('Error loading user data:', error);
       }
@@ -305,19 +427,72 @@ export default function HomeScreen() {
     setShowMoodSelector(true);
   };
 
-  // Check if guide should be shown on startup
+  // Check if guide should be shown on startup (only once, initially)
   useEffect(() => {
     const checkGuide = async () => {
-      const shouldShow = await shouldShowGuideOnStartup();
-      if (shouldShow) {
-        // Delay slightly so the home screen loads first
-        setTimeout(() => {
-          setShowGuideModal(true);
-        }, 500);
+      try {
+        const justFinishedOnboarding = await AsyncStorage.getItem(JUST_FINISHED_ONBOARDING_KEY);
+        if (justFinishedOnboarding === 'true') {
+          return;
+        }
+
+        // Check if guide has been shown before
+        const guideShownBefore = await AsyncStorage.getItem('@guide_shown_before');
+        const shouldShow = await shouldShowGuideOnStartup();
+        
+        // Only show if it hasn't been shown before AND user hasn't dismissed it
+        if (!guideShownBefore && shouldShow) {
+          // Delay slightly so the home screen loads first
+          setTimeout(() => {
+            setShowGuideModal(true);
+            // Mark that guide has been shown
+            AsyncStorage.setItem('@guide_shown_before', 'true');
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error checking guide:', error);
       }
     };
     checkGuide();
   }, []);
+
+  // Show guided walkthrough after onboarding completion
+  useEffect(() => {
+    const checkHomeWalkthrough = async () => {
+      try {
+        const [justFinishedOnboarding, walkthroughDone] = await AsyncStorage.multiGet([
+          JUST_FINISHED_ONBOARDING_KEY,
+          HOME_WALKTHROUGH_DONE_KEY,
+        ]);
+
+        const justFinished = justFinishedOnboarding[1] === 'true';
+        const done = walkthroughDone[1] === 'true';
+
+        if (justFinished && done) {
+          await AsyncStorage.removeItem(JUST_FINISHED_ONBOARDING_KEY);
+          return;
+        }
+
+        if (justFinished && !done) {
+          setTimeout(() => {
+            setWalkthroughStepIndex(0);
+            setShowHomeWalkthrough(true);
+          }, 700);
+        }
+      } catch (error) {
+        console.error('Error checking home walkthrough:', error);
+      }
+    };
+    checkHomeWalkthrough();
+  }, []);
+
+  // Re-measure highlight target whenever walkthrough step changes
+  useEffect(() => {
+    if (!showHomeWalkthrough) return;
+    const step = walkthroughSteps[walkthroughStepIndex];
+    if (!step) return;
+    measureWalkthroughTarget(step.key);
+  }, [showHomeWalkthrough, walkthroughStepIndex, walkthroughSteps, headerContentHeight]);
 
   // Debug: Log when astrology report state changes
   useEffect(() => {
@@ -538,6 +713,23 @@ export default function HomeScreen() {
     };
   }, []);
 
+  // Smoothly animate layout when daily question/envelope state changes.
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasMountedDailyQuestionLayoutRef.current) {
+      hasMountedDailyQuestionLayoutRef.current = true;
+      return;
+    }
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(280, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
+    );
+  }, [showEnvelope, answerCapturedToday]);
+
   // Handle answer input change with debounce
   const handleAnswerChange = (text: string) => {
     setDailyAnswer(text);
@@ -607,6 +799,38 @@ export default function HomeScreen() {
       }
       
       await AsyncStorage.setItem('userAnswers', JSON.stringify(answers));
+      await trackReflectionEvent('weekly_question_answered', { dedupeByDay: true });
+      
+      // Save to Supabase
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const todayISO = new Date().toISOString().split('T')[0];
+          // Check if there's already an entry for today
+          const { data: existing } = await supabase
+            .from('daily_answers')
+            .select('id')
+            .eq('user_id', user.id)
+            .gte('created_at', todayISO + 'T00:00:00')
+            .lt('created_at', todayISO + 'T23:59:59')
+            .maybeSingle();
+          
+          if (existing) {
+            await supabase.from('daily_answers').update({
+              question_text: questionText,
+              answer_text: dailyAnswer,
+            }).eq('id', existing.id);
+          } else {
+            await supabase.from('daily_answers').insert({
+              user_id: user.id,
+              question_text: questionText,
+              answer_text: dailyAnswer,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Supabase daily answer save error:', err);
+      }
       
       // Update streak and check for badges
       await updateStreakAndBadges();
@@ -681,12 +905,13 @@ export default function HomeScreen() {
     try {
       if (!text || typeof text !== 'string') {
         console.error('formatReportText: Invalid text input', text);
-        return <Text style={styles.reportBodyText}>No report available.</Text>;
+        return <Text style={styles.reportBodyText}>{tr('Report unavailable.', 'Отчет недоступен.')}</Text>;
       }
 
-      const lines = text.split('\n');
-      const formattedElements: React.ReactNode[] = [];
-      
+      // Remove all asterisks from the text
+      const cleanedText = text.replace(/\*\*/g, '').replace(/\*/g, '');
+      const lines = cleanedText.split('\n');
+
       let todayDateStr = '';
       try {
         const today = new Date();
@@ -706,83 +931,268 @@ export default function HomeScreen() {
         });
       }
 
-      let dateAdded = false;
+      let detectedDate: string | null = null;
+      const sections: Array<{ heading: string; paragraphs: string[] }> = [];
+      let currentSection: { heading: string; paragraphs: string[] } = { heading: '', paragraphs: [] };
+
+      const pushCurrentSection = () => {
+        const hasContent = currentSection.heading || currentSection.paragraphs.some((p) => p.trim());
+        if (hasContent) {
+          sections.push({
+            heading: currentSection.heading || tr('Insight', 'Инсайт'),
+            paragraphs: currentSection.paragraphs,
+          });
+        }
+        currentSection = { heading: '', paragraphs: [] };
+      };
+
+      const sectionHeadingPairs = [
+        { en: 'your cosmic shield for today', ru: 'твой космический щит на сегодня' },
+        { en: 'what the universe wants you to know', ru: 'что вселенная хочет, чтобы ты знал(а)' },
+        { en: 'what the universe wants you to know', ru: 'что вселенная хочет, чтобы ты знал' },
+        { en: 'your protected windows', ru: 'твои защищённые окна' },
+        { en: 'your protected windows', ru: 'твои защищенные окна' },
+        { en: "tonight's gentle landing", ru: 'мягкое завершение вечера' },
+        { en: 'your anchor for today', ru: 'твой якорь на сегодня' },
+      ];
+
+      const normalizeSectionKey = (value: string) =>
+        value
+          .toLowerCase()
+          .replace(/\*\*/g, '')
+          .replace(/[#:.,!?()[\]{}"'`]/g, ' ')
+          .replace(/[—–-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/ё/g, 'е')
+          .trim();
+
+      const findSectionHeading = (line: string) => {
+        const normalizedLine = normalizeSectionKey(line);
+        return sectionHeadingPairs.find(
+          ({ en, ru }) => {
+            const enKey = normalizeSectionKey(en);
+            const ruKey = normalizeSectionKey(ru);
+            return (
+              normalizedLine === enKey ||
+              normalizedLine.startsWith(enKey) ||
+              normalizedLine.includes(enKey) ||
+              normalizedLine === ruKey ||
+              normalizedLine.startsWith(ruKey) ||
+              normalizedLine.includes(ruKey)
+            );
+          }
+        );
+      };
+
+      // Helper function to check if a line is a section heading
+      const isSectionHeading = (line: string): boolean => Boolean(findSectionHeading(line));
+
+      const getLocalizedSectionHeading = (heading: string): string => {
+        const normalized = normalizeSectionKey(heading);
+        if (normalized.includes('cosmic shield') || normalized.includes('космический щит')) {
+          return tr('Your Cosmic Shield for Today', 'Твой Космический Щит на Сегодня');
+        }
+        if (normalized.includes('universe wants') || normalized.includes('вселенная')) {
+          return tr('What the Universe Wants You to Know', 'Что Вселенная Хочет, Чтобы Ты Знал(а)');
+        }
+        if (normalized.includes('protected windows') || normalized.includes('защищ')) {
+          return tr('Your Protected Windows', 'Твои Защищённые Окна');
+        }
+        if (normalized.includes('gentle landing') || normalized.includes('завершение вечера')) {
+          return tr("Tonight's Gentle Landing", 'Мягкое Завершение Вечера');
+        }
+        if (normalized.includes('anchor') || normalized.includes('якорь')) {
+          return tr('Your Anchor for Today', 'Твой Якорь на Сегодня');
+        }
+        return heading;
+      };
       
+      // Helper function to check if a line is the main title
+      const isMainTitle = (line: string): boolean => {
+        const normalizedLine = line.trim().toLowerCase();
+        return normalizedLine.includes(tr('cosmic weather for today', 'космическая погода на сегодня'));
+      };
+
+      const getSectionEmoji = (heading: string) => {
+        const normalized = normalizeSectionKey(heading);
+        if (normalized.includes('shield') || normalized.includes('щит')) return '🛡️';
+        if (normalized.includes('universe wants') || normalized.includes('вселенная')) return '⚠️';
+        if (normalized.includes('protected windows') || normalized.includes('защищенные окна')) return '⏰';
+        if (normalized.includes('gentle landing') || normalized.includes('завершение вечера')) return '🌙';
+        if (normalized.includes('anchor') || normalized.includes('якорь')) return '🧘';
+        return '✨';
+      };
+
+      const shouldHideSection = (): boolean => false;
+
+      const extractTimeReference = (paragraph: string): { time: string | null; text: string } => {
+        const rangeRegex = /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\s*[-–]\s*\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i;
+        const singleRegex = /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i;
+
+        const match = paragraph.match(rangeRegex) || paragraph.match(singleRegex);
+        if (!match || match.index === undefined) {
+          return { time: null, text: paragraph };
+        }
+
+        const start = match.index;
+        const end = start + match[0].length;
+        const cleaned = `${paragraph.slice(0, start)} ${paragraph.slice(end)}`
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/^[-:–]\s*/, '');
+
+        return { time: match[0].toUpperCase(), text: cleaned };
+      };
+
+      const splitIntoSentences = (value: string): string[] =>
+        value
+          .split(/(?<=[.!?])\s+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+      const hasAstroJargon = (sentence: string): boolean =>
+        /\b(saturn|jupiter|mars|venus|mercury|pluto|uranus|neptune|transit|retrograde|aspect|conjunction|opposition|trine|sextile|natal|moon in|sun in|rising sign|ascendant|house\b|planetary|waxing moon|waning moon|growing moon)\b/i.test(
+          sentence
+        );
+
+      // Enforce direct, practical copy in the UI even if model output is verbose.
+      const sanitizeReportParagraph = (paragraph: string): string => {
+        const sentences = splitIntoSentences(paragraph);
+        if (sentences.length === 0) return paragraph.trim();
+
+        const practicalSentences = sentences.filter((s) => !hasAstroJargon(s));
+        const trimmed = practicalSentences.slice(0, 2);
+
+        if (trimmed.length === 0) {
+          return tr(
+            'Focus on one clear priority today and keep your communication simple.',
+            'Сфокусируйся сегодня на одном четком приоритете и говори проще.'
+          );
+        }
+
+        return trimmed.join(' ').replace(/\s+/g, ' ').trim();
+      };
+
       lines.forEach((line, index) => {
         try {
           const trimmedLine = line.trim();
-          
-          // Skip empty lines
+
+          // Keep paragraph spacing inside the current section
           if (!trimmedLine) {
-            formattedElements.push(<Text key={`space-${index}`}>{'\n'}</Text>);
-            return;
-          }
-          
-          // Check if this is the date heading (first line or contains today's date)
-          if (!dateAdded && (index === 0 || (todayDateStr && trimmedLine.includes(todayDateStr)) || trimmedLine.match(/^\w+day, \w+ \d+, \d{4}$/))) {
-            formattedElements.push(
-              <Text key={`date-${index}`} style={styles.reportDateHeading}>
-                {todayDateStr && trimmedLine.includes(todayDateStr) ? trimmedLine : todayDateStr}
-              </Text>
-            );
-            dateAdded = true;
-            return;
-          }
-          
-          // Check if this is a section heading (handle markdown ** or plain text)
-          const headingMatch = trimmedLine.match(/^\*\*(.+?)\*\*$/) || 
-                              trimmedLine.match(/^(.+?)$/);
-          
-          if (headingMatch) {
-            const headingText = headingMatch[1]?.trim() || '';
-            if (headingText === 'What to Focus On Today' || 
-                headingText === 'What to Be Cautious Of' || 
-                headingText === 'Daily Tips' ||
-                headingText.startsWith('What to Focus On Today') ||
-                headingText.startsWith('What to Be Cautious Of') ||
-                headingText.startsWith('Daily Tips')) {
-              const cleanHeading = headingText.split(':')[0].trim();
-              formattedElements.push(
-                <Text key={`heading-${index}`} style={styles.reportSectionHeading}>
-                  {cleanHeading}
-                </Text>
-              );
-              return;
+            if (currentSection.paragraphs.length > 0 && currentSection.paragraphs[currentSection.paragraphs.length - 1] !== '') {
+              currentSection.paragraphs.push('');
             }
+            return;
           }
-          
+
+          // Remove the top "Today's cosmic weather..." title entirely
+          if (isMainTitle(trimmedLine)) {
+            return;
+          }
+
+          // Capture date line if present
+          if (!detectedDate && (index === 0 || (todayDateStr && trimmedLine.includes(todayDateStr)) || trimmedLine.match(/^\w+day, \w+ \d+, \d{4}$/))) {
+            detectedDate = todayDateStr && trimmedLine.includes(todayDateStr) ? trimmedLine : todayDateStr;
+            return;
+          }
+
+          // Check if this is a section heading
+          if (isSectionHeading(trimmedLine)) {
+            pushCurrentSection();
+            currentSection.heading = trimmedLine.split(':')[0].trim();
+            return;
+          }
+
           // Regular text
-          formattedElements.push(
-            <Text key={`text-${index}`} style={styles.reportBodyText}>
-              {trimmedLine}
-              {'\n'}
-            </Text>
-          );
+          const cleanText = trimmedLine.replace(/\*\*/g, '').replace(/\*/g, '');
+
+          if (!currentSection.heading && sections.length === 0) {
+            currentSection.heading = tr('Insight', 'Инсайт');
+          }
+          currentSection.paragraphs.push(cleanText);
         } catch (lineError) {
           console.error(`Error processing line ${index}:`, lineError);
           // Skip problematic lines
         }
       });
 
-      // If no date heading was found, add it at the top
-      if (!dateAdded && todayDateStr) {
-        formattedElements.unshift(
-          <Text key="date-top" style={styles.reportDateHeading}>
-            {todayDateStr}
-          </Text>
-        );
+      pushCurrentSection();
+
+      if (!detectedDate && todayDateStr) {
+        detectedDate = todayDateStr;
       }
 
-      return formattedElements.length > 0 ? formattedElements : <Text style={styles.reportBodyText}>No report available.</Text>;
+      const summaryLine = tr(
+        'In short: today is best for focused and mindful action.',
+        'Коротко: сегодня тебе лучше всего подойдет сфокусированное и осознанное действие.'
+      );
+
+      return (
+        <View>
+          {detectedDate ? (
+            <Text style={styles.reportDateHeading}>{detectedDate}</Text>
+          ) : null}
+
+          <Text style={styles.reportSummaryLine}>{summaryLine}</Text>
+
+          {sections.length > 0 ? (
+            sections
+              .filter((section) => !shouldHideSection(section.heading))
+              .map((section, sectionIndex) => (
+              <View key={`section-${sectionIndex}`} style={styles.reportSectionCard}>
+                <View style={styles.reportSectionHeaderRow}>
+                  <Text style={styles.reportSectionEmoji}>{getSectionEmoji(section.heading)}</Text>
+                  <Text style={styles.reportSectionHeading}>{getLocalizedSectionHeading(section.heading)}</Text>
+                </View>
+
+                <View style={styles.reportSectionBody}>
+                  {section.paragraphs.map((paragraph, paragraphIndex) => {
+                    if (!paragraph.trim()) {
+                      return <View key={`space-${sectionIndex}-${paragraphIndex}`} style={styles.reportParagraphSpacer} />;
+                    }
+
+                    const { time, text: paragraphText } = extractTimeReference(paragraph);
+                    const cleanedParagraph = sanitizeReportParagraph(paragraphText);
+                    const normalizedHeading = normalizeSectionKey(section.heading);
+                    const isProtectedWindowsSection =
+                      normalizedHeading.includes('protected windows') ||
+                      normalizedHeading.includes('защищ');
+                    const finalParagraph = isProtectedWindowsSection
+                      ? cleanedParagraph.replace(/[()]/g, '').replace(/\s{2,}/g, ' ').trim()
+                      : cleanedParagraph;
+                    return (
+                      <View key={`p-${sectionIndex}-${paragraphIndex}`} style={styles.reportParagraphBlock}>
+                        {time ? <Text style={styles.reportTimeBadge}>{time}</Text> : null}
+                        {finalParagraph ? <Text style={styles.reportBodyText}>{finalParagraph}</Text> : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+              ))
+          ) : (
+            <Text style={styles.reportBodyText}>{tr('Report unavailable.', 'Отчет недоступен.')}</Text>
+          )}
+        </View>
+      );
     } catch (error) {
       console.error('Error in formatReportText:', error);
-      return <Text style={styles.reportBodyText}>Error displaying report. Please try again.</Text>;
+      return <Text style={styles.reportBodyText}>{tr('Error displaying report. Please try again.', 'Ошибка отображения отчета. Попробуй еще раз.')}</Text>;
+    }
+  };
+
+  const handleClarityMapPress = async () => {
+    try {
+      router.push('/clarity-map');
+    } catch (error) {
+      console.error('Error accessing clarity map:', error);
     }
   };
 
   // Handle Cosmic Insight click
   const handleCosmicInsightClick = async () => {
     try {
+      const requestId = ++insightRequestIdRef.current;
       // Get today's date for cache key
       const today = new Date();
       const todayKey = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
@@ -801,128 +1211,301 @@ export default function HomeScreen() {
         period: birthPeriod,
       });
       
-      if (!birthMonth || !birthDate || !birthYear) {
-        alert(t('home.birthDateMissing'));
-        return;
-      }
-      
       setShowAstrologyModal(true);
       setIsLoadingReport(true);
       setAstrologyReport('');
+      setInsightProfileMessage('');
       setQueueSkipped(false);
-      
-      // Check for cached report first
-      try {
-        const cachedReport = await AsyncStorage.getItem(cacheKey);
-        if (cachedReport) {
-          console.log('✅ Found cached report for today!');
-          console.log('📄 Cached report length:', cachedReport.length);
-          setIsLoadingReport(false);
-          setAstrologyReport(cachedReport);
-          return;
-        } else {
-          console.log('❌ No cached report found. Will generate new report.');
-        }
-      } catch (error) {
-        console.error('Error checking cache:', error);
-        setIsLoadingReport(false);
-        setAstrologyReport('Error loading cached report. Please try again.');
+      await trackReflectionEvent('cosmic_insight_opened');
+
+      if (!birthMonth || !birthDate || !birthYear) {
+        setInsightProfileMessage(
+          tr(
+            'Complete your profile for personalized insights (About You step). Showing a supportive insight for today.',
+            'Заполни профиль для персонализированных инсайтов (шаг «О тебе»). Пока показываем поддерживающий инсайт на сегодня.'
+          )
+        );
       }
+      
+      // Note: Caching is now handled inside getPersonalizedDailyInsight()
+      // The personalized function uses its own cache key based on birth data
       
       // Clear any existing timer
       if (queueTimerRef.current) {
         clearTimeout(queueTimerRef.current);
         queueTimerRef.current = null;
       }
+
+      const userIsPremium = await (async () => {
+        // Treat active free-trial users as premium access for insight queue skipping.
+        const [superwallAccess, subscriptionAccess] = await Promise.all([
+          checkSubscriptionStatus(),
+          hasSubscriptionAccess(),
+        ]);
+        return superwallAccess || subscriptionAccess;
+      })();
+
+      if (userIsPremium) {
+        setQueueSkipped(true);
+        await generateReport(cacheKey, null, requestId);
+        return;
+      }
+
+      // For free users: Start generating immediately but ensure loading shows for exactly 30 seconds
+      const startTime = Date.now();
+      queueStartTimeRef.current = startTime;
       
-      // Start 30 second queue timer
-      queueTimerRef.current = setTimeout(async () => {
-        try {
-          if (!queueSkipped) {
-            await generateReport(cacheKey);
-          }
-        } catch (error) {
-          console.error('Error in queue timer:', error);
-          setIsLoadingReport(false);
-          setAstrologyReport('Error generating report. Please try again.');
-        }
-      }, 30000);
+      // Start generating the report immediately (don't wait)
+      generateReport(cacheKey, startTime, requestId).catch((error) => {
+        console.error('Error generating report:', error);
+        setIsLoadingReport(false);
+        setAstrologyReport(tr('Failed to generate report. Please try again.', 'Не удалось создать отчет. Попробуй еще раз.'));
+      });
     } catch (error) {
       console.error('Error in handleCosmicInsightClick:', error);
       setIsLoadingReport(false);
       setShowAstrologyModal(false);
-      alert('An error occurred. Please try again.');
+      alert(tr('Something went wrong. Please try again.', 'Произошла ошибка. Попробуй еще раз.'));
     }
   };
 
   // Generate report function
-  const generateReport = async (cacheKey: string) => {
+  const generateReport = async (_cacheKey: string, startTime: number | null, requestId: number) => {
     try {
-      console.log('🔮 Generating NEW astrology report...');
-      console.log('📤 Sending birth data to Claude:', {
-        month: birthMonth,
-        date: birthDate,
-        year: birthYear,
-        city: birthCity || 'not provided',
-        hour: birthHour || 'not provided',
-        minute: birthMinute || 'not provided',
-        period: birthPeriod || 'not provided',
-      });
+      const isStaleRequest = () => requestId !== insightRequestIdRef.current;
+      let report: string | null = null;
+
+      const [
+        ikigaiWhatYouLove,
+        ikigaiWhatYouGoodAt,
+        ikigaiWhatWorldNeeds,
+        ikigaiWhatCanBePaidFor,
+        lifeContextSituation,
+        lifeContextConstraint,
+        lifeContextMatters,
+        userGoalsRaw,
+      ] = await Promise.all([
+        AsyncStorage.getItem('ikigaiWhatYouLove'),
+        AsyncStorage.getItem('ikigaiWhatYouGoodAt'),
+        AsyncStorage.getItem('ikigaiWhatWorldNeeds'),
+        AsyncStorage.getItem('ikigaiWhatCanBePaidFor'),
+        AsyncStorage.getItem('lifeContextSituation'),
+        AsyncStorage.getItem('lifeContextConstraint'),
+        AsyncStorage.getItem('lifeContextMatters'),
+        AsyncStorage.getItem('userGoals'),
+      ]);
+
+      let whatMattersMost: string[] = [];
+      if (lifeContextMatters) {
+        try {
+          whatMattersMost = JSON.parse(lifeContextMatters);
+        } catch (e) {
+          console.warn('Failed to parse lifeContextMatters:', e);
+        }
+      }
+
+      let goals: Array<{ title: string }> = [];
+      if (userGoalsRaw) {
+        try {
+          const parsedGoals = JSON.parse(userGoalsRaw) as Array<{ name?: string; title?: string; isActive?: boolean }>;
+          goals = (Array.isArray(parsedGoals) ? parsedGoals : [])
+            .filter((goal) => goal.isActive !== false)
+            .map((goal) => ({ title: goal.title || goal.name || '' }))
+            .filter((goal) => goal.title.trim().length > 0);
+        } catch (error) {
+          console.warn('Failed to parse goals from storage:', error);
+        }
+      }
+
+      const parsedLat = Number.parseFloat(birthLatitude || '');
+      const parsedLon = Number.parseFloat(birthLongitude || '');
+
+      const insightParams = {
+        userName: userName || undefined,
+        birthMonth: birthMonth || '',
+        birthDate: birthDate || '',
+        birthYear: birthYear || '',
+        birthCity: birthCity || undefined,
+        birthHour: birthHour || undefined,
+        birthMinute: birthMinute || undefined,
+        birthPeriod: birthPeriod || undefined,
+        birthLatitude: Number.isFinite(parsedLat) ? parsedLat : undefined,
+        birthLongitude: Number.isFinite(parsedLon) ? parsedLon : undefined,
+        birthTimezone: birthTimezone || undefined,
+        currentTimezone: currentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
+        goals,
+        ikigaiData: (ikigaiWhatYouLove || ikigaiWhatYouGoodAt || ikigaiWhatWorldNeeds || ikigaiWhatCanBePaidFor)
+          ? {
+              whatYouLove: ikigaiWhatYouLove || undefined,
+              whatYouGoodAt: ikigaiWhatYouGoodAt || undefined,
+              whatWorldNeeds: ikigaiWhatWorldNeeds || undefined,
+              whatCanBePaidFor: ikigaiWhatCanBePaidFor || undefined,
+            }
+          : undefined,
+        lifeContext: (lifeContextSituation || lifeContextConstraint || whatMattersMost.length > 0)
+          ? {
+              currentSituation: lifeContextSituation || undefined,
+              biggestConstraint: lifeContextConstraint || undefined,
+              whatMattersMost: whatMattersMost.length > 0 ? whatMattersMost : undefined,
+            }
+          : undefined,
+      };
+
+      if (startTime !== null) {
+        const elapsedBeforeCall = Date.now() - startTime;
+        const remainingBudget = Math.max(0, 30000 - elapsedBeforeCall);
+        const personalizedPromise = getPersonalizedDailyInsight(insightParams);
+
+        const raceResult = await Promise.race<
+          { type: 'report'; value: string } | { type: 'timeout' }
+        >([
+          personalizedPromise.then((value) => ({ type: 'report' as const, value })),
+          new Promise<{ type: 'timeout' }>((resolve) => {
+            setTimeout(() => resolve({ type: 'timeout' }), remainingBudget);
+          }),
+        ]);
+
+        if (raceResult.type === 'report') {
+          report = raceResult.value;
+        } else {
+          console.warn('⏱️ Insight timed out after 30s; showing fallback first');
+          let fallbackReport = '';
+          try {
+            if (birthMonth && birthDate) {
+              const sunSign = getSunSign(birthMonth, birthDate);
+              fallbackReport = await getCachedAstrologyReport(
+                sunSign,
+                birthYear && birthMonth && birthDate ? `${birthYear}-${birthMonth}-${birthDate}` : undefined,
+                birthHour && birthMinute && birthPeriod ? `${birthHour}:${birthMinute} ${birthPeriod}` : undefined,
+                birthCity || undefined,
+              );
+            }
+          } catch (fallbackError) {
+            console.warn('⚠️ Fallback insight fetch failed after timeout:', fallbackError);
+          }
+
+          if (!isStaleRequest()) {
+            setIsLoadingReport(false);
+            setAstrologyReport(
+              fallbackReport && fallbackReport.trim()
+                ? fallbackReport
+                : tr('Today\'s insight took longer than 30 seconds to generate. Please try again in a minute.', 'Инсайт на сегодня формировался дольше 30 секунд. Попробуй еще раз через минуту.')
+            );
+          }
+
+          personalizedPromise
+            .then((lateReport) => {
+              if (!isStaleRequest() && lateReport && lateReport.trim()) {
+                setAstrologyReport(lateReport);
+                console.log('✅ Replaced fallback with personalized insight');
+              }
+            })
+            .catch((lateError) => {
+              console.warn('⚠️ Personalized insight failed after timeout fallback:', lateError);
+            });
+
+          return;
+        }
+      } else {
+        report = await getPersonalizedDailyInsight(insightParams);
+      }
       
-      // AI generation disabled to save credits
-      // const report = await generateAstrologyReport(
-      //   birthMonth!,
-      //   birthDate!,
-      //   birthYear!,
-      //   birthCity || undefined,
-      //   birthHour || undefined,
-      //   birthMinute || undefined,
-      //   birthPeriod || undefined
-      // );
-      
-      // Using placeholder report instead
-      const report = 'Your astrological profile is being prepared. This feature is temporarily disabled.';
-      
-      console.log('✅ Using placeholder report (AI generation disabled)');
       console.log('📏 Report length:', report?.length);
       console.log('📄 Report preview (first 300 chars):', report?.substring(0, 300));
       
-      if (report && typeof report === 'string' && report.trim()) {
-        // Save to cache
-        try {
-          await AsyncStorage.setItem(cacheKey, report);
-          console.log('💾 Report saved to cache with key:', cacheKey);
-        } catch (cacheError) {
-          console.error('⚠️ Failed to save report to cache:', cacheError);
-        }
+      // For free users: Ensure loading screen shows for exactly 30 seconds
+      // This applies whether the report was cached or newly generated
+      if (startTime !== null) {
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, 30000 - elapsed);
         
+        if (remainingTime > 0) {
+          console.log(`⏳ Waiting ${remainingTime}ms to complete 30 second queue...`);
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+      }
+      
+      if (report && typeof report === 'string' && report.trim()) {
+        if (isStaleRequest()) return;
         setIsLoadingReport(false);
         setAstrologyReport(report);
         console.log('✨ Report displayed in modal');
       } else {
+        if (isStaleRequest()) return;
         console.log('❌ Report is empty or invalid');
         setIsLoadingReport(false);
-        setAstrologyReport('No report generated. Please try again.');
+        setAstrologyReport(tr('Report was not generated. Please try again.', 'Отчет не был создан. Попробуй еще раз.'));
       }
     } catch (error) {
-      console.error('❌ Error generating astrology report:', error);
+      if (requestId !== insightRequestIdRef.current) return;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setIsLoadingReport(false);
-      setAstrologyReport(`${t('home.errorGeneratingReport')}: ${errorMessage}. Please try again later.`);
+      if (errorMessage === 'INSIGHT_TIMEOUT_30S') {
+        console.warn('⏱️ Personalized insight timed out after 30s; trying cached sign-based fallback');
+        try {
+          const sunSign = getSunSign(birthMonth, birthDate);
+          const fallbackReport = await getCachedAstrologyReport(
+            sunSign,
+            `${birthYear}-${birthMonth}-${birthDate}`,
+            birthHour && birthMinute && birthPeriod ? `${birthHour}:${birthMinute} ${birthPeriod}` : undefined,
+            birthCity || undefined,
+          );
+
+          if (fallbackReport && fallbackReport.trim()) {
+            setAstrologyReport(fallbackReport);
+          } else {
+            setAstrologyReport(tr('Today\'s insight took longer than 30 seconds to generate. Please try again in a minute.', 'Инсайт на сегодня формировался дольше 30 секунд. Попробуй еще раз через минуту.'));
+          }
+        } catch (fallbackError) {
+          console.warn('⚠️ Fallback insight fetch failed after timeout:', fallbackError);
+          setAstrologyReport(tr('Today\'s insight took longer than 30 seconds to generate. Please try again in a minute.', 'Инсайт на сегодня формировался дольше 30 секунд. Попробуй еще раз через минуту.'));
+        }
+      } else {
+        console.error('❌ Error generating personalized daily insight:', error);
+        setAstrologyReport(`${t('home.errorGeneratingReport')}: ${errorMessage}. ${tr('Please try later.', 'Попробуй позже.')}`);
+      }
     }
   };
 
   // Handle Skip Queue button
   const handleSkipQueue = async () => {
+    console.log('[TodayInsight] Skip wait button pressed');
+    const requestId = ++insightRequestIdRef.current;
     const today = new Date();
     const todayKey = today.toISOString().split('T')[0];
     const cacheKey = `daily-report-${todayKey}`;
     
+    const userIsPremium = await (async () => {
+      const [superwallAccess, subscriptionAccess] = await Promise.all([
+        checkSubscriptionStatus(),
+        hasSubscriptionAccess(),
+      ]);
+      return superwallAccess || subscriptionAccess;
+    })();
+    console.log('[TodayInsight] Initial premium status before skip:', userIsPremium);
+    if (!userIsPremium) {
+      console.log('[TodayInsight] Free user detected, triggering paywall: skip_wait');
+      const paywallResult = await triggerPaywall('skip_wait');
+      console.log('[TodayInsight] skip_wait paywall result:', paywallResult);
+
+      // Verify entitlement after the paywall closes; some purchase flows may
+      // return without a direct "purchased" result but still activate subscription.
+      const premiumAfterPaywall = await checkSubscriptionStatus();
+      console.log('[TodayInsight] Premium status after paywall:', premiumAfterPaywall);
+      if (!premiumAfterPaywall) {
+        console.log('[TodayInsight] Paywall dismissed/no active subscription; keeping queue state');
+        return;
+      }
+      console.log('[TodayInsight] Subscription active; skipping queue and generating immediately');
+    }
+
     setQueueSkipped(true);
     if (queueTimerRef.current) {
       clearTimeout(queueTimerRef.current);
+      queueTimerRef.current = null;
     }
-    await generateReport(cacheKey);
+    queueStartTimeRef.current = null;
+    await generateReport(cacheKey, null, requestId);
   };
 
   // Transform answer field to envelope and fly away
@@ -1030,8 +1613,8 @@ export default function HomeScreen() {
       if (streak >= 7 && !badgeIds.has('streak_7')) {
         badges.push({
           id: 'streak_7',
-          name: 'Week Warrior',
-          description: '7 day streak',
+          name: tr('Weekly Warrior', 'Воин недели'),
+          description: tr('7 day streak', 'Серия 7 дней'),
           dateEarned: todayISO,
           icon: '🔥',
         });
@@ -1039,8 +1622,8 @@ export default function HomeScreen() {
       if (streak >= 30 && !badgeIds.has('streak_30')) {
         badges.push({
           id: 'streak_30',
-          name: 'Monthly Master',
-          description: '30 day streak',
+          name: tr('Master of the Month', 'Мастер месяца'),
+          description: tr('30 day streak', 'Серия 30 дней'),
           dateEarned: todayISO,
           icon: '⭐',
         });
@@ -1048,8 +1631,8 @@ export default function HomeScreen() {
       if (streak >= 100 && !badgeIds.has('streak_100')) {
         badges.push({
           id: 'streak_100',
-          name: 'Century Champion',
-          description: '100 day streak',
+          name: tr('Century Champion', 'Чемпион сотни'),
+          description: tr('100 day streak', 'Серия 100 дней'),
           dateEarned: todayISO,
           icon: '🏆',
         });
@@ -1060,8 +1643,8 @@ export default function HomeScreen() {
       if (answerCount >= 10 && !badgeIds.has('answers_10')) {
         badges.push({
           id: 'answers_10',
-          name: 'Getting Started',
-          description: '10 answers submitted',
+          name: tr('Path Beginning', 'Начало пути'),
+          description: tr('10 answers submitted', 'Отправлено 10 ответов'),
           dateEarned: todayISO,
           icon: '📝',
         });
@@ -1069,8 +1652,8 @@ export default function HomeScreen() {
       if (answerCount >= 50 && !badgeIds.has('answers_50')) {
         badges.push({
           id: 'answers_50',
-          name: 'Reflection Master',
-          description: '50 answers submitted',
+          name: tr('Reflection Master', 'Мастер рефлексии'),
+          description: tr('50 answers submitted', 'Отправлено 50 ответов'),
           dateEarned: todayISO,
           icon: '📚',
         });
@@ -1078,8 +1661,8 @@ export default function HomeScreen() {
       if (answerCount >= 100 && !badgeIds.has('answers_100')) {
         badges.push({
           id: 'answers_100',
-          name: 'Wisdom Seeker',
-          description: '100 answers submitted',
+          name: tr('Wisdom Seeker', 'Искатель мудрости'),
+          description: tr('100 answers submitted', 'Отправлено 100 ответов'),
           dateEarned: todayISO,
           icon: '✨',
         });
@@ -1113,7 +1696,7 @@ export default function HomeScreen() {
       setIsChatLoading(true);
 
       // Add user message
-      const userMessage = { type: 'user' as const, text: userMessageText };
+      const userMessage = { type: 'user' as const, text: userMessageText, timestamp: new Date().toISOString() };
       const updatedMessages = [...chatMessages, userMessage];
       setChatMessages(updatedMessages);
 
@@ -1128,15 +1711,15 @@ export default function HomeScreen() {
         // const aiResponse = await getAtlasChatResponse(conversationHistory);
         
         // Using placeholder response instead
-        const aiResponse = "I'm here to help! This feature is temporarily disabled. Please check back soon.";
+        const aiResponse = tr('I am here to help! This feature is temporarily unavailable. Check back soon.', 'Я рядом, чтобы помочь! Эта функция временно отключена. Загляни чуть позже.');
 
         // Add AI response
-        const aiMessage = { type: 'atlas' as const, text: aiResponse };
+        const aiMessage = { type: 'atlas' as const, text: aiResponse, timestamp: new Date().toISOString() };
         setChatMessages([...updatedMessages, aiMessage]);
       } catch (error) {
         console.error('Error getting Atlas response:', error);
         const errorMessage = t('home.atlasError');
-        const errorResponse = { type: 'atlas' as const, text: errorMessage };
+        const errorResponse = { type: 'atlas' as const, text: errorMessage, timestamp: new Date().toISOString() };
         setChatMessages([...updatedMessages, errorResponse]);
       } finally {
         setIsChatLoading(false);
@@ -1155,13 +1738,13 @@ export default function HomeScreen() {
         } else {
           // Only set initial message if no stored messages exist
           const initialMessage = t('home.atlasGreeting');
-          setChatMessages([{ type: 'atlas', text: initialMessage }]);
+          setChatMessages([{ type: 'atlas', text: initialMessage, timestamp: new Date().toISOString() }]);
         }
       } catch (error) {
         console.error('Error loading Atlas chat messages:', error);
         // Fallback to initial message on error
-        const initialMessage = "Hello! I'm Atlas, your journey guide. How can I help you today?";
-        setChatMessages([{ type: 'atlas', text: initialMessage }]);
+        const initialMessage = tr('Hi! I\'m Atlas, your guide. How can I help today?', 'Привет! Я Атлас, твой проводник. Чем помочь сегодня?');
+        setChatMessages([{ type: 'atlas', text: initialMessage, timestamp: new Date().toISOString() }]);
       }
     };
     loadChatMessages();
@@ -1310,6 +1893,72 @@ export default function HomeScreen() {
     }
   };
 
+  const measureWalkthroughTarget = (stepKey: string) => {
+    const refMap: Record<string, React.RefObject<View>> = {
+      cosmicInsight: cosmicInsightRef,
+      clarityMap: clarityMapRef,
+      progress: progressRef,
+      ikigai: ikigaiRef,
+      atlas: atlasRef,
+    };
+
+    const targetRef = refMap[stepKey];
+    if (!targetRef?.current) {
+      setWalkthroughTargetRect(null);
+      return;
+    }
+
+    const measure = (attempt = 0) => {
+      targetRef.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          setWalkthroughTargetRect({ x, y, width, height });
+          return;
+        }
+
+        // Retry briefly while layout settles after step changes / programmatic scroll.
+        if (attempt < 2) {
+          requestAnimationFrame(() => measure(attempt + 1));
+          return;
+        }
+
+        setWalkthroughTargetRect(null);
+      });
+    };
+
+    if (stepKey === 'atlas') {
+      // Atlas card can be below the fold; snap scroll first so step 5 is always visible.
+      homeScrollRef.current?.scrollToEnd({ animated: false });
+      requestAnimationFrame(() => requestAnimationFrame(() => measure()));
+      return;
+    }
+
+    requestAnimationFrame(() => measure());
+  };
+
+  const closeWalkthrough = async () => {
+    setShowHomeWalkthrough(false);
+    setWalkthroughStepIndex(0);
+    setWalkthroughTargetRect(null);
+    try {
+      await AsyncStorage.setItem(HOME_WALKTHROUGH_DONE_KEY, 'true');
+      await AsyncStorage.removeItem(JUST_FINISHED_ONBOARDING_KEY);
+    } catch (error) {
+      console.error('Error persisting walkthrough completion:', error);
+    }
+  };
+
+  const goToNextWalkthroughStep = () => {
+    if (walkthroughStepIndex >= walkthroughSteps.length - 1) {
+      closeWalkthrough();
+      return;
+    }
+    setWalkthroughStepIndex((prev) => prev + 1);
+  };
+
+  const headerTopOffset = Math.max(50, insets.top + 10);
+  const headerTotalHeight = headerTopOffset + headerContentHeight;
+  const isHomeAnsweredLayout = answerCapturedToday && !showEnvelope;
+
   return (
     <ImageBackground
       source={require('../../assets/images/moon.star.png')}
@@ -1323,20 +1972,34 @@ export default function HomeScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
       
+      {/* Settings Button - Top Right (left of guide) */}
+      <TouchableOpacity
+        style={[styles.settingsButton, { top: headerTopOffset }]}
+        onPress={() => router.push('/settings')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="settings-outline" size={20} color="#342846" />
+      </TouchableOpacity>
+
       {/* Guide Button - Top Right */}
       <TouchableOpacity
-        style={[styles.guideButton, { top: Math.max(50, insets.top + 10) }]}
+        style={[styles.guideButton, { top: headerTopOffset }]}
         onPress={() => setShowGuideModal(true)}
         activeOpacity={0.8}
       >
-        <Text style={styles.guideButtonText}>?</Text>
+        <MaterialIcons name="help-outline" size={20} color="#342846" style={styles.guideButtonIcon} />
       </TouchableOpacity>
       
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: Math.max(40, insets.top + 10) }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      {/* Fixed Header - Absolutely Positioned */}
+      <View
+        pointerEvents="box-none"
+        style={[styles.fixedHeader, { top: headerTopOffset }]}
+        onLayout={(event) => {
+          const { height: measuredHeight } = event.nativeEvent.layout;
+          if (measuredHeight !== headerContentHeight) {
+            setHeaderContentHeight(measuredHeight);
+          }
+        }}
       >
         {/* Date - Top Left */}
         <Text style={styles.dateText}>
@@ -1348,71 +2011,87 @@ export default function HomeScreen() {
 
         {/* Dividing Bar */}
         <View style={styles.dividingBar} />
+      </View>
+      
+      <View style={[styles.scrollContainer, { marginTop: headerTotalHeight }]}>
+        <ScrollView 
+          ref={homeScrollRef}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingTop: 0 },
+            isHomeAnsweredLayout && styles.contentContainerAnswered,
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={false}
+          scrollEnabled={!isSliderInteracting && !isHomeAnsweredLayout}
+        >
 
-        {/* Question of the Day Heading - Hide when answer is saved */}
-        {!answerCapturedToday && !showEnvelope && (
-          <Text style={styles.sectionHeading}>{t('home.questionOfTheDay')}</Text>
-        )}
-
-        {/* Question and Answer Card */}
-        {!answerCapturedToday && !showEnvelope && (
-          <View style={styles.questionCard}>
-            <Text style={styles.questionCardText}>{currentQuestion}</Text>
-            <View style={styles.answerFieldCard}>
-              <TextInput
-                style={styles.answerInputCard}
-                value={dailyAnswer}
-                onChangeText={handleAnswerChange}
-                placeholder={t('home.enterAnswer')}
-                placeholderTextColor="#999"
-                multiline
-                editable={!answerCaptured}
-              />
-            </View>
-            {dailyAnswer.trim() && !answerCaptured && (
-              <TouchableOpacity
-                style={styles.saveEntryButton}
-                onPress={() => {
-                  if (dailyAnswer.trim() && !answerCaptured) {
-                    captureAnswer();
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.saveEntryButtonText}>{t('home.saveEntry')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Envelope animation - shown during transformation */}
-        {showEnvelope && (
-          <View style={styles.questionCard}>
-            <Animated.View
-              style={[
-                styles.envelopeContainer,
-                {
-                  transform: [
-                    { scale: envelopeAnim },
-                    { translateX: envelopeTranslateX },
-                    { translateY: envelopeTranslateY },
-                    {
-                      rotate: envelopeRotation.interpolate({
-                        inputRange: [0, 360],
-                        outputRange: ['0deg', '360deg'],
-                      }),
-                    },
-                  ],
-                  opacity: envelopeOpacity,
-                },
-              ]}
-            >
-              <View style={styles.envelope}>
-                <Text style={styles.envelopeEmoji}>✉️</Text>
+        {/* Reserve daily question space to avoid layout jumps below */}
+        <View style={styles.dailyQuestionSection}>
+          {!answerCapturedToday && !showEnvelope && (
+            <>
+              <Text style={styles.sectionHeading}>{t('home.questionOfTheDay')}</Text>
+              <View style={styles.questionCard}>
+                <Text style={styles.questionCardText}>{currentQuestion}</Text>
+                <View style={styles.answerFieldCard}>
+                  <TextInput
+                    style={styles.answerInputCard}
+                    value={dailyAnswer}
+                    onChangeText={handleAnswerChange}
+                    placeholder={t('home.enterAnswer')}
+                    placeholderTextColor="#999"
+                    multiline
+                    editable={!answerCaptured}
+                  />
+                </View>
+                {dailyAnswer.trim() && !answerCaptured && (
+                  <TouchableOpacity
+                    style={styles.saveEntryButton}
+                    onPress={() => {
+                      if (dailyAnswer.trim() && !answerCaptured) {
+                        captureAnswer();
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.saveEntryButtonText}>{t('home.saveEntry')}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </Animated.View>
-          </View>
-        )}
+            </>
+          )}
+
+          {/* Envelope animation - shown during transformation */}
+          {showEnvelope && (
+            <View style={styles.questionCard}>
+              <Animated.View
+                style={[
+                  styles.envelopeContainer,
+                  {
+                    transform: [
+                      { scale: envelopeAnim },
+                      { translateX: envelopeTranslateX },
+                      { translateY: envelopeTranslateY },
+                      {
+                        rotate: envelopeRotation.interpolate({
+                          inputRange: [0, 360],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      },
+                    ],
+                    opacity: envelopeOpacity,
+                  },
+                ]}
+              >
+                <View style={styles.envelope}>
+                  <Text style={styles.envelopeEmoji}>✉️</Text>
+                </View>
+              </Animated.View>
+            </View>
+          )}
+        </View>
 
         {/* Confetti Pieces */}
         {answerCaptured && (
@@ -1444,193 +2123,230 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Explore Heading */}
-        <Text style={styles.sectionHeading}>{t('home.explore')}</Text>
-
-        {/* Four sections grid */}
-        <View style={styles.gridContainer}>
-          {/* Row 1 */}
-          <View style={styles.gridRow}>
-            <TouchableOpacity 
-              style={styles.gridButton} 
-              activeOpacity={0.8}
-              onPress={handleCosmicInsightClick}
+        <View style={isHomeAnsweredLayout ? styles.homeAnsweredContent : undefined}>
+          <View>
+            {/* Explore Heading */}
+            <Text
+              style={[
+                styles.sectionHeading,
+                answerCapturedToday && !showEnvelope && styles.exploreHeadingAnswered,
+              ]}
             >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.buttonGradient}
-                >
-                  <Text style={styles.buttonTitle}>{t('home.cosmicInsight')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.cosmicInsightSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
+              {t('home.explore')}
+            </Text>
 
-            <TouchableOpacity 
-              style={styles.gridButton} 
-              activeOpacity={0.8}
-              onPress={() => setShowClarityMap(true)}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.buttonGradient}
+            {/* Four sections grid */}
+            <View style={styles.gridContainer}>
+              {/* Row 1 */}
+              <View style={styles.gridRow}>
+                <Animated.View
+                  ref={cosmicInsightRef as any}
+                  collapsable={false}
+                  style={[styles.gridButtonLeft, { transform: [{ scale: cosmicInsightScale }] }]}
                 >
-                  <Text style={styles.buttonTitle}>{t('home.clarityMap')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.clarityMapSubtitle')}</Text>
-                </LinearGradient>
+                  <TouchableOpacity 
+                    style={styles.gridButton} 
+                    activeOpacity={1}
+                    onPress={() => handleRectanglePress(cosmicInsightScale, handleCosmicInsightClick)}
+                  >
+                    <ImageBackground
+                      source={require('../../assets/images/rectangle.png')}
+                      style={styles.buttonGradient}
+                      imageStyle={styles.buttonImageStyle}
+                    >
+                    <View style={styles.buttonTextContainer}>
+                      <Text style={styles.buttonTitle}>{t('home.cosmicInsight')}</Text>
+                    </View>
+                    </ImageBackground>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                <Animated.View
+                  ref={clarityMapRef as any}
+                  collapsable={false}
+                  style={[styles.gridButtonRight, { transform: [{ scale: clarityMapScale }] }]}
+                >
+                  <TouchableOpacity 
+                    style={styles.gridButton} 
+                    activeOpacity={1}
+                    onPress={() => handleRectanglePress(clarityMapScale, handleClarityMapPress)}
+                  >
+                    <ImageBackground
+                      source={require('../../assets/images/rectangle.png')}
+                      style={styles.buttonGradient}
+                      imageStyle={styles.buttonImageStyle}
+                    >
+                      <View style={styles.buttonTextContainer}>
+                        <Text style={styles.buttonTitle}>{t('home.clarityMap')}</Text>
+                      </View>
+                    </ImageBackground>
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
-            </TouchableOpacity>
+
+              {/* Row 2 */}
+              <View style={styles.gridRow}>
+                <Animated.View
+                  ref={progressRef as any}
+                  collapsable={false}
+                  style={[styles.gridButtonLeft, { transform: [{ scale: progressScale }] }]}
+                >
+                  <TouchableOpacity
+                    style={styles.gridButton}
+                    activeOpacity={1}
+                    onPress={() => handleRectanglePress(progressScale, () => router.push('/progress'))}
+                  >
+                    <ImageBackground
+                      source={require('../../assets/images/rectangle.png')}
+                      style={styles.buttonGradient}
+                      imageStyle={styles.buttonImageStyle}
+                    >
+                      <View style={styles.buttonTextContainer}>
+                        <Text style={styles.buttonTitle}>{t('home.progressThisWeek')}</Text>
+                      </View>
+                    </ImageBackground>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                <Animated.View
+                  ref={ikigaiRef as any}
+                  collapsable={false}
+                  style={[styles.gridButtonRight, { transform: [{ scale: ikigaiScale }] }]}
+                >
+                  <TouchableOpacity 
+                    style={styles.gridButton} 
+                    activeOpacity={1}
+                    onPress={() => handleRectanglePress(ikigaiScale, () => router.push('/ikigai-compass'))}
+                  >
+                    <ImageBackground
+                      source={require('../../assets/images/rectangle.png')}
+                      style={styles.buttonGradient}
+                      imageStyle={styles.buttonImageStyle}
+                    >
+                      <View style={styles.buttonTextContainer}>
+                        <Text style={styles.buttonTitle}>{t('home.ikigaiCompass')}</Text>
+                      </View>
+                    </ImageBackground>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </View>
+
+            {/* Mood Card - Show logged state or selector based on state */}
+            {todaysMood && !showMoodSelector ? (
+              <MoodLoggedCard 
+                emoji={todaysMood.emoji}
+                moodText={todaysMood.text}
+                moodValue={todaysMood.value}
+                onUpdatePress={handleUpdateMood}
+              />
+            ) : (
+              <ImageBackground
+                source={require('../../assets/images/goal.background.png')}
+                style={styles.moodCard}
+                imageStyle={styles.moodCardImage}
+              >
+                <Text style={styles.moodCardTitle}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
+                <View pointerEvents="auto">
+                  <MoodSelector 
+                    showQuestion={false} 
+                    onMoodSaved={handleMoodSaved}
+                    onInteractionStart={() => setIsSliderInteracting(true)}
+                    onInteractionEnd={() => setIsSliderInteracting(false)}
+                  />
+                </View>
+              </ImageBackground>
+            )}
+              
+              {/* Radiating light effect - centered on selected button */}
+              {showRadiatingEffect && moodSelected && (
+                <View 
+                  style={styles.radiatingContainer}
+                  pointerEvents="none"
+                >
+                  <Animated.View
+                    style={[
+                      styles.radiatingCircle,
+                      {
+                        left: radiatingPosition.x - 100,
+                        top: radiatingPosition.y - 100,
+                        transform: [
+                          {
+                            scale: radiatingAnim1.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.5, 3],
+                            }),
+                          },
+                        ],
+                        opacity: radiatingOpacity1,
+                      },
+                    ]}
+                  />
+                  <Animated.View
+                    style={[
+                      styles.radiatingCircle,
+                      {
+                        left: radiatingPosition.x - 100,
+                        top: radiatingPosition.y - 100,
+                        transform: [
+                          {
+                            scale: radiatingAnim2.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.5, 3.5],
+                            }),
+                          },
+                        ],
+                        opacity: radiatingOpacity2,
+                      },
+                    ]}
+                  />
+                  <Animated.View
+                    style={[
+                      styles.radiatingCircle,
+                      {
+                        left: radiatingPosition.x - 100,
+                        top: radiatingPosition.y - 100,
+                        transform: [
+                          {
+                            scale: radiatingAnim3.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.5, 4],
+                            }),
+                          },
+                        ],
+                        opacity: radiatingOpacity3,
+                      },
+                    ]}
+                  />
+                </View>
+              )}
           </View>
 
-          {/* Row 2 */}
-          <View style={styles.gridRow}>
-            <TouchableOpacity
-              style={styles.gridButton}
-              activeOpacity={0.8}
-              onPress={() => router.push('/progress')}
-            >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.buttonGradient}
-                >
-                  <Text style={styles.buttonTitle}>{t('home.progressThisWeek')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.progressSubtitle')}</Text>
-                </LinearGradient>
-              </View>
-            </TouchableOpacity>
-
+          {/* Feeling Anxious Section */}
+          <View ref={atlasRef} collapsable={false}>
             <TouchableOpacity 
-              style={styles.gridButton} 
+              style={styles.feelingAnxiousCard}
+              onPress={handleOpenAtlasChat}
               activeOpacity={0.8}
-              onPress={() => router.push('/ikigai-compass')}
             >
-              <View style={styles.gridButtonInner}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.buttonGradient}
-                >
-                  <Text style={styles.buttonTitle}>{t('home.ikigaiCompass')}</Text>
-                  <Text style={styles.buttonSubtitle}>{t('home.ikigaiCompassSubtitle')}</Text>
-                </LinearGradient>
+              <View style={styles.feelingAnxiousContent}>
+                <View style={styles.feelingAnxiousTextContainer}>
+                  <Text style={styles.feelingAnxiousHeading}>{t('home.feelingAnxious')}</Text>
+                  <Text style={styles.feelingAnxiousBody}>
+                    {t('home.feelingAnxiousBody')}
+                  </Text>
+                </View>
+                <Image
+                  source={require('../../assets/images/deer.face.png')}
+                  style={styles.feelingAnxiousImage}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Mood Card - Show logged state or selector based on state */}
-        {todaysMood && !showMoodSelector ? (
-          <MoodLoggedCard 
-            emoji={todaysMood.emoji}
-            moodText={todaysMood.text}
-            onUpdatePress={handleUpdateMood}
-          />
-        ) : (
-          <View style={styles.moodCard}>
-            <Text style={styles.moodCardTitle}>How are you feeling today?</Text>
-            <MoodSelector showQuestion={false} onMoodSaved={handleMoodSaved} />
-          </View>
-        )}
-          
-          {/* Radiating light effect - centered on selected button */}
-          {showRadiatingEffect && moodSelected && (
-            <View 
-              style={styles.radiatingContainer}
-              pointerEvents="none"
-            >
-              <Animated.View
-                style={[
-                  styles.radiatingCircle,
-                  {
-                    left: radiatingPosition.x - 100,
-                    top: radiatingPosition.y - 100,
-                    transform: [
-                      {
-                        scale: radiatingAnim1.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.5, 3],
-                        }),
-                      },
-                    ],
-                    opacity: radiatingOpacity1,
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.radiatingCircle,
-                  {
-                    left: radiatingPosition.x - 100,
-                    top: radiatingPosition.y - 100,
-                    transform: [
-                      {
-                        scale: radiatingAnim2.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.5, 3.5],
-                        }),
-                      },
-                    ],
-                    opacity: radiatingOpacity2,
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.radiatingCircle,
-                  {
-                    left: radiatingPosition.x - 100,
-                    top: radiatingPosition.y - 100,
-                    transform: [
-                      {
-                        scale: radiatingAnim3.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.5, 4],
-                        }),
-                      },
-                    ],
-                    opacity: radiatingOpacity3,
-                  },
-                ]}
-              />
-            </View>
-          )}
-
-        {/* Feeling Anxious Section */}
-        <TouchableOpacity 
-          style={styles.feelingAnxiousCard}
-          onPress={handleOpenAtlasChat}
-          activeOpacity={0.8}
-        >
-          <View style={styles.feelingAnxiousContent}>
-            <View style={styles.feelingAnxiousTextContainer}>
-              <Text style={styles.feelingAnxiousHeading}>{t('home.feelingAnxious')}</Text>
-              <Text style={styles.feelingAnxiousBody}>
-                {t('home.feelingAnxiousBody')}
-              </Text>
-            </View>
-            <Image
-              source={require('../../assets/images/deer.face.png')}
-              style={styles.feelingAnxiousImage}
-              resizeMode="contain"
-            />
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Clarity Map */}
-      {showClarityMap && (
-        <ClarityMap onClose={() => setShowClarityMap(false)} />
-      )}
+        </ScrollView>
+      </View>
 
       {/* Astrology Report Modal - Full Screen */}
       <Modal
@@ -1639,7 +2355,9 @@ export default function HomeScreen() {
         transparent={false}
         onRequestClose={() => {
           try {
+            insightRequestIdRef.current += 1; // Invalidate in-flight insight updates
             setShowAstrologyModal(false);
+            setInsightProfileMessage('');
             if (queueTimerRef.current) {
               clearTimeout(queueTimerRef.current);
               queueTimerRef.current = null;
@@ -1786,7 +2504,9 @@ export default function HomeScreen() {
           <TouchableOpacity
             onPress={() => {
               try {
+                insightRequestIdRef.current += 1; // Invalidate in-flight insight updates
                 setShowAstrologyModal(false);
+                setInsightProfileMessage('');
                 if (queueTimerRef.current) {
                   clearTimeout(queueTimerRef.current);
                   queueTimerRef.current = null;
@@ -1826,12 +2546,15 @@ export default function HomeScreen() {
                 {/* Semi-transparent dark blue overlay */}
                 <View style={styles.textOverlay} />
                 <View style={styles.reportTextWrapper}>
+                  {insightProfileMessage ? (
+                    <Text style={styles.reportProfileHint}>{insightProfileMessage}</Text>
+                  ) : null}
                   {(() => {
                     try {
                       return formatReportText(astrologyReport);
                     } catch (error) {
                       console.error('Error rendering report text:', error);
-                      return <Text style={styles.reportBodyText}>Error displaying report. Please try again.</Text>;
+                      return <Text style={styles.reportBodyText}>{tr('Error displaying report. Please try again.', 'Ошибка отображения отчета. Попробуй еще раз.')}</Text>;
                     }
                   })()}
                 </View>
@@ -1852,89 +2575,40 @@ export default function HomeScreen() {
         animationType="slide"
         onRequestClose={() => setShowAtlasChat(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.chatModalFullScreen}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-          {/* Chat Header */}
-          <View style={[styles.chatHeader, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.chatHeaderText}>{t('home.atlasIsHere')}</Text>
-            <TouchableOpacity
-              onPress={() => setShowAtlasChat(false)}
-              style={styles.closeChatButton}
-            >
-              <Text style={styles.closeChatButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Chat Content */}
-          <ScrollView 
-            style={styles.chatContent} 
-            contentContainerStyle={styles.chatContentContainer}
-            keyboardShouldPersistTaps="handled"
-          >
-            {chatMessages.map((message, index) => (
-              message.type === 'atlas' ? (
-                <View key={index} style={styles.atlasMessageContainer}>
-                  <View style={styles.atlasBubbleAndAvatar}>
-                    <View style={styles.atlasMessageBubble}>
-                      <Text style={styles.atlasMessageText}>{message.text}</Text>
-                    </View>
-                    <Image
-                      source={require('../../assets/images/deer.face.png')}
-                      style={styles.atlasAvatar}
-                      resizeMode="contain"
-                    />
-                  </View>
-                </View>
-              ) : (
-                <View key={index} style={styles.userMessageContainer}>
-                  <View style={styles.userMessageBubble}>
-                    <Text style={styles.userMessageText}>{message.text}</Text>
-                  </View>
-                </View>
-              )
-            ))}
-            {isChatLoading && (
-              <View style={styles.atlasMessageContainer}>
-                <View style={styles.atlasBubbleAndAvatar}>
-                  <View style={styles.atlasMessageBubble}>
-                    <ActivityIndicator size="small" color="#342846" />
-                  </View>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-
-          {/* Chat Input */}
-          <View style={styles.chatInputContainer}>
-            <TextInput
-              style={styles.chatInput}
-              placeholder={t('home.askForHelp')}
-              placeholderTextColor="#999"
-              value={chatInput}
-              onChangeText={setChatInput}
-              onSubmitEditing={handleSendChatMessage}
-              numberOfLines={1}
-              editable={!isChatLoading}
-            />
-            <TouchableOpacity 
-              style={[styles.sendButton, isChatLoading && styles.sendButtonDisabled]}
-              onPress={handleSendChatMessage}
-              disabled={isChatLoading}
-            >
-              <Text style={styles.sendButtonText}>{t('home.send')}</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+        <AtlasChat
+          onClose={() => setShowAtlasChat(false)}
+          userName={userName}
+          goalTitle={goalTitle}
+          goalStepLabel={goalStepLabel}
+          goalStepNumber={goalStepNumber}
+          totalGoalSteps={totalGoalSteps}
+        />
       </Modal>
       </KeyboardAvoidingView>
       
       {/* Guide Modal */}
+      <HomeWalkthrough
+        visible={showHomeWalkthrough}
+        step={walkthroughSteps[walkthroughStepIndex] || null}
+        stepIndex={walkthroughStepIndex}
+        totalSteps={walkthroughSteps.length}
+        targetRect={walkthroughTargetRect}
+        onNext={goToNextWalkthroughStep}
+        onSkip={closeWalkthrough}
+        onDone={closeWalkthrough}
+      />
+
+      {/* Guide Modal */}
       <GuideModal 
         visible={showGuideModal} 
-        onClose={() => setShowGuideModal(false)} 
+        onClose={() => setShowGuideModal(false)}
+        onReplayWalkthrough={() => {
+          setTimeout(() => {
+            setWalkthroughStepIndex(0);
+            setWalkthroughTargetRect(null);
+            setShowHomeWalkthrough(true);
+          }, 220);
+        }}
       />
     </ImageBackground>
   );
@@ -1945,6 +2619,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     position: 'relative',
+    width: '100%',
+    height: '100%',
   },
   homeBackground: {
     flex: 1,
@@ -1958,30 +2634,69 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     zIndex: 1,
+    marginTop: 0,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 20,
+  },
+  contentContainerAnswered: {
+    flexGrow: 1,
+  },
+  homeAnsweredContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 72,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1100,
+    elevation: 11,
   },
   guideButton: {
     position: 'absolute',
     right: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#342846',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
   },
   guideButtonText: {
     ...HeadingStyle,
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  guideButtonIcon: {
+    opacity: 1,
+  },
+  fixedHeader: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+    elevation: 10, // For Android
   },
   dateText: {
     ...BodyStyle,
@@ -2000,7 +2715,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#FFFFFF',
     opacity: 0.3,
-    marginBottom: 24,
+    marginBottom: 0,
   },
   sectionHeading: {
     ...HeadingStyle,
@@ -2020,12 +2735,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  dailyQuestionSection: {
+    overflow: 'hidden',
+  },
   questionCardText: {
     ...BodyStyle,
     color: '#342846',
     fontSize: 18,
     marginBottom: 16,
     textAlign: 'left',
+  },
+  exploreHeadingAnswered: {
+    marginTop: 20,
   },
   answerFieldCard: {
     borderWidth: 1,
@@ -2090,7 +2811,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   moodCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
@@ -2099,6 +2819,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
+  },
+  moodCardImage: {
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
   moodCardTitle: {
     ...HeadingStyle,
@@ -2282,15 +3007,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 24, // Increased gap from 16 to 24 for more spacing between cards
   },
   gridButton: {
-    width: (width - 50 - 16) / 2, // Screen width minus padding minus gap
+    width: (((width - 50 - 24) / 2) + 50) * 0.9 * 0.8 * 1.1, // Width increased by 10% (multiply by 1.1) - fixed width for all rectangles (25px padding on each side)
+    height: ((72 * 1.4) + 45) * 0.75, // Original height (146px) decreased by 25% = ~110px - fixed height for all rectangles
     borderRadius: 8,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.6,
     shadowRadius: 20,
     elevation: 12, // For Android
+  },
+  gridButtonLeft: {
+    marginLeft: -5, // Move left column 5px to the left
+  },
+  gridButtonRight: {
+    marginLeft: -50, // Move right column 50px to the left
   },
   gridButtonInner: {
     borderRadius: 8,
@@ -2299,18 +3032,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonGradient: {
-    flex: 1,
     width: '100%',
-    padding: 20,
-    minHeight: 72, // Original height - allows content to fit properly
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  buttonImageStyle: {
+    borderRadius: 8,
+    resizeMode: 'stretch',
+  },
+  buttonTextContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20 * 1.4, // Increased padding by 40% (from 20 to 28)
+    paddingVertical: 20 * 1.4,
+    width: '100%',
   },
   buttonTitle: {
     ...HeadingStyle,
     color: '#342846',
     fontSize: 16, // Reduced from 18
     textAlign: 'center',
+    lineHeight: 20, // Added line height for better two-line text spacing
+    width: '100%',
+    alignSelf: 'center',
   },
   buttonSubtitle: {
     ...BodyStyle,
@@ -2663,26 +3410,92 @@ const styles = StyleSheet.create({
     zIndex: 10,
     position: 'relative',
   },
+  reportProfileHint: {
+    ...BodyStyle,
+    color: '#f7ddff',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  reportMainTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#342846',
+    marginBottom: 8,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   reportDateHeading: {
     ...HeadingStyle,
     color: '#fff',
     fontSize: 24,
-    marginBottom: 20,
+    marginBottom: 14,
     textAlign: 'center',
+  },
+  reportSummaryLine: {
+    ...BodyStyle,
+    color: '#fff',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 14,
+    opacity: 0.95,
+    paddingHorizontal: 8,
+  },
+  reportSectionCard: {
+    backgroundColor: '#ffffff10',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  reportSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  reportSectionEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   reportSectionHeading: {
     ...HeadingStyle,
     color: '#fff',
-    fontSize: 20,
-    marginTop: 20,
+    fontSize: 17,
+    marginTop: 0,
+    marginBottom: 0,
+    flexShrink: 1,
+  },
+  reportSectionBody: {
+    paddingTop: 2,
+  },
+  reportParagraphSpacer: {
+    height: 8,
+  },
+  reportParagraphBlock: {
     marginBottom: 10,
+  },
+  reportTimeBadge: {
+    ...BodyStyle,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(205, 186, 216, 0.45)',
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginBottom: 6,
+    overflow: 'hidden',
   },
   reportBodyText: {
     ...BodyStyle,
     color: '#fff',
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   // Chat Modal Styles - Full Screen
   chatModalFullScreen: {
@@ -2771,13 +3584,15 @@ const styles = StyleSheet.create({
   chatInputContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 23.04,
+    paddingBottom: 60, // Increased by another 30px (30 + 30 = 60)
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     gap: 12,
   },
   chatInput: {
     flex: 1,
+    maxWidth: '70%',
     ...BodyStyle,
     borderWidth: 1,
     borderColor: '#342846',
@@ -2787,7 +3602,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     fontSize: 14,
     lineHeight: 20,
-    height: 44,
+    minHeight: 48, // Match send button height (12*2 + 24 for text)
   },
   sendButton: {
     backgroundColor: '#342846',
@@ -2795,8 +3610,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, // Minimum 20px padding (was 16)
     paddingVertical: 12,
     justifyContent: 'center',
-    minWidth: 60,
-    maxWidth: 80,
+    minWidth: 80,
+    maxWidth: 100,
+    minHeight: 48, // Explicit height to match input (12*2 + 24 for text)
+    marginLeft: 15, // Move right 15px
   },
   sendButtonText: {
     ...BodyStyle,

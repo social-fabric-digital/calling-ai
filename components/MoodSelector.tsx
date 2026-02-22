@@ -2,6 +2,7 @@ import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { saveMood } from '@/utils/moodStorage';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MoodSlider } from './MoodSlider';
 
@@ -16,10 +17,15 @@ export const brandColors = {
 interface MoodSelectorProps {
   showQuestion?: boolean;
   onMoodSaved?: () => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
-export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorProps) {
-  const [currentMoodText, setCurrentMoodText] = useState('Okay');
+export function MoodSelector({ showQuestion = true, onMoodSaved, onInteractionStart, onInteractionEnd }: MoodSelectorProps) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+  const [currentMoodText, setCurrentMoodText] = useState(tr('Okay', 'Нормально'));
   const [currentEmoji, setCurrentEmoji] = useState('😐');
   const [currentValue, setCurrentValue] = useState(50);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -27,7 +33,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const savedValueRef = useRef<number | null>(null);
-  const lastMoodTextRef = useRef<string>('Okay'); // Track last mood for haptic feedback
+  const lastMoodTextRef = useRef<string>(tr('Okay', 'Нормально')); // Track last mood for haptic feedback
   const saveButtonOpacity = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
 
@@ -70,6 +76,15 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
 
   const handleInteractionStart = () => {
     setHasInteracted(true);
+    if (onInteractionStart) {
+      onInteractionStart();
+    }
+  };
+
+  const handleInteractionEnd = () => {
+    if (onInteractionEnd) {
+      onInteractionEnd();
+    }
   };
 
   // Animate save button appearance when user interacts (only if not already saved)
@@ -141,10 +156,10 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
     return (
       <View style={styles.container}>
         {showQuestion && (
-          <Text style={styles.question}>How are you feeling today?</Text>
+          <Text style={styles.question}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
         )}
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{tr('Loading...', 'Загрузка...')}</Text>
         </View>
       </View>
     );
@@ -153,7 +168,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
   return (
     <View style={styles.container}>
       {showQuestion && (
-        <Text style={styles.question}>How are you feeling today?</Text>
+        <Text style={styles.question}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
       )}
       
       {/* The Slider - only show when not in saved state */}
@@ -163,6 +178,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
             <MoodSlider 
               onMoodChange={handleMoodChange}
               onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
               initialValue={currentValue}
               showBalloon={hasInteracted}
             />
@@ -185,7 +201,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
                 disabled={isSaving}
               >
                 <Text style={styles.saveButtonText}>
-                  {isSaving ? 'Saving...' : 'Save Mood'}
+                  {isSaving ? tr('Saving...', 'Сохраняем...') : tr('Save mood', 'Сохранить настроение')}
                 </Text>
               </Pressable>
             </Animated.View>
@@ -199,15 +215,15 @@ export function MoodSelector({ showQuestion = true, onMoodSaved }: MoodSelectorP
           <View style={styles.successBadge}>
             <Text style={styles.successIcon}>✓</Text>
           </View>
-          <Text style={styles.successText}>Mood logged for today!</Text>
+          <Text style={styles.successText}>{tr('Mood for today has been saved!', 'Настроение на сегодня сохранено!')}</Text>
           <Text style={styles.successSubtext}>
-            You're feeling {currentMoodText.toLowerCase()} {currentEmoji}
+            {tr('Right now you feel:', 'Сейчас ты чувствуешь себя:')} {currentMoodText.toLowerCase()} {currentEmoji}
           </Text>
           <Pressable 
             style={styles.updateButton}
             onPress={handleUpdateMood}
           >
-            <Text style={styles.updateButtonText}>Update mood</Text>
+            <Text style={styles.updateButtonText}>{tr('Update mood', 'Обновить настроение')}</Text>
           </Pressable>
         </Animated.View>
       )}
@@ -253,7 +269,8 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: brandColors.primary,
     paddingVertical: 16,
-    borderRadius: 12,
+    paddingHorizontal: 32,
+    borderRadius: 999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -261,16 +278,19 @@ const styles = StyleSheet.create({
     elevation: 3,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
   },
   saveButtonPressed: {
     backgroundColor: '#2a1f38',
     transform: [{ scale: 0.98 }],
   },
   saveButtonText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 20,
   },
   successContainer: {
     marginTop: 20,

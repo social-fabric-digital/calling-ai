@@ -1,7 +1,8 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const brandColors = {
   primary: '#342846',
@@ -12,24 +13,60 @@ const brandColors = {
 interface MoodLoggedCardProps {
   emoji: string;
   moodText: string;
+  moodValue?: number;
   onUpdatePress: () => void;
 }
 
-export function MoodLoggedCard({ emoji, moodText, onUpdatePress }: MoodLoggedCardProps) {
+export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress }: MoodLoggedCardProps) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+
+  const getMoodLabel = (): string => {
+    // Prefer numeric mood value when available for deterministic localization.
+    if (typeof moodValue === 'number') {
+      if (moodValue < 20) return tr('Very hard', 'Тяжело');
+      if (moodValue < 40) return tr('Not great', 'Не очень');
+      if (moodValue < 60) return tr('Okay', 'Нормально');
+      if (moodValue < 80) return tr('Good', 'Хорошо');
+      return tr('Great!', 'Отлично!');
+    }
+
+    // Fallback: localize by emoji bucket.
+    if (emoji === '😢') return tr('Very hard', 'Тяжело');
+    if (emoji === '😞') return tr('Not great', 'Не очень');
+    if (emoji === '😐') return tr('Okay', 'Нормально');
+    if (emoji === '🙂') return tr('Good', 'Хорошо');
+    if (emoji === '😊') return tr('Great!', 'Отлично!');
+
+    // Final fallback for legacy/misc stored text values.
+    const raw = (moodText || '').trim().toLowerCase();
+    if (raw === 'very hard' || raw === 'тяжело') return tr('Very hard', 'Тяжело');
+    if (raw === 'not great' || raw === 'не очень') return tr('Not great', 'Не очень');
+    if (raw === 'okay' || raw === 'нормально') return tr('Okay', 'Нормально');
+    if (raw === 'good' || raw === 'хорошо') return tr('Good', 'Хорошо');
+    if (raw === 'great!' || raw === 'great' || raw === 'отлично!') return tr('Great!', 'Отлично!');
+    return isRussian ? 'Нормально' : 'Okay';
+  };
+
   const handleUpdate = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onUpdatePress();
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/goal.background.png')}
+      style={styles.container}
+      imageStyle={styles.containerImage}
+    >
       <View style={styles.content}>
         <View style={styles.emojiContainer}>
           <Text style={styles.emoji}>{emoji}</Text>
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.title}>Today's mood</Text>
-          <Text style={styles.moodText}>{moodText}</Text>
+          <Text style={styles.title}>{tr('Mood today', 'Настроение сегодня')}</Text>
+          <Text style={styles.moodText}>{getMoodLabel()}</Text>
         </View>
         <Pressable 
           style={({ pressed }) => [
@@ -38,16 +75,15 @@ export function MoodLoggedCard({ emoji, moodText, onUpdatePress }: MoodLoggedCar
           ]}
           onPress={handleUpdate}
         >
-          <Text style={styles.updateButtonText}>Update</Text>
+          <Text style={styles.updateButtonText}>{tr('Update', 'Изменить')}</Text>
         </Pressable>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 24,
     shadowColor: '#342846',
@@ -56,6 +92,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
+  },
+  containerImage: {
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
   content: {
     flexDirection: 'row',
@@ -86,7 +126,7 @@ const styles = StyleSheet.create({
   title: {
     ...BodyStyle,
     fontSize: 12,
-    color: '#666',
+    color: brandColors.text, // Use brand purple color (#342846)
     marginBottom: 2,
   },
   moodText: {

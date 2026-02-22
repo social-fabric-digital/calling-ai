@@ -19,7 +19,9 @@ interface CompletedGoal {
 }
 
 export default function CompletedGoalsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [completedGoals, setCompletedGoals] = useState<CompletedGoal[]>([]);
@@ -75,13 +77,13 @@ export default function CompletedGoalsScreen() {
           if (!category && originalGoal) {
             const nameLower = completedGoal.name.toLowerCase();
             if (nameLower.includes('focus') || nameLower.includes('productivity') || nameLower.includes('work')) {
-              category = 'Focus';
+              category = tr('Focus', 'Фокус');
             } else if (nameLower.includes('meditation') || nameLower.includes('mindful') || nameLower.includes('zen')) {
-              category = 'Zen';
+              category = tr('Calm', 'Спокойствие');
             } else if (nameLower.includes('health') || nameLower.includes('fitness') || nameLower.includes('detox')) {
-              category = 'Health';
+              category = tr('Health', 'Здоровье');
             } else if (nameLower.includes('skill') || nameLower.includes('learn') || nameLower.includes('speaking')) {
-              category = 'Skill';
+              category = tr('Skill', 'Навык');
             }
           }
           
@@ -90,18 +92,27 @@ export default function CompletedGoalsScreen() {
           if (!description && originalGoal) {
             const steps = originalGoal.steps || [];
             if (steps.length > 0) {
-              description = `Successfully completed all ${steps.length} steps. ${completedGoal.name} achieved!`;
+              description = tr(
+                `Successfully completed all ${steps.length} steps. Goal "${completedGoal.name}" achieved!`,
+                `Успешно завершены все ${steps.length} шагов. Цель "${completedGoal.name}" достигнута!`
+              );
             } else {
-              description = `Successfully completed ${completedGoal.name}. Great achievement!`;
+              description = tr(
+                `Successfully completed goal "${completedGoal.name}". Great result!`,
+                `Успешно завершена цель "${completedGoal.name}". Отличный результат!`
+              );
             }
           } else if (!description) {
-            description = `Successfully completed ${completedGoal.name}. Great achievement!`;
+            description = tr(
+              `Successfully completed goal "${completedGoal.name}". Great result!`,
+              `Успешно завершена цель "${completedGoal.name}". Отличный результат!`
+            );
           }
           
           return {
             ...completedGoal,
             xpEarned,
-            category: category || 'Focus',
+            category: category || tr('Focus', 'Фокус'),
             description,
           };
         });
@@ -141,7 +152,7 @@ export default function CompletedGoalsScreen() {
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString(isRussian ? 'ru-RU' : 'en-US', { 
       month: 'short', 
       day: 'numeric',
       year: 'numeric'
@@ -150,17 +161,17 @@ export default function CompletedGoalsScreen() {
 
   const getCategoryColor = (category?: string) => {
     const categoryColors: { [key: string]: { bg: string; text: string } } = {
-      'Focus': { bg: 'rgba(91, 58, 143, 0.1)', text: '#5b3a8f' },
-      'Zen': { bg: 'rgba(107, 142, 127, 0.1)', text: '#6b8e7f' },
-      'Health': { bg: 'rgba(139, 107, 74, 0.1)', text: '#8b6b4a' },
-      'Skill': { bg: 'rgba(125, 91, 166, 0.1)', text: '#7d5ba6' },
+      [tr('Focus', 'Фокус')]: { bg: 'rgba(91, 58, 143, 0.1)', text: '#5b3a8f' },
+      [tr('Calm', 'Спокойствие')]: { bg: 'rgba(107, 142, 127, 0.1)', text: '#6b8e7f' },
+      [tr('Health', 'Здоровье')]: { bg: 'rgba(139, 107, 74, 0.1)', text: '#8b6b4a' },
+      [tr('Skill', 'Навык')]: { bg: 'rgba(125, 91, 166, 0.1)', text: '#7d5ba6' },
     };
     return categoryColors[category || ''] || { bg: 'rgba(186, 204, 215, 0.1)', text: '#7a8a9a' };
   };
 
   const getCurrentDate = (): string => {
     const today = new Date();
-    return today.toLocaleDateString('en-US', { 
+    return today.toLocaleDateString(isRussian ? 'ru-RU' : 'en-US', { 
       month: 'short', 
       day: 'numeric',
       year: 'numeric'
@@ -230,7 +241,7 @@ export default function CompletedGoalsScreen() {
               <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>{t('completedGoals.recentSuccesses')}</Text>
               <TouchableOpacity style={styles.filterButton}>
                 <Text style={styles.filterIcon}>↓</Text>
-                <Text style={styles.filterText}>Latest First</Text>
+                <Text style={styles.filterText}>{tr('Newest first', 'Сначала новые')}</Text>
               </TouchableOpacity>
             </View>
             {completedGoals.length === 0 ? (
@@ -250,7 +261,7 @@ export default function CompletedGoalsScreen() {
                           </View>
                           <View style={styles.goalCardInfo}>
                             <Text style={styles.goalCardName}>{goal.name.toUpperCase()}</Text>
-                            <Text style={styles.goalCardDate}>Completed {formatDate(goal.dateCompleted)}</Text>
+                            <Text style={styles.goalCardDate}>{tr('Completed', 'Завершено')} {formatDate(goal.dateCompleted)}</Text>
                           </View>
                         </View>
                         {goal.category && (
@@ -271,10 +282,10 @@ export default function CompletedGoalsScreen() {
                           <View style={styles.goalXPIcon}>
                             <Text style={styles.goalXPIconText}>⭐</Text>
                           </View>
-                          <Text style={styles.goalXPText}>+{goal.xpEarned || 0} XP Earned</Text>
+                          <Text style={styles.goalXPText}>+{goal.xpEarned || 0} {tr('xp', 'опыта')}</Text>
                         </View>
                         <TouchableOpacity style={styles.detailsButton}>
-                          <Text style={styles.detailsButtonText}>Details</Text>
+                          <Text style={styles.detailsButtonText}>{tr('Details', 'Подробнее')}</Text>
                           <Text style={styles.detailsArrow}>→</Text>
                         </TouchableOpacity>
                       </View>
@@ -289,16 +300,16 @@ export default function CompletedGoalsScreen() {
           {completedGoals.length > 0 && (
             <View style={styles.nextGoalCard}>
               <Text style={styles.nextGoalIcon}>👑</Text>
-              <Text style={styles.nextGoalTitle}>Ready for the next one?</Text>
+              <Text style={styles.nextGoalTitle}>{tr('Ready for the next goal?', 'Готов к следующей цели?')}</Text>
               <Text style={styles.nextGoalSubtext}>
-                You've cleared all current major objectives. Time to level up.
+                {tr('You have already completed your main current goals. Time to level up.', 'Ты уже закрыл основные текущие цели. Время выйти на новый уровень.')}
               </Text>
               <TouchableOpacity 
                 style={styles.setNewGoalButton}
                 onPress={() => router.push('/new-goal')}
               >
                 <Text style={styles.setNewGoalIcon}>+</Text>
-                <Text style={styles.setNewGoalText}>Set New Goal</Text>
+                <Text style={styles.setNewGoalText}>{tr('Set a new goal', 'Поставить новую цель')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -317,7 +328,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(186, 204, 215, 0.2)',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,7 +393,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   impactCard: {
     backgroundColor: '#342846',

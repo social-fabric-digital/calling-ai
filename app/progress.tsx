@@ -1,242 +1,150 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, ImageBackground, Modal, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
+import { getActiveDaysThisWeek, getCurrentWeekDateRange, getDaysActiveThisWeek, getLoginCountThisWeek, getReflectionCountsThisWeek } from '@/utils/appTracking';
 import i18n from '@/utils/i18n';
+import { getMostFrequentMoodThisWeek } from '@/utils/moodStorage';
+import { getCompletedGoals, getLevelCompletionEvents, getStepCompletionEvents } from '@/utils/goalTracking';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
+const WEEKLY_BADGE_CLAIMS_KEY = 'weeklyBadgeClaims';
 
-// Engagement level messages
-const LOW_ENGAGEMENT_MESSAGES = [
-  "Every journey starts with a single step—today could be that day.",
-  "Your path is still here, waiting patiently for you.",
-  "Small moments of effort create lasting change.",
-  "It's never too late to begin again.",
-  "Progress isn't about perfection—it's about showing up.",
-  "Your future self will thank you for starting today.",
-  "Even the tallest trees started as tiny seeds.",
-  "You don't have to do everything—just do something.",
-  "The forest grows one tree at a time, and so do you.",
-  "Missing days doesn't mean missing out—you can always return.",
-  "Your goals are still yours, ready when you are.",
-  "Sometimes rest is part of the journey too.",
-  "Life got busy, and that's okay—we're here when you're ready.",
-  "One small action today can shift your entire week.",
-  "You're not starting over, you're starting stronger.",
-  "The door to your purpose is always open.",
-  "You've taken the first step before—you can do it again.",
-  "Even a quiet week can plant seeds for tomorrow.",
-  "Your ikigai doesn't disappear when you're away—it waits.",
-  "Just five minutes today can reignite your momentum.",
-  "You're allowed to start fresh, right now.",
-  "The path doesn't judge how long you've been gone.",
-  "Every master was once a beginner who kept beginning.",
-  "Your story isn't over—this is just a pause.",
-  "You don't need motivation to start, just courage to try.",
-  "The best time to return is now.",
-  "You matter, and your dreams matter.",
-  "Small steps still move mountains over time.",
-  "Your purpose hasn't forgotten you.",
-  "Even a single moment of effort honors your journey.",
-  "The forest is still growing—join it today.",
-  "You're closer than you think to your breakthrough.",
-  "Today is a gift—unwrap it with one small action.",
-  "Your potential is infinite, even on slow days.",
-  "Come back, not because you have to, but because you're worth it.",
-];
-
-const MODERATE_ENGAGEMENT_MESSAGES = [
-  "Look at you showing up—that's real commitment.",
-  "You're building something beautiful, day by day.",
-  "Consistency is your superpower, and you're proving it.",
-  "Three steps forward is still progress worth celebrating.",
-  "You're creating momentum—keep this energy alive.",
-  "Your effort this week is already making a difference.",
-  "You're not just showing up, you're showing yourself what's possible.",
-  "Every day you return, your roots grow deeper.",
-  "You're in the rhythm now—trust the process.",
-  "Your dedication is inspiring, even to yourself.",
-  "Small actions compound into extraordinary results.",
-  "You're proving that transformation happens in the ordinary.",
-  "This is what building a new life looks like.",
-  "You're halfway there—don't stop now.",
-  "Your forest is growing, and so are you.",
-  "The person you're becoming is worth this effort.",
-  "You're not perfect, but you're persistent—and that's everything.",
-  "Each day you choose yourself is a victory.",
-  "You're writing a new story with your actions.",
-  "Your commitment speaks louder than any excuse.",
-  "This momentum you're building? It's contagious.",
-  "You're doing better than you think you are.",
-  "Keep watering what you want to grow.",
-  "Your consistency is carving your new path.",
-  "The work you're putting in now will bloom tomorrow.",
-  "You're not just dreaming—you're doing.",
-  "Every session is a seed, and you're planting a garden.",
-  "You've already proven you can do hard things.",
-  "Your future self is cheering you on right now.",
-  "You're showing up for yourself, and that's love.",
-  "The gap between who you are and who you want to be is shrinking.",
-  "You're not waiting for motivation—you're creating it.",
-  "This is the sweet spot—keep dancing in it.",
-  "Your progress this week is your proof.",
-  "You're the kind of person who follows through.",
-];
-
-const HIGH_ENGAGEMENT_MESSAGES = [
-  "You're unstoppable this week—look at you go!",
-  "This is what dedication looks like, and you're mastering it.",
-  "Every single day? That's champion-level commitment.",
-  "You're not just chasing your dreams—you're catching them.",
-  "Your consistency is your signature move.",
-  "Seven days of showing up? You're rewriting your story.",
-  "You've proven to yourself what you're capable of.",
-  "This isn't luck—this is you, fully alive.",
-  "Your forest is thriving because you're thriving.",
-  "You're the embodiment of intentional living right now.",
-  "This level of commitment creates miracles.",
-  "You're building the life you've always imagined.",
-  "Every day this week, you chose yourself—that's power.",
-  "You're not just setting goals, you're becoming them.",
-  "This is what transformation in real-time looks like.",
-  "Your dedication is changing you from the inside out.",
-  "You've turned consistency into an art form.",
-  "The person you're becoming is extraordinary.",
-  "You're proving that daily action creates calling.",
-  "This momentum? Protect it like treasure.",
-  "You're in full bloom this week.",
-  "Your commitment is contagious—others are watching and learning.",
-  "This is your era, and you're living it fully.",
-  "You're not waiting for change—you are the change.",
-  "Seven days of courage, seven days of growth.",
-  "You've shown up for every version of yourself this week.",
-  "This is what it feels like to be aligned with your purpose.",
-  "You're writing your success story in real time.",
-  "Your ikigai isn't just a concept—it's your reality now.",
-  "You're proof that showing up every day works—keep shining.",
-];
-
-// Helper function to get days active in current week
-const getDaysActiveThisWeek = (answers: any[]): number => {
-  if (!answers || answers.length === 0) return 0;
-  
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
-  startOfWeek.setHours(0, 0, 0, 0);
-  
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
-  
-  const uniqueDates = new Set<string>();
-  
-  answers.forEach((answer: any) => {
-    if (answer.date) {
-      // Date is stored as YYYY-MM-DD string
-      const dateStr = answer.date;
-      const answerDate = new Date(dateStr + 'T00:00:00'); // Parse as local date
-      
-      if (answerDate >= startOfWeek && answerDate < endOfWeek) {
-        uniqueDates.add(dateStr);
-      }
-    }
-  });
-  
-  return uniqueDates.size;
+type StoredAtlasMessage = {
+  type: 'atlas' | 'user';
+  text: string;
+  timestamp?: string;
 };
 
-// Helper function to get which days of the week user was active
-const getWeekActivityData = (answers: any[]): { day: string; active: boolean; dayIndex: number }[] => {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
-  startOfWeek.setHours(0, 0, 0, 0);
-  
-  const activeDates = new Set<string>();
-  
-  if (answers && answers.length > 0) {
-    answers.forEach((answer: any) => {
-      if (answer.date) {
-        const dateStr = answer.date;
-        const answerDate = new Date(dateStr + 'T00:00:00');
-        
-        // Check if this date is in the current week
-        const weekEnd = new Date(startOfWeek);
-        weekEnd.setDate(startOfWeek.getDate() + 7);
-        
-        if (answerDate >= startOfWeek && answerDate < weekEnd) {
-          activeDates.add(dateStr);
-        }
-      }
-    });
-  }
-  
-  // Create week data array
-  return days.map((day, index) => {
-    const dayDate = new Date(startOfWeek);
-    dayDate.setDate(startOfWeek.getDate() + index);
-    const dayDateStr = dayDate.toISOString().split('T')[0];
-    
-    return {
-      day,
-      active: activeDates.has(dayDateStr),
-      dayIndex: index,
-    };
-  });
+const WIN_KEYWORDS = [
+  'win', 'wins', 'won', 'happy', 'happier', 'glad', 'proud', 'achievement', 'achieved', 'success', 'successful',
+  'побед', 'радост', 'счастл', 'получил', 'получила', 'получилось', 'успех', 'горж', 'достиг', 'достигла',
+  'сделал', 'сделала', 'классно', 'ура', 'круто',
+];
+
+const getCurrentWeekBounds = () => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  return { weekStart, weekEnd };
 };
 
-// Helper function to get random message based on engagement level
-const getEngagementMessage = (daysActive: number): string => {
-  let messages: string[];
-  
-  if (daysActive >= 6) {
-    messages = HIGH_ENGAGEMENT_MESSAGES;
-  } else if (daysActive >= 3) {
-    messages = MODERATE_ENGAGEMENT_MESSAGES;
-  } else {
-    messages = LOW_ENGAGEMENT_MESSAGES;
-  }
-  
-  // Return random message from the appropriate array
-  return messages[Math.floor(Math.random() * messages.length)];
+const isWithinWeek = (date: Date, weekStart: Date, weekEnd: Date): boolean => {
+  const ts = date.getTime();
+  return ts >= weekStart.getTime() && ts <= weekEnd.getTime();
 };
+
+const textLooksLikeWin = (text: string): boolean => {
+  const normalized = text.toLowerCase();
+  return WIN_KEYWORDS.some((keyword) => normalized.includes(keyword));
+};
+
+const truncateText = (text: string, maxLength = 90): string => {
+  const singleLine = text.replace(/\s+/g, ' ').trim();
+  return singleLine.length > maxLength ? `${singleLine.slice(0, maxLength - 1)}...` : singleLine;
+};
+
+// ============================================================================
+// THIS WEEK SCREEN (Weekly Progress)
+// A clean, encouraging view of the user's weekly journey
+// Organized into digestible sections that celebrate progress without overwhelm
+// ============================================================================
 
 export default function ProgressScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
-  const [userName, setUserName] = useState<string>('');
-  const [daysActive, setDaysActive] = useState<number>(0);
-  const [bodyText, setBodyText] = useState<string>('');
-  const [streakDays, setStreakDays] = useState<number>(0);
-  const [actionsCompleted, setActionsCompleted] = useState<number>(0);
-  const [focusHours, setFocusHours] = useState<number>(0);
-  const [weekData, setWeekData] = useState<{ day: string; active: boolean; dayIndex: number }[]>(() => {
-    // Initialize with default week data (all inactive)
-    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => ({
-      day,
-      active: false,
-      dayIndex: index,
-    }));
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const isRussian = i18n.language === 'ru' || i18n.language?.startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+  
+  // Animation for pulsating heart icon
+  const heartScale = React.useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heartScale, {
+          toValue: 1.2,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseAnimation.start();
+    
+    return () => pulseAnimation.stop();
+  }, [heartScale]);
+  
+  // State for week data
+  const [weekData, setWeekData] = useState({
+    dateRange: '',
+    loginCount: 0,
+    daysActive: 0,
+    totalDays: 7,
+    streakEmoji: '🔥',
+    activeDays: [false, false, false, false, false, false, false],
+    
+    // Path Progress
+    pathName: '',
+    currentGoal: '',
+    currentLevel: 1,
+    totalLevels: 4,
+    levelProgress: 0,
+    stepsCompletedThisWeek: 0,
+    levelsCompletedThisWeek: 0,
+    goalsCompletedThisWeek: 0,
+    
+    // Reflections
+    reflections: {
+      clarityMaps: 0,
+      dailyQuestions: 0,
+      cosmicInsights: 0,
+      focusSessions: 0
+    },
+    
+    // Pattern (AI-generated insight)
+    pattern: {
+      theme: '',
+      insight: ''
+    },
+    
+    // Mood tracking
+    mostFrequentMood: {
+      emoji: '😊',
+      label: '',
+      count: 0
+    },
+    
+    // Small wins (AI-generated, always positive)
+    smallWins: [] as string[],
+    
+    // Next step suggestion
+    nextStep: {
+      action: '',
+      ikigaiConnection: ''
+    }
   });
-  
-  // Flip animation states for each card
-  const daysActiveFlip = useRef(new Animated.Value(0)).current;
-  const streakFlip = useRef(new Animated.Value(0)).current;
-  const actionsFlip = useRef(new Animated.Value(0)).current;
-  const focusHoursFlip = useRef(new Animated.Value(0)).current;
-  
-  // Card flip states
-  const [daysActiveFlipped, setDaysActiveFlipped] = useState(false);
-  const [streakFlipped, setStreakFlipped] = useState(false);
-  const [actionsFlipped, setActionsFlipped] = useState(false);
-  const [focusHoursFlipped, setFocusHoursFlipped] = useState(false);
-  
+
   // Badge modal state
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [badgeData, setBadgeData] = useState<{
@@ -246,429 +154,193 @@ export default function ProgressScreen() {
     badgeNumber?: number;
     category?: 'career' | 'social' | 'personal' | 'progress';
   } | null>(null);
-  
-  // Load user data
-  useEffect(() => {
-    loadUserData();
-  }, []);
-  
-  const loadUserData = async () => {
-    try {
-      // Load user name
-      const name = await AsyncStorage.getItem('userName');
-      if (name) {
-        setUserName(name);
-      }
-      
-      // Load user answers to calculate days active in current week
-      const answersData = await AsyncStorage.getItem('userAnswers');
-      if (answersData) {
-        const answers = JSON.parse(answersData);
-        // Get days active in current week
-        const daysActiveThisWeek = getDaysActiveThisWeek(answers);
-        setDaysActive(daysActiveThisWeek);
-        // Set dynamic body text based on engagement level
-        setBodyText(getEngagementMessage(daysActiveThisWeek));
-        
-        // Calculate total streak days (all unique dates)
-        const uniqueDates = new Set(answers.map((a: any) => a.date));
-        setStreakDays(uniqueDates.size);
-        
-        // Count total actions completed
-        setActionsCompleted(answers.length);
-        
-        // Get week activity data for circles
-        const weekActivity = getWeekActivityData(answers);
-        setWeekData(weekActivity);
-      } else {
-        // No answers yet, set default message
-        setBodyText(getEngagementMessage(0));
-        // Set default week data (all inactive)
-        const defaultWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => ({
-          day,
-          active: false,
-          dayIndex: index,
-        }));
-        setWeekData(defaultWeek);
-      }
-      
-      // Load focus hours
-      const focusHoursData = await AsyncStorage.getItem('focusHours');
-      if (focusHoursData) {
-        const hours = parseFloat(focusHoursData);
-        setFocusHours(Math.round(hours * 10) / 10); // Round to 1 decimal place
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      setBodyText(getEngagementMessage(0));
-    }
-  };
-  
-  // Badge image mapping - maps badge numbers to image paths (using 1.png-30.png from Downloads)
-  const badgeImageMap: { [key: number]: any } = {
-    1: require('../assets/images/badges/1.png'),
-    2: require('../assets/images/badges/2.png'),
-    3: require('../assets/images/badges/3.png'),
-    4: require('../assets/images/badges/4.png'),
-    5: require('../assets/images/badges/5.png'),
-    6: require('../assets/images/badges/6.png'),
-    7: require('../assets/images/badges/7.png'),
-    8: require('../assets/images/badges/8.png'),
-    9: require('../assets/images/badges/9.png'),
-    10: require('../assets/images/badges/10.png'),
-    11: require('../assets/images/badges/11.png'),
-    12: require('../assets/images/badges/12.png'),
-    13: require('../assets/images/badges/13.png'),
-    14: require('../assets/images/badges/14.png'),
-    15: require('../assets/images/badges/15.png'),
-    16: require('../assets/images/badges/16.png'),
-    17: require('../assets/images/badges/17.png'),
-    18: require('../assets/images/badges/18.png'),
-    19: require('../assets/images/badges/19.png'),
-    20: require('../assets/images/badges/20.png'),
-    21: require('../assets/images/badges/21.png'),
-    22: require('../assets/images/badges/22.png'),
-    23: require('../assets/images/badges/23.png'),
-    24: require('../assets/images/badges/24.png'),
-    25: require('../assets/images/badges/25.png'),
-    26: require('../assets/images/badges/26.png'),
-    27: require('../assets/images/badges/27.png'),
-    28: require('../assets/images/badges/28.png'),
-    29: require('../assets/images/badges/29.png'),
-    30: require('../assets/images/badges/30.png'),
-  };
-
-  // Helper function to get badge image by number
-  const getBadgeImage = (badgeNumber: number) => {
-    // Return badge image if available, otherwise fallback to trophy
-    return badgeImageMap[badgeNumber] || require('../assets/images/trophy.png');
-  };
-
-  // Badge category definitions
-  const BADGE_CATEGORIES = {
-    career: {
-      badges: [2, 5, 7, 9, 17, 21, 22, 30],
-      names: {
-        2: 'Skills Upgrade',
-        5: 'Growth Catalyst',
-        7: 'Threshold Crosser',
-        9: 'Resume Refresh',
-        17: 'Time Master',
-        21: 'First Application',
-        22: 'Visible Voice',
-        30: 'New Opportunities',
-      },
-    },
-    social: {
-      badges: [3, 10, 11, 15, 16, 18, 23, 24, 29],
-      names: {
-        3: 'Network Builder',
-        10: 'Bridge Builder',
-        11: 'Coffee Courage',
-        15: 'Storm Calmer',
-        16: 'Connection Master',
-        18: 'Vulnerability Champion',
-        23: 'Social Confidence',
-        24: 'Group Participant',
-        29: 'First Reach Out',
-      },
-    },
-    personal: {
-      badges: [1, 4, 6, 12, 13, 14, 19, 20, 25, 28],
-      names: {
-        1: 'Fear Stomper',
-        4: 'Solo Summit',
-        6: 'Finding Way',
-        12: 'First Rep',
-        13: 'Boundary Setter',
-        14: 'Treasure Finder',
-        19: 'Comfort Zone Exit',
-        20: 'Physical Courage',
-        25: 'Solo Adventure',
-        28: 'Personal Transformation',
-      },
-    },
-    progress: {
-      badges: [8, 26, 27],
-      names: {
-        8: 'Summit Reached',
-        26: 'Achievement Unlocked',
-        27: 'Weekly Warrior',
-      },
-    },
-  };
-
-  // Helper function to get available badges in a category (excluding already earned ones)
-  const getAvailableBadgesInCategory = async (category: 'career' | 'social' | 'personal' | 'progress'): Promise<number[]> => {
-    try {
-      // Load existing badges
-      const badgesData = await AsyncStorage.getItem('userBadges');
-      const existingBadges = badgesData ? JSON.parse(badgesData) : [];
-      const earnedBadgeNumbers = new Set(existingBadges.map((b: any) => b.badgeNumber).filter((n: any) => n !== undefined));
-      
-      // Get category badges and filter out already earned ones
-      const categoryBadges = BADGE_CATEGORIES[category].badges;
-      return categoryBadges.filter(badgeNum => !earnedBadgeNumbers.has(badgeNum));
-    } catch (error) {
-      console.error('Error getting available badges:', error);
-      return BADGE_CATEGORIES[category].badges;
-    }
-  };
-
-  // Helper function to get translated badge name (only for Russian, English uses original names)
-  const getTranslatedBadgeName = (category: string, badgeNumber: number): string => {
-    // Only use translations when language is Russian
-    if (i18n.language === 'ru' || i18n.language?.startsWith('ru')) {
-      const translationKey = `progress.badgeNames.${category}.${badgeNumber}`;
-      const translated = t(translationKey);
-      // If translation exists and is different from key, use it
-      if (translated && translated !== translationKey) {
-        return translated;
-      }
-    }
-    // For English or if translation not found, use original English name
-    return BADGE_CATEGORIES[category as keyof typeof BADGE_CATEGORIES]?.names[badgeNumber as any] || 'Achievement';
-  };
-
-  // Helper function to analyze user goals and determine badge category
-  const analyzeUserGoals = async (): Promise<{
+  const [weeklyClaimedBadge, setWeeklyClaimedBadge] = useState<{
     category: 'career' | 'social' | 'personal' | 'progress';
     badgeNumber: number;
     badgeName: string;
     badgeMessage: string;
-  }> => {
-    try {
-      // Load user goals
-      const goalsData = await AsyncStorage.getItem('userGoals');
-      const goals = goalsData ? JSON.parse(goalsData) : [];
-      
-      // Load completed goals
-      const completedGoalsData = await AsyncStorage.getItem('completedGoals');
-      const completedGoals = completedGoalsData ? JSON.parse(completedGoalsData) : [];
-      
-      // Analyze goal names and descriptions for category keywords
-      const allGoals = [...goals, ...completedGoals];
-      
-      // Career keywords
-      const careerKeywords = ['job', 'career', 'interview', 'resume', 'linkedin', 'network', 'professional', 'work', 'business', 'application', 'skill', 'promotion', 'salary'];
-      // Social keywords
-      const socialKeywords = ['meet', 'friend', 'social', 'group', 'coffee', 'party', 'relationship', 'connection', 'community', 'team', 'together', 'share', 'communicate'];
-      // Personal courage keywords
-      const personalKeywords = ['fear', 'anxiety', 'boundary', 'self-care', 'gym', 'exercise', 'health', 'mental', 'house', 'leave', 'adventure', 'solo', 'courage', 'overcome'];
-      
-      let careerCount = 0;
-      let socialCount = 0;
-      let personalCount = 0;
-      
-      allGoals.forEach((goal: any) => {
-        const goalText = (goal.name || '').toLowerCase() + ' ' + (goal.fear || '').toLowerCase();
-        
-        if (careerKeywords.some(keyword => goalText.includes(keyword))) {
-          careerCount++;
-        }
-        if (socialKeywords.some(keyword => goalText.includes(keyword))) {
-          socialCount++;
-        }
-        if (personalKeywords.some(keyword => goalText.includes(keyword))) {
-          personalCount++;
-        }
-      });
-      
-      // Determine category based on counts and achievements
-      // Priority: Progress badges for streaks/consistency, then category-based badges
-      
-      // Progress & Persistence Badges (highest priority for streaks)
-      if (streakDays >= 7 && daysActive >= 6) {
-        const availableProgressBadges = await getAvailableBadgesInCategory('progress');
-        if (availableProgressBadges.length > 0) {
-          // Prefer badge #27 (Weekly Warrior) if available, otherwise use first available
-          const badgeNum = availableProgressBadges.includes(27) ? 27 : availableProgressBadges[0];
-          return {
-            category: 'progress',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('progress', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru') 
-              ? t('progress.badgeMessages.progress7Days')
-              : `You've consistently hit your goals for 7 days straight. This badge recognizes your unwavering dedication and momentum.`,
-          };
-        }
-      }
-      
-      if (completedGoals.length > 0) {
-        const availableProgressBadges = await getAvailableBadgesInCategory('progress');
-        if (availableProgressBadges.length > 0) {
-          // Prefer badge #8 (Summit Reached) if available, otherwise use first available
-          const badgeNum = availableProgressBadges.includes(8) ? 8 : availableProgressBadges[0];
-          return {
-            category: 'progress',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('progress', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-              ? t('progress.badgeMessages.progressCompleted', { 
-                  count: completedGoals.length, 
-                  goalLabel: completedGoals.length === 1 ? t('progress.goal') : t('progress.goals') 
-                })
-              : `You've completed ${completedGoals.length} goal${completedGoals.length > 1 ? 's' : ''}. Every summit starts with a single step.`,
-          };
-        }
-      }
-      
-      // Category-based badges
-      if (careerCount > socialCount && careerCount > personalCount) {
-        const availableCareerBadges = await getAvailableBadgesInCategory('career');
-        if (availableCareerBadges.length > 0) {
-          // Select badge based on career count, cycling through available badges
-          const badgeIndex = (careerCount - 1) % availableCareerBadges.length;
-          const badgeNum = availableCareerBadges[badgeIndex];
-          return {
-            category: 'career',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('career', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-              ? t('progress.badgeMessages.careerDedication')
-              : `Your dedication to professional growth is inspiring. This badge celebrates your career milestones.`,
-          };
-        }
-      } else if (socialCount > personalCount) {
-        const availableSocialBadges = await getAvailableBadgesInCategory('social');
-        if (availableSocialBadges.length > 0) {
-          // Select badge based on social count, cycling through available badges
-          const badgeIndex = (socialCount - 1) % availableSocialBadges.length;
-          const badgeNum = availableSocialBadges[badgeIndex];
-          return {
-            category: 'social',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('social', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-              ? t('progress.badgeMessages.socialCourage')
-              : `Your courage in building connections is remarkable. This badge honors your social growth.`,
-          };
-        }
-      } else if (personalCount > 0) {
-        const availablePersonalBadges = await getAvailableBadgesInCategory('personal');
-        if (availablePersonalBadges.length > 0) {
-          // Select badge based on personal count, cycling through available badges
-          const badgeIndex = (personalCount - 1) % availablePersonalBadges.length;
-          const badgeNum = availablePersonalBadges[badgeIndex];
-          return {
-            category: 'personal',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('personal', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-              ? t('progress.badgeMessages.personalBravery')
-              : `Your bravery in facing personal challenges is inspiring. This badge celebrates your inner strength.`,
-          };
-        }
-      }
-      
-      // Default: Progress badge for consistency
-      if (daysActive >= 6) {
-        const availableProgressBadges = await getAvailableBadgesInCategory('progress');
-        if (availableProgressBadges.length > 0) {
-          const badgeNum = availableProgressBadges.includes(27) ? 27 : availableProgressBadges[0];
-          return {
-            category: 'progress',
-            badgeNumber: badgeNum,
-            badgeName: getTranslatedBadgeName('progress', badgeNum),
-            badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-              ? t('progress.weeklyActivityBadge', { count: daysActive })
-              : `You've been active ${daysActive} out of 7 days this week. Your commitment is inspiring.`,
-          };
-        }
-      }
-      
-      // Default: Achievement badge
-      const availableProgressBadges = await getAvailableBadgesInCategory('progress');
-      if (availableProgressBadges.length > 0) {
-        const badgeNum = availableProgressBadges.includes(26) ? 26 : availableProgressBadges[0];
-        return {
-          category: 'progress',
-          badgeNumber: badgeNum,
-          badgeName: getTranslatedBadgeName('progress', badgeNum),
-          badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-            ? t('progress.badgeMessages.progressDefault')
-            : `You're making progress! Keep showing up and watch your achievements grow.`,
-        };
-      }
-      
-      // Fallback: return null if no badges available (shouldn't happen, but handle gracefully)
-      return {
-        category: 'progress',
-        badgeNumber: 26,
-        badgeName: getTranslatedBadgeName('progress', 26),
-        badgeMessage: t('progress.badgeMessages.progressDefault'),
-      };
-    } catch (error) {
-      console.error('Error analyzing goals:', error);
-      // Fallback to progress badge
-      return {
-        category: 'progress',
-        badgeNumber: 27,
-        badgeName: getTranslatedBadgeName('progress', 27),
-        badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
-          ? t('progress.badgeMessages.progressConsistency')
-          : `You've consistently shown up this week. This badge recognizes your dedication.`,
-      };
-    }
-  };
+    claimedAt: string;
+  } | null>(null);
 
-  // Determine badge based on user progress
-  const getBadgeData = async () => {
-    const badgeInfo = await analyzeUserGoals();
-    const badgeImage = getBadgeImage(badgeInfo.badgeNumber);
-    
-    console.log('Badge selected:', {
-      badgeNumber: badgeInfo.badgeNumber,
-      badgeName: badgeInfo.badgeName,
-      category: badgeInfo.category,
-      image: badgeImage,
+  // Current goal ID state
+  const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
+  
+  // Help modal state
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Load current goal ID and week data on mount and when screen comes into focus
+  const loadData = useCallback(async () => {
+    try {
+      let userGoals: any[] = [];
+
+      // Load current goal ID
+      const userGoalsData = await AsyncStorage.getItem('userGoals');
+      if (userGoalsData) {
+        userGoals = JSON.parse(userGoalsData);
+        const activeGoal = userGoals.find((g: any) => g.isActive === true);
+        if (activeGoal && activeGoal.id) {
+          setCurrentGoalId(activeGoal.id);
+          
+          // Set goal-related data
+          setWeekData(prev => ({
+            ...prev,
+            pathName: activeGoal.name || '',
+            currentGoal: activeGoal.name || '',
+            currentLevel: (activeGoal.currentStepIndex !== undefined ? activeGoal.currentStepIndex + 1 : 1) || 1,
+            totalLevels: activeGoal.numberOfSteps || 4,
+            levelProgress: activeGoal.progressPercentage || 0,
+          }));
+        }
+      }
+      
+      // Load days active data
+      const daysActive = await getDaysActiveThisWeek();
+      const loginCount = await getLoginCountThisWeek();
+      const dateRange = getCurrentWeekDateRange(isRussian ? 'ru-RU' : 'en-US');
+      const activeDays = await getActiveDaysThisWeek();
+      const mostFrequentMood = await getMostFrequentMoodThisWeek(isRussian ? 'ru-RU' : 'en-US');
+      const reflectionCounts = await getReflectionCountsThisWeek();
+      const { weekStart, weekEnd } = getCurrentWeekBounds();
+
+      const completedGoals = await getCompletedGoals();
+      const goalsCompletedThisWeek = completedGoals.filter((goal) => {
+        if (!goal.dateCompleted) return false;
+        const completedDate = new Date(`${goal.dateCompleted}T12:00:00`);
+        return isWithinWeek(completedDate, weekStart, weekEnd);
+      });
+
+      const levelCompletionEvents = await getLevelCompletionEvents();
+      const levelsCompletedThisWeek = levelCompletionEvents.filter((event) =>
+        isWithinWeek(new Date(event.completedAt), weekStart, weekEnd)
+      );
+      const stepCompletionEvents = await getStepCompletionEvents();
+      const stepsCompletedThisWeekEvents = stepCompletionEvents.filter((event) =>
+        isWithinWeek(new Date(event.completedAt), weekStart, weekEnd)
+      );
+
+      const atlasMessagesRaw = await AsyncStorage.getItem(ATLAS_CHAT_STORAGE_KEY);
+      const atlasMessages: StoredAtlasMessage[] = atlasMessagesRaw ? JSON.parse(atlasMessagesRaw) : [];
+      const atlasWinsThisWeek = atlasMessages
+        .filter((message) => {
+          if (message.type !== 'user' || !message.text || !message.timestamp) return false;
+          const messageDate = new Date(message.timestamp);
+          if (!isWithinWeek(messageDate, weekStart, weekEnd)) return false;
+          return textLooksLikeWin(message.text);
+        })
+        .slice(-3)
+        .map((message) =>
+          isRussian
+            ? `Ты отметил в чате с Атласом: "${truncateText(message.text)}"`
+            : `You shared with Atlas: "${truncateText(message.text)}"`
+        );
+
+      const generatedSmallWins: string[] = [];
+      if (stepsCompletedThisWeekEvents.length > 0) {
+        generatedSmallWins.push(
+          isRussian
+            ? `Ты отметил(а) как выполненные ${stepsCompletedThisWeekEvents.length} шагов за эту неделю.`
+            : `You checked off ${stepsCompletedThisWeekEvents.length} steps this week.`
+        );
+      }
+
+      if (levelsCompletedThisWeek.length > 0) {
+        generatedSmallWins.push(
+          isRussian
+            ? `Ты завершил(а) ${levelsCompletedThisWeek.length} уровней за эту неделю.`
+            : `You completed ${levelsCompletedThisWeek.length} levels this week.`
+        );
+      }
+
+      if (goalsCompletedThisWeek.length > 0) {
+        generatedSmallWins.push(
+          isRussian
+            ? `Ты завершил(а) ${goalsCompletedThisWeek.length} целей за эту неделю.`
+            : `You completed ${goalsCompletedThisWeek.length} goals this week.`
+        );
+      }
+
+      generatedSmallWins.push(...atlasWinsThisWeek);
+      const smallWins = Array.from(new Set(generatedSmallWins)).slice(0, 5);
+
+      const weeklyClaimsRaw = await AsyncStorage.getItem(WEEKLY_BADGE_CLAIMS_KEY);
+      const weeklyClaims = weeklyClaimsRaw ? JSON.parse(weeklyClaimsRaw) : {};
+      const currentWeekKey = getCurrentWeekKey();
+      const claimedThisWeek = weeklyClaims[currentWeekKey] || null;
+      setWeeklyClaimedBadge(claimedThisWeek);
+      
+      setWeekData(prev => ({
+        ...prev,
+        loginCount,
+        daysActive,
+        dateRange: `${dateRange.start} - ${dateRange.end}`,
+        activeDays,
+        mostFrequentMood: mostFrequentMood || prev.mostFrequentMood,
+        reflections: reflectionCounts,
+        stepsCompletedThisWeek: stepsCompletedThisWeekEvents.length,
+        levelsCompletedThisWeek: levelsCompletedThisWeek.length,
+        goalsCompletedThisWeek: goalsCompletedThisWeek.length,
+        smallWins,
+      }));
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  }, [isRussian]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const handleClaimBadge = async () => {
+    if (weeklyClaimedBadge) {
+      setBadgeData({
+        name: weeklyClaimedBadge.badgeName,
+        message: weeklyClaimedBadge.badgeMessage,
+        image: getBadgeImage(weeklyClaimedBadge.badgeNumber),
+        badgeNumber: weeklyClaimedBadge.badgeNumber,
+        category: weeklyClaimedBadge.category,
+      });
+      setShowBadgeModal(true);
+      return;
+    }
+
+    const badgeInfo = await analyzeUserGoals({
+      daysActive: weekData.daysActive,
+      loginCount: weekData.loginCount,
+      stepsCompletedThisWeek: weekData.stepsCompletedThisWeek,
+      levelsCompletedThisWeek: weekData.levelsCompletedThisWeek,
+      goalsCompletedThisWeek: weekData.goalsCompletedThisWeek,
+      reflections: weekData.reflections,
+      goalsText: `${weekData.currentGoal} ${weekData.pathName}`,
     });
-    
-    return {
+
+    setBadgeData({
       name: badgeInfo.badgeName,
       message: badgeInfo.badgeMessage,
-      image: badgeImage,
+      image: getBadgeImage(badgeInfo.badgeNumber),
       badgeNumber: badgeInfo.badgeNumber,
       category: badgeInfo.category,
-    };
-  };
-  
-  // Handle badge claim
-  const handleClaimBadge = async () => {
-    const badge = await getBadgeData();
-    setBadgeData(badge);
+    });
     setShowBadgeModal(true);
   };
-  
-  // Handle add badge to profile
+
   const handleAddToProfile = async () => {
     try {
       if (badgeData) {
-        // Load existing badges
         const badgesData = await AsyncStorage.getItem('userBadges');
         const badges = badgesData ? JSON.parse(badgesData) : [];
-        
-        // Generate badge ID from badge number to ensure uniqueness
         const badgeId = `badge_${badgeData.badgeNumber}`;
-        
-        // Check if badge already exists (by badge number)
         const badgeExists = badges.some((b: any) => b.badgeNumber === badgeData.badgeNumber);
         
         if (!badgeExists) {
-          // Determine icon based on badge category
-          let badgeIcon = '🏆'; // Default trophy icon
+          let badgeIcon = '🏆';
           const category = badgeData.category || 'progress';
-          if (category === 'career') {
-            badgeIcon = '💼';
-          } else if (category === 'social') {
-            badgeIcon = '🤝';
-          } else if (category === 'personal') {
-            badgeIcon = '💪';
-          } else if (category === 'progress') {
-            badgeIcon = '⭐';
-          }
+          if (category === 'career') badgeIcon = '💼';
+          else if (category === 'social') badgeIcon = '🤝';
+          else if (category === 'personal') badgeIcon = '💪';
+          else if (category === 'progress') badgeIcon = '⭐';
           
-          // Add badge to profile with all required fields
           badges.push({
             id: badgeId,
             name: badgeData.name,
@@ -679,655 +351,1253 @@ export default function ProgressScreen() {
           });
           
           await AsyncStorage.setItem('userBadges', JSON.stringify(badges));
-          
-          // Mark this badge as newly added for animation
           await AsyncStorage.setItem('newlyAddedBadgeId', badgeId);
         }
+
+        const currentWeekKey = getCurrentWeekKey();
+        const weeklyClaimsRaw = await AsyncStorage.getItem(WEEKLY_BADGE_CLAIMS_KEY);
+        const weeklyClaims = weeklyClaimsRaw ? JSON.parse(weeklyClaimsRaw) : {};
+        weeklyClaims[currentWeekKey] = {
+          category: badgeData.category || 'progress',
+          badgeNumber: badgeData.badgeNumber,
+          badgeName: badgeData.name,
+          badgeMessage: badgeData.message,
+          claimedAt: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem(WEEKLY_BADGE_CLAIMS_KEY, JSON.stringify(weeklyClaims));
+        setWeeklyClaimedBadge(weeklyClaims[currentWeekKey]);
         
-        // Close modal
         setShowBadgeModal(false);
-        
-        // Navigate to "me" screen
         router.push('/(tabs)/me');
       }
     } catch (error) {
       console.error('Error adding badge to profile:', error);
     }
   };
-  
-  // Handle share badge
-  const handleShareBadge = async () => {
-    try {
-      if (badgeData) {
-        const shareMessage = `🎉 ${badgeData.name} 🎉\n\n${badgeData.message}\n\nEarned in Calling App`;
-        await Share.share({
-          message: shareMessage,
-        });
-      }
-    } catch (error) {
-      console.error('Error sharing badge:', error);
-    }
-  };
-  
-  // Flip card animation
-  const flipCard = (flipAnim: Animated.Value, isFlipped: boolean, setIsFlipped: (val: boolean) => void) => {
-    Animated.spring(flipAnim, {
-      toValue: isFlipped ? 0 : 180,
-      friction: 8,
-      tension: 10,
-      useNativeDriver: true,
-    }).start();
-    setIsFlipped(!isFlipped);
-  };
-  
-  // Get front and back rotation and opacity styles
-  const getCardRotation = (flipAnim: Animated.Value) => {
-    const frontInterpolate = flipAnim.interpolate({
-      inputRange: [0, 90, 180],
-      outputRange: ['0deg', '90deg', '180deg'],
-    });
-    const backInterpolate = flipAnim.interpolate({
-      inputRange: [0, 90, 180],
-      outputRange: ['180deg', '270deg', '360deg'],
-    });
-    const frontOpacity = flipAnim.interpolate({
-      inputRange: [0, 90, 180],
-      outputRange: [1, 0, 0],
-    });
-    const backOpacity = flipAnim.interpolate({
-      inputRange: [0, 90, 180],
-      outputRange: [0, 0, 1],
-    });
-    
-    return { frontInterpolate, backInterpolate, frontOpacity, backOpacity };
-  };
-  
+
+  const placeholderSmallWins = [
+    tr(
+      'Complete a goal or level, or share a small win with Atlas - and it will appear here.',
+      'Заверши цель или уровень, либо поделись маленькой победой с Атласом - и она появится здесь.'
+    ),
+  ];
+  const isPlaceholderSmallWins = weekData.smallWins.length === 0;
+  const smallWinsToDisplay = isPlaceholderSmallWins ? placeholderSmallWins : weekData.smallWins;
 
   return (
     <PaperTextureBackground>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-      {/* Back Arrow */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <Text style={styles.backButtonText}>←</Text>
-      </TouchableOpacity>
-
-      {/* User Name Heading */}
-      <Text style={styles.userNameHeading}>{t('progress.weeklyProgress')}</Text>
-
-      {/* Dynamic Body Text */}
-      <Text style={styles.bodyText}>{bodyText || getEngagementMessage(daysActive)}</Text>
-
-      {/* Four Cards Grid */}
-      <View style={styles.gridContainer}>
-        {/* Row 1 */}
-        <View style={styles.gridRow}>
-          {/* Days Active */}
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => flipCard(daysActiveFlip, daysActiveFlipped, setDaysActiveFlipped)}
-            style={styles.cardTouchable}
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: Math.max(60, insets.top + 20) }]}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
           >
-            <View style={styles.card}>
-              <Animated.View
-                style={[
-                  styles.cardFront,
-                  {
-                    transform: [{ rotateY: getCardRotation(daysActiveFlip).frontInterpolate }],
-                    opacity: getCardRotation(daysActiveFlip).frontOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardHeading}>{daysActive}/7</Text>
-                  <Text style={styles.cardBody}>{t('progress.daysActive')}</Text>
-                </LinearGradient>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.cardBack,
-                  {
-                    transform: [{ rotateY: getCardRotation(daysActiveFlip).backInterpolate }],
-                    opacity: getCardRotation(daysActiveFlip).backOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardDescription}>
-                    {t('progress.daysActiveDetail', { 
-                      count: daysActive, 
-                      timeLabel: daysActive === 1 ? t('progress.time') : t('progress.times') 
-                    })}
-                  </Text>
-                  <Text style={styles.cardDescriptionSmall}>
-                    Every day you show up is a step toward your goals.
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            </View>
+            <MaterialIcons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
-
-          {/* Days of Streak */}
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => flipCard(streakFlip, streakFlipped, setStreakFlipped)}
-            style={styles.cardTouchable}
-          >
-            <View style={styles.card}>
-              <Animated.View
-                style={[
-                  styles.cardFront,
-                  {
-                    transform: [{ rotateY: getCardRotation(streakFlip).frontInterpolate }],
-                    opacity: getCardRotation(streakFlip).frontOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardHeading}>{streakDays}</Text>
-                  <Text style={styles.cardBody}>Days of Streak</Text>
-                </LinearGradient>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.cardBack,
-                  {
-                    transform: [{ rotateY: getCardRotation(streakFlip).backInterpolate }],
-                    opacity: getCardRotation(streakFlip).backOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardDescription}>
-                    {t('progress.congrats', { days: streakDays, daysLabel: streakDays === 1 ? t('progress.day') : t('progress.days') })}
-                  </Text>
-                  <Text style={styles.cardDescriptionSmall}>
-                    {t('progress.consistencyBuilding')}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Row 2 */}
-        <View style={styles.gridRow}>
-          {/* Actions Completed */}
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => flipCard(actionsFlip, actionsFlipped, setActionsFlipped)}
-            style={styles.cardTouchable}
-          >
-            <View style={styles.card}>
-              <Animated.View
-                style={[
-                  styles.cardFront,
-                  {
-                    transform: [{ rotateY: getCardRotation(actionsFlip).frontInterpolate }],
-                    opacity: getCardRotation(actionsFlip).frontOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardHeading}>{actionsCompleted}</Text>
-                  <Text style={styles.cardBody}>{t('progress.actionsCompleted')}</Text>
-                </LinearGradient>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.cardBack,
-                  {
-                    transform: [{ rotateY: getCardRotation(actionsFlip).backInterpolate }],
-                    opacity: getCardRotation(actionsFlip).backOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardDescription}>
-                    {t('progress.actionsDetail', { 
-                      count: actionsCompleted, 
-                      actionLabel: actionsCompleted === 1 ? t('progress.action') : t('progress.actions') 
-                    })}
-                  </Text>
-                  <Text style={styles.cardDescriptionSmall}>
-                    {t('progress.actionsBringCloser')}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Focus Hours */}
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => flipCard(focusHoursFlip, focusHoursFlipped, setFocusHoursFlipped)}
-            style={styles.cardTouchable}
-          >
-            <View style={styles.card}>
-              <Animated.View
-                style={[
-                  styles.cardFront,
-                  {
-                    transform: [{ rotateY: getCardRotation(focusHoursFlip).frontInterpolate }],
-                    opacity: getCardRotation(focusHoursFlip).frontOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardHeading}>{focusHours}</Text>
-                  <Text style={styles.cardBody}>{t('progress.focusHours')}</Text>
-                </LinearGradient>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.cardBack,
-                  {
-                    transform: [{ rotateY: getCardRotation(focusHoursFlip).backInterpolate }],
-                    opacity: getCardRotation(focusHoursFlip).backOpacity,
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={['#342846', '#342846']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.cardGradient}
-                >
-                  <Text style={styles.cardDescription}>
-                    {t('progress.focusTimeDetail')}
-                  </Text>
-                  <Text style={styles.cardDescriptionSmall}>
-                    {t('progress.focusMomentGrows')}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* This Week's Journey Heading */}
-      <Text style={styles.journeyHeading}>{t('progress.thisWeeksJourney')}</Text>
-
-      {/* Seven Circles for Days of Week */}
-      <View style={styles.weekCirclesContainer}>
-        {weekData.map((dayData, index) => (
-          <View key={index} style={styles.dayContainer}>
-            {dayData.active ? (
-              <View style={styles.dayCircleActiveWrapper}>
-                <ImageBackground
-                  source={require('../assets/images/goal.background.png')}
-                  style={styles.dayCircleActive}
-                  imageStyle={styles.dayCircleImage}
-                  resizeMode="cover"
-                />
-              </View>
-            ) : (
-              <View style={styles.dayCircle} />
-            )}
-            <Text style={styles.dayName}>{t(`progress.weekDays.${dayData.day}`)}</Text>
+          
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>{tr('YOUR WEEK', 'ТВОЯ НЕДЕЛЯ')}</Text>
+            <Text style={styles.dateRange}>{weekData.dateRange}</Text>
           </View>
-        ))}
-      </View>
-
-      {/* Claim Your Badge Field */}
-      <LinearGradient
-        colors={['#fffffe', '#e6e6e6', '#f6fdff']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.badgeField}
-      >
-        <TouchableOpacity
-          style={styles.badgeFieldContent}
-          onPress={handleClaimBadge}
-        >
-          <Text style={styles.badgeFieldText}>{t('progress.claimYourBadge')}</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      {/* New Goal Field */}
-      <LinearGradient
-        colors={['#fffffe', '#e6e6e6', '#f6fdff']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.goalField}
-      >
-        <View style={styles.goalFieldContent}>
-          <Text style={styles.goalFieldText}>New Goal</Text>
-          <TouchableOpacity
-            onPress={() => {
-              router.push('/new-goal');
-            }}
+          
+          <TouchableOpacity 
+            style={styles.helpButton}
+            activeOpacity={0.7}
+            onPress={() => setShowHelpModal(true)}
           >
-            <Text style={styles.goalPlusText}>+</Text>
+            <MaterialIcons name="help-outline" size={24} color="#342846" />
           </TouchableOpacity>
         </View>
-      </LinearGradient>
-    </ScrollView>
-    
-    {/* Badge Modal */}
-    <Modal
-      visible={showBadgeModal}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={() => setShowBadgeModal(false)}
-    >
-      <TouchableOpacity
-        style={styles.badgeModalOverlay}
-        activeOpacity={1}
-        onPress={() => setShowBadgeModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.badgeModalContent}
-          activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
+
+        <ScrollView 
+          style={styles.scrollContent}
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Badge Icon Section with Stars */}
-          {badgeData && (
-            <View style={styles.badgeIconSection}>
-              {/* Top Right Star */}
-              <View style={styles.starTopRight}>
-                <Ionicons name="star" size={24} color="#B89F70" />
-              </View>
-              
-              {/* Main Badge Image */}
-              <View style={styles.badgeImageWrapper}>
-                <Image
-                  source={badgeData.image}
-                  style={styles.badgeImage}
+          {/* ============ ENGAGEMENT CARD ============ */}
+          <View style={styles.engagementCard}>
+            <View style={styles.engagementHeader}>
+              <View style={styles.fireImageWrapper}>
+                <Image 
+                  source={require('../assets/images/fire.png')} 
+                  style={styles.streakEmoji}
                   resizeMode="contain"
                 />
               </View>
-              
-              {/* Bottom Left Star */}
-              <View style={styles.starBottomLeft}>
-                <Ionicons name="star" size={24} color="#8DB596" />
+              <View style={styles.engagementStats}>
+                <Text style={styles.daysActiveNumber}>{weekData.loginCount}</Text>
+                <Text style={styles.daysActiveLabel}>
+                  {isRussian ? `${weekData.loginCount} входов на этой неделе` : `${weekData.loginCount} logins this week`}
+                </Text>
               </View>
             </View>
-          )}
-          
-          {/* New Unlock Tag */}
-          <View style={styles.newUnlockTag}>
-            <Text style={styles.newUnlockText}>{t('progress.newUnlock')}</Text>
+            
+            {/* Progress bar */}
+            <View style={styles.engagementProgressTrack}>
+              {[...Array(7)].map((_, i) => (
+                <View 
+                  key={i}
+                  style={[
+                    styles.engagementDot,
+                    { backgroundColor: i < Math.min(weekData.loginCount, 7) ? '#342846' : '#E8E8E8' }
+                  ]}
+                />
+              ))}
+            </View>
+
+            {/* Badge section */}
+            <View style={styles.badgeSection}>
+              <TouchableOpacity 
+                style={styles.claimBadgeButton}
+                onPress={handleClaimBadge}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.claimBadgeButtonText}>
+                  {weeklyClaimedBadge
+                    ? tr('Badge already claimed this week', 'Награда за эту неделю уже получена')
+                    : t('progress.claimYourBadge', { defaultValue: tr('Claim your badge', 'Забрать награду') })}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          {/* Badge Title */}
-          {badgeData && (
-            <Text style={styles.badgeTitle}>{badgeData.name}</Text>
-          )}
-          
-          {/* Badge Description */}
-          {badgeData && (
-            <Text style={styles.badgeDescription}>{badgeData.message}</Text>
-          )}
-          
-          {/* Add to Profile Button */}
+
+          {/* ============ PATH PROGRESS ============ */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tr('THIS WEEK ON YOUR PATH', 'ТВОЙ ПУТЬ НА ЭТОЙ НЕДЕЛЕ')}</Text>
+            
+            <View style={styles.pathCard}>
+              <View style={styles.pathHeader}>
+                <View style={styles.pathIcon}>
+                  <Image 
+                    source={require('../assets/images/target (1).png')} 
+                    style={styles.pathIconImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.pathInfo}>
+                  <Text style={styles.pathName}>{weekData.pathName}</Text>
+                  <Text style={styles.currentGoalLabel}>
+                    {tr('Main focus this week', 'Основной фокус недели')}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.levelProgress}>
+                <View style={styles.levelInfo}>
+                  <Text style={styles.levelText}>{tr('Level', 'Уровень')} {weekData.currentLevel} {tr('of', 'из')} {weekData.totalLevels}</Text>
+                  <Text style={styles.levelPercent}>{weekData.levelProgress}%</Text>
+                </View>
+                <View style={styles.levelTrack}>
+                  <View style={[styles.levelFill, { width: `${weekData.levelProgress}%` }]} />
+                </View>
+              </View>
+
+              <View style={styles.stepsCompleted}>
+                <Text style={styles.stepsIcon}>✓</Text>
+                <Text style={styles.stepsText}>
+                  {tr('Steps completed this week:', 'За неделю завершено шагов:')} {weekData.stepsCompletedThisWeek}
+                </Text>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.viewGoalMapButton}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (currentGoalId) {
+                    router.push({
+                      pathname: '/goal-map',
+                      params: { goalId: currentGoalId },
+                    });
+                  }
+                }}
+              >
+                <Text style={styles.viewGoalMapButtonText}>{tr('Open goal map', 'Открыть карту цели')}</Text>
+                <MaterialIcons name="chevron-right" size={16} color="#342846" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ============ REFLECTIONS SUMMARY ============ */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tr('THIS WEEK REFLECTION', 'РЕФЛЕКСИЯ ЭТОЙ НЕДЕЛИ')}</Text>
+            
+            <View style={styles.reflectionsGrid}>
+              <ReflectionItem 
+                imageSource={require('../assets/images/love.png')}
+                label={tr('Clarity maps', 'Карты ясности')} 
+                count={weekData.reflections.clarityMaps} 
+              />
+              <ReflectionItem 
+                emoji="💭" 
+                label={tr('Daily questions', 'Ежедневные вопросы')} 
+                count={weekData.reflections.dailyQuestions} 
+              />
+              <ReflectionItem 
+                imageSource={require('../assets/images/focus.png')}
+                label={tr('Cosmic insights', 'Космические инсайты')} 
+                count={weekData.reflections.cosmicInsights} 
+              />
+              <ReflectionItem 
+                imageSource={require('../assets/images/focussanctuary.png')}
+                label={tr('Focus sessions', 'Фокус-сессии')} 
+                count={weekData.reflections.focusSessions} 
+              />
+            </View>
+          </View>
+
+          {/* ============ MOOD SUMMARY ============ */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tr('YOUR MOST FREQUENT MOOD', 'ТВОЕ САМОЕ ЧАСТОЕ НАСТРОЕНИЕ')}</Text>
+            
+            <View style={styles.moodCard}>
+              <Text style={styles.moodEmoji}>{weekData.mostFrequentMood.emoji}</Text>
+              <View style={styles.moodInfo}>
+                <Text style={styles.moodLabel}>{weekData.mostFrequentMood.label}</Text>
+                <Text style={styles.moodCount}>
+                  {isRussian
+                    ? `${weekData.mostFrequentMood.count} раз за эту неделю`
+                    : `${weekData.mostFrequentMood.count} times this week`}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ============ SMALL WINS ============ */}
+          <View style={styles.section}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>{tr('SMALL WINS THIS WEEK', 'МАЛЕНЬКИЕ ПОБЕДЫ ЗА НЕДЕЛЮ')}</Text>
+            </View>
+            
+            <View style={styles.winsCard}>
+              {smallWinsToDisplay.map((win, index) => (
+                <View
+                  key={index}
+                  style={[styles.winItem, isPlaceholderSmallWins && styles.winItemCentered]}
+                >
+                  {!isPlaceholderSmallWins && (
+                    <View style={styles.winCheckmark}>
+                      <MaterialIcons name="check" size={14} color="#342846" />
+                    </View>
+                  )}
+                  <Text style={[styles.winText, isPlaceholderSmallWins && styles.winTextCentered]}>{win}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Bottom spacing for nav */}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      </View>
+
+      {/* Badge Modal */}
+      <Modal
+        visible={showBadgeModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowBadgeModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.badgeModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowBadgeModal(false)}
+        >
           <TouchableOpacity
-            style={styles.addToProfileButton}
-            onPress={handleAddToProfile}
+            style={styles.badgeModalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.addToProfileText}>
-              {i18n.language === 'ru' || i18n.language?.startsWith('ru') ? t('progress.addToProfile') : 'Add to Profile'}
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.arrowIcon} />
-          </TouchableOpacity>
-          
-          {/* Share Achievement Link */}
-          <TouchableOpacity
-            style={styles.shareAchievementLink}
-            onPress={handleShareBadge}
-          >
-            <Text style={styles.shareAchievementText}>{t('progress.shareAchievement')}</Text>
+            {badgeData && (
+              <View style={styles.badgeIconSection}>
+                <View style={styles.starTopRight}>
+                  <Ionicons name="star" size={24} color="#B89F70" />
+                </View>
+                <View style={styles.badgeImageWrapper}>
+                  <Image
+                    source={badgeData.image}
+                    style={styles.badgeImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.starBottomLeft}>
+                  <Ionicons name="star" size={24} color="#8DB596" />
+                </View>
+              </View>
+            )}
+            <View style={styles.newUnlockTag}>
+              <Text style={styles.newUnlockText}>{t('progress.newUnlock', { defaultValue: tr('NEW BADGE', 'НОВАЯ НАГРАДА') })}</Text>
+            </View>
+            {badgeData && (
+              <>
+                <Text style={styles.badgeTitle}>{badgeData.name}</Text>
+                <Text style={styles.badgeDescription}>{badgeData.message}</Text>
+              </>
+            )}
+            <TouchableOpacity
+              style={styles.addToProfileButton}
+              onPress={handleAddToProfile}
+            >
+              <Text style={styles.addToProfileText}>
+                {t('progress.showItOnMeScreen', { defaultValue: tr('Show on "Me" page', 'Показать в разделе "Я"') })}
+              </Text>
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.arrowIcon} />
+            </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+      </Modal>
+
+      {/* Help Modal */}
+      <Modal
+        visible={showHelpModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowHelpModal(false)}
+      >
+        <View style={styles.helpModalOverlay}>
+          <TouchableOpacity
+            style={styles.helpModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowHelpModal(false)}
+          />
+          <View style={styles.helpModalContent}>
+            <View style={styles.helpModalHeader}>
+              <TouchableOpacity
+                onPress={() => setShowHelpModal(false)}
+                style={styles.helpModalCloseButton}
+              >
+                <MaterialIcons name="close" size={24} color="#342846" />
+              </TouchableOpacity>
+              <View style={styles.helpModalTitleContainer}>
+                <Text style={styles.helpModalTitle}>{tr('Your weekly progress', 'Твой недельный прогресс')}</Text>
+                <Text style={styles.helpModalSubtitle}>
+                  {tr('A quick snapshot of your week: goals, reflection, and growth.', 'Короткий срез твоей недели: цели, рефлексия и рост.')}
+                </Text>
+              </View>
+            </View>
+            
+            <ScrollView 
+              style={styles.helpModalScroll} 
+              contentContainerStyle={styles.helpModalScrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              <View style={styles.helpQuickGrid}>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickIcon}>🔥</Text>
+                  <Text style={styles.helpQuickTitle}>{tr('Consistency', 'Последовательность')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('Track active days and weekly momentum.', 'Отслеживай активные дни и недельный импульс.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickIcon}>🎯</Text>
+                  <Text style={styles.helpQuickTitle}>{tr('Path progress', 'Прогресс пути')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('See your level and goal completion status.', 'Смотри текущий уровень и прогресс по цели.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickIcon}>📝</Text>
+                  <Text style={styles.helpQuickTitle}>{tr('Reflection', 'Рефлексия')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('Review clarity maps, insights, and focus sessions.', 'Смотри карты ясности, инсайты и фокус-сессии.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickIcon}>🏆</Text>
+                  <Text style={styles.helpQuickTitle}>{tr('Small wins', 'Маленькие победы')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('Celebrate completed steps and goals this week.', 'Отмечай завершенные шаги и цели за неделю.')}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpFocusCard}>
+                <Text style={styles.helpFocusTitle}>{tr('Why this screen matters', 'Почему этот экран важен')}</Text>
+                <Text style={styles.helpFocusText}>
+                  {tr(
+                    'It helps you notice your momentum, recognize real progress, and stay motivated with visible weekly proof.',
+                    'Он помогает увидеть импульс, заметить реальный прогресс и поддерживать мотивацию через видимые результаты недели.'
+                  )}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </PaperTextureBackground>
   );
 }
+
+// Badge image mapping
+const badgeImageMap: { [key: number]: any } = {
+  1: require('../assets/images/badges/1.png'),
+  2: require('../assets/images/badges/2.png'),
+  3: require('../assets/images/badges/3.png'),
+  4: require('../assets/images/badges/4.png'),
+  5: require('../assets/images/badges/5.png'),
+  6: require('../assets/images/badges/6.png'),
+  7: require('../assets/images/badges/7.png'),
+  8: require('../assets/images/badges/8.png'),
+  9: require('../assets/images/badges/9.png'),
+  10: require('../assets/images/badges/10.png'),
+  11: require('../assets/images/badges/11.png'),
+  12: require('../assets/images/badges/12.png'),
+  13: require('../assets/images/badges/13.png'),
+  14: require('../assets/images/badges/14.png'),
+  15: require('../assets/images/badges/15.png'),
+  16: require('../assets/images/badges/16.png'),
+  17: require('../assets/images/badges/17.png'),
+  18: require('../assets/images/badges/18.png'),
+  19: require('../assets/images/badges/19.png'),
+  20: require('../assets/images/badges/20.png'),
+  21: require('../assets/images/badges/21.png'),
+  22: require('../assets/images/badges/22.png'),
+  23: require('../assets/images/badges/23.png'),
+  24: require('../assets/images/badges/24.png'),
+  25: require('../assets/images/badges/25.png'),
+  26: require('../assets/images/badges/26.png'),
+  27: require('../assets/images/badges/27.png'),
+  28: require('../assets/images/badges/28.png'),
+  29: require('../assets/images/badges/29.png'),
+  30: require('../assets/images/badges/30.png'),
+};
+
+const getBadgeImage = (badgeNumber: number) => {
+  return badgeImageMap[badgeNumber] || require('../assets/images/trophy.png');
+};
+
+const BADGE_CATEGORIES = {
+  career: {
+    badges: [2, 5, 7, 9, 17, 21, 22, 30],
+    names: {
+      2: 'Апгрейд навыков',
+      5: 'Катализатор роста',
+      7: 'Преодоление порога',
+      9: 'Обновленное резюме',
+      17: 'Мастер времени',
+      21: 'Первая заявка',
+      22: 'Сильный голос',
+      30: 'Новые возможности',
+    },
+  },
+  social: {
+    badges: [3, 10, 11, 15, 16, 18, 23, 24, 29],
+    names: {
+      3: 'Создатель связей',
+      10: 'Строитель мостов',
+      11: 'Смелость на встрече',
+      15: 'Тихая сила в шторме',
+      16: 'Мастер контакта',
+      18: 'Смелая уязвимость',
+      23: 'Социальная уверенность',
+      24: 'Участник группы',
+      29: 'Первый шаг навстречу',
+    },
+  },
+  personal: {
+    badges: [1, 4, 6, 12, 13, 14, 19, 20, 25, 28],
+    names: {
+      1: 'Победа над страхом',
+      4: 'Личный пик',
+      6: 'Поиск пути',
+      12: 'Первый подход',
+      13: 'Личные границы',
+      14: 'Поиск сокровищ',
+      19: 'Выход из зоны комфорта',
+      20: 'Физическая смелость',
+      25: 'Соло-приключение',
+      28: 'Личная трансформация',
+    },
+  },
+  progress: {
+    badges: [8, 26, 27],
+    names: {
+      8: 'Пик взят',
+      26: 'Достижение открыто',
+      27: 'Воин недели',
+    },
+  },
+};
+
+const BADGE_CATEGORY_NAMES_EN = {
+  career: {
+    2: 'Skill Upgrade',
+    5: 'Growth Catalyst',
+    7: 'Threshold Breaker',
+    9: 'Resume Refresh',
+    17: 'Time Master',
+    21: 'First Application',
+    22: 'Visible Voice',
+    30: 'New Opportunities',
+  },
+  social: {
+    3: 'Connection Builder',
+    10: 'Bridge Builder',
+    11: 'Coffee Courage',
+    15: 'Calm in the Storm',
+    16: 'Connection Master',
+    18: 'Vulnerability Champion',
+    23: 'Social Confidence',
+    24: 'Group Contributor',
+    29: 'First Step',
+  },
+  personal: {
+    1: 'Fear Winner',
+    4: 'Personal Peak',
+    6: 'Path Finder',
+    12: 'First Repeat',
+    13: 'Boundary Setter',
+    14: 'Treasure Seeker',
+    19: 'Comfort Zone Exit',
+    20: 'Physical Courage',
+    25: 'Solo Adventure',
+    28: 'Personal Transformation',
+  },
+  progress: {
+    8: 'Summit Reached',
+    26: 'Achievement Unlocked',
+    27: 'Weekly Warrior',
+  },
+} as const;
+
+const getAvailableBadgesInCategory = async (category: 'career' | 'social' | 'personal' | 'progress'): Promise<number[]> => {
+  try {
+    const badgesData = await AsyncStorage.getItem('userBadges');
+    const existingBadges = badgesData ? JSON.parse(badgesData) : [];
+    const earnedBadgeNumbers = new Set(existingBadges.map((b: any) => b.badgeNumber).filter((n: any) => n !== undefined));
+    const categoryBadges = BADGE_CATEGORIES[category].badges;
+    return categoryBadges.filter(badgeNum => !earnedBadgeNumbers.has(badgeNum));
+  } catch (error) {
+    return BADGE_CATEGORIES[category].badges;
+  }
+};
+
+const getTranslatedBadgeName = (category: string, badgeNumber: number): string => {
+  const isRussian = i18n.language === 'ru' || i18n.language?.startsWith('ru');
+  if (isRussian) {
+    const translationKey = `progress.badgeNames.${category}.${badgeNumber}`;
+    const translated = i18n.t(translationKey);
+    if (translated && translated !== translationKey) {
+      return translated;
+    }
+  }
+  if (!isRussian) {
+    const englishCategory = BADGE_CATEGORY_NAMES_EN[category as keyof typeof BADGE_CATEGORY_NAMES_EN] as Record<number, string> | undefined;
+    if (englishCategory && englishCategory[badgeNumber]) {
+      return englishCategory[badgeNumber];
+    }
+    return 'Achievement';
+  }
+  const categoryData = BADGE_CATEGORIES[category as keyof typeof BADGE_CATEGORIES];
+  if (categoryData && categoryData.names) {
+    const names = categoryData.names as Record<number, string>;
+    return names[badgeNumber] || 'Достижение';
+  }
+  return 'Достижение';
+};
+
+type BadgeCategory = 'career' | 'social' | 'personal' | 'progress';
+
+type WeeklyBadgeStats = {
+  daysActive: number;
+  loginCount: number;
+  stepsCompletedThisWeek: number;
+  levelsCompletedThisWeek: number;
+  goalsCompletedThisWeek: number;
+  reflections: {
+    clarityMaps: number;
+    dailyQuestions: number;
+    cosmicInsights: number;
+    focusSessions: number;
+  };
+  goalsText: string;
+};
+
+type WeeklyBadgeDecision = {
+  category: 'career' | 'social' | 'personal' | 'progress';
+  badgeNumber: number;
+  badgeName: string;
+  badgeMessage: string;
+};
+
+const getCurrentWeekKey = (): string => {
+  const { weekStart } = getCurrentWeekBounds();
+  return weekStart.toISOString().split('T')[0];
+};
+
+const pickBadgeFromCategory = async (
+  category: BadgeCategory,
+  preferredByPriority: number[]
+): Promise<number | null> => {
+  const available = await getAvailableBadgesInCategory(category);
+  if (available.length === 0) return null;
+  for (const candidate of preferredByPriority) {
+    if (available.includes(candidate)) return candidate;
+  }
+  return available[0];
+};
+
+const analyzeUserGoals = async (stats: WeeklyBadgeStats): Promise<WeeklyBadgeDecision> => {
+  try {
+    const goalsData = await AsyncStorage.getItem('userGoals');
+    const goals = goalsData ? JSON.parse(goalsData) : [];
+    const allGoals = goals;
+    
+    const careerKeywords = ['job', 'career', 'interview', 'resume', 'linkedin', 'network', 'professional', 'work', 'business', 'application', 'skill', 'promotion', 'salary'];
+    const socialKeywords = ['meet', 'friend', 'social', 'group', 'coffee', 'party', 'relationship', 'connection', 'community', 'team', 'together', 'share', 'communicate'];
+    const personalKeywords = ['fear', 'anxiety', 'boundary', 'self-care', 'gym', 'exercise', 'health', 'mental', 'house', 'leave', 'adventure', 'solo', 'courage', 'overcome'];
+    
+    let careerCount = 0;
+    let socialCount = 0;
+    let personalCount = 0;
+    
+    allGoals.forEach((goal: any) => {
+      const goalText = (goal.name || '').toLowerCase() + ' ' + (goal.fear || '').toLowerCase();
+      if (careerKeywords.some(keyword => goalText.includes(keyword))) careerCount++;
+      if (socialKeywords.some(keyword => goalText.includes(keyword))) socialCount++;
+      if (personalKeywords.some(keyword => goalText.includes(keyword))) personalCount++;
+    });
+    
+    const reflectionScore =
+      stats.reflections.clarityMaps +
+      stats.reflections.dailyQuestions +
+      stats.reflections.cosmicInsights +
+      stats.reflections.focusSessions;
+
+    const progressScore =
+      stats.goalsCompletedThisWeek * 8 +
+      stats.levelsCompletedThisWeek * 5 +
+      stats.stepsCompletedThisWeek * 2 +
+      stats.daysActive;
+    const careerScore = careerCount * 3 + Math.round(stats.stepsCompletedThisWeek * 0.5);
+    const socialScore = socialCount * 3 + Math.round(stats.reflections.dailyQuestions * 0.5);
+    const personalScore = personalCount * 3 + reflectionScore;
+
+    const goalsTextLower = stats.goalsText.toLowerCase();
+    const hasSocialSignals =
+      goalsTextLower.includes('community') ||
+      goalsTextLower.includes('relationship') ||
+      goalsTextLower.includes('connect') ||
+      goalsTextLower.includes('communicat') ||
+      goalsTextLower.includes('сообще') ||
+      goalsTextLower.includes('общени');
+
+    let category: BadgeCategory = 'progress';
+    if (progressScore >= Math.max(careerScore, socialScore, personalScore)) {
+      category = 'progress';
+    } else if (careerScore >= socialScore && careerScore >= personalScore) {
+      category = 'career';
+    } else if (socialScore >= personalScore || hasSocialSignals) {
+      category = 'social';
+    } else {
+      category = 'personal';
+    }
+
+    const intensity =
+      stats.goalsCompletedThisWeek > 0
+        ? 'high'
+        : stats.levelsCompletedThisWeek > 0 || stats.stepsCompletedThisWeek >= 3
+        ? 'medium'
+        : 'base';
+
+    const preferredByCategory: Record<BadgeCategory, number[]> = {
+      progress:
+        intensity === 'high' ? [8, 26, 27] : intensity === 'medium' ? [27, 26, 8] : [26, 27, 8],
+      career: intensity === 'high' ? [21, 22, 30, 17] : [2, 5, 9, 17],
+      social: intensity === 'high' ? [16, 18, 23, 24] : [3, 10, 11, 29],
+      personal: intensity === 'high' ? [28, 19, 20, 25] : [1, 4, 6, 14, 13],
+    };
+
+    const badgeNum =
+      (await pickBadgeFromCategory(category, preferredByCategory[category])) ||
+      (await pickBadgeFromCategory('progress', [26, 27, 8])) ||
+      26;
+
+    const isRu = i18n.language === 'ru' || i18n.language?.startsWith('ru');
+    const dynamicMessage = (() => {
+      if (category === 'progress') {
+        if (stats.goalsCompletedThisWeek > 0) {
+          return isRu
+            ? `На этой неделе ты завершил(а) ${stats.goalsCompletedThisWeek} целей. Отличная глубина и фокус.`
+            : `You completed ${stats.goalsCompletedThisWeek} goals this week. Strong focus and follow-through.`;
+        }
+        if (stats.levelsCompletedThisWeek > 0 || stats.stepsCompletedThisWeek > 0) {
+          return isRu
+            ? `На этой неделе ты закрыл(а) ${stats.levelsCompletedThisWeek} уровней и ${stats.stepsCompletedThisWeek} шагов.`
+            : `This week you closed ${stats.levelsCompletedThisWeek} levels and ${stats.stepsCompletedThisWeek} steps.`;
+        }
+        return isRu
+          ? `Ты держишь темп: ${stats.daysActive}/7 активных дней за неделю.`
+          : `You kept momentum with ${stats.daysActive}/7 active days this week.`;
+      }
+      if (category === 'career') {
+        return isRu
+          ? 'Эта неделя показала сильный карьерный фокус и движение к профессиональной цели.'
+          : 'This week showed strong career focus and movement toward your professional path.';
+      }
+      if (category === 'social') {
+        return isRu
+          ? 'Ты развиваешь связь с людьми и увереннее проявляешься в коммуникации.'
+          : 'You are strengthening connection with others and showing up with more social confidence.';
+      }
+      return isRu
+        ? 'Ты сделал(а) важные шаги личного роста и укрепил(а) внутреннюю устойчивость.'
+        : 'You made meaningful personal growth moves and built stronger inner resilience this week.';
+    })();
+
+    return {
+      category,
+      badgeNumber: badgeNum,
+      badgeName: getTranslatedBadgeName(category, badgeNum),
+      badgeMessage: dynamicMessage,
+    };
+  } catch (error) {
+    return {
+      category: 'progress',
+      badgeNumber: 27,
+      badgeName: getTranslatedBadgeName('progress', 27),
+      badgeMessage: i18n.language === 'ru' || i18n.language?.startsWith('ru')
+        ? i18n.t('progress.badgeMessages.progressConsistency')
+        : `You've consistently shown up this week. This badge recognizes your dedication.`,
+    };
+  }
+};
+
+
+// ============================================================================
+// REFLECTION ITEM COMPONENT
+// ============================================================================
+
+const ReflectionItem = ({ emoji, imageSource, label, count }: { emoji?: string; imageSource?: any; label: string; count: number }) => (
+  <View style={styles.reflectionItem}>
+    {imageSource ? (
+      <Image 
+        source={imageSource} 
+        style={styles.reflectionImage}
+        resizeMode="contain"
+      />
+    ) : (
+      <Text style={styles.reflectionEmoji}>{emoji}</Text>
+    )}
+    <Text style={styles.reflectionLabel}>{label}</Text>
+    <Text style={styles.reflectionCount}>{count}</Text>
+  </View>
+);
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
   },
-  contentContainer: {
-    paddingHorizontal: 25,
-    paddingTop: 60,
-    paddingBottom: 40,
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   backButton: {
-    marginBottom: 20,
-    alignSelf: 'flex-start',
-    width: '100%',
-  },
-  backButtonText: {
-    fontSize: 28,
-    color: '#342846',
-    fontWeight: 'bold',
-  },
-  userNameHeading: {
-    ...HeadingStyle,
-    color: '#342846',
-    marginBottom: 16,
-    fontSize: 24,
-    textAlign: 'center',
-    width: '100%',
-  },
-  bodyText: {
-    ...BodyStyle,
-    color: '#342846',
-    marginBottom: 32,
-    fontSize: 16,
-    textAlign: 'center',
-    width: '100%',
-    lineHeight: 24,
-    paddingHorizontal: 20,
-  },
-  gridContainer: {
-    marginBottom: 32,
-    width: '100%',
-    alignSelf: 'stretch',
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 16, // Spacing between cards
-    width: '100%',
-  },
-  cardTouchable: {
-    flex: 1,
-    height: 100,
-  },
-  card: {
-    flex: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#342846',
-    height: 100, // Fixed height for all cards
-    minWidth: 0, // Ensure flex items can shrink
-  },
-  cardFront: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  cardBack: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  cardGradient: {
-    padding: 10,
-    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardHeading: {
-    ...HeadingStyle,
-    color: '#ffffff',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 8,
-    fontWeight: 'bold',
-  },
-  cardBody: {
-    ...BodyStyle,
-    color: '#ffffff',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 17, // Reduced by 12% (from ~19 to 17)
-  },
-  cardDescription: {
-    ...BodyStyle,
-    color: '#ffffff',
-    fontSize: 9,
-    textAlign: 'center',
-    lineHeight: 12,
-    marginBottom: 3,
-    paddingHorizontal: 20, // Minimum 20px padding (was 4)
-  },
-  cardDescriptionSmall: {
-    ...BodyStyle,
-    color: '#ffffff',
-    fontSize: 8,
-    textAlign: 'center',
-    lineHeight: 10,
-    paddingHorizontal: 20, // Minimum 20px padding (was 4)
-    fontStyle: 'italic',
-  },
-  journeyHeading: {
-    ...HeadingStyle,
-    color: '#342846',
-    marginBottom: 24,
-    fontSize: 22,
-    textAlign: 'center',
-  },
-  weekCirclesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-    paddingHorizontal: 20, // Minimum 20px padding (was 0) - ensures day names don't touch edges
-  },
-  dayContainer: {
+  headerCenter: {
     alignItems: 'center',
+  },
+  headerTitle: {
+    ...HeadingStyle,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#342846',
+    letterSpacing: 1,
+    marginBottom: 2.5,
+  },
+  dateRange: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#7A8A9A',
+  },
+  helpButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Scroll content
+  scrollContent: {
     flex: 1,
   },
-  dayCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#342846',
-    backgroundColor: 'transparent',
-    marginBottom: 8,
+  scrollContentContainer: {
+    padding: 20,
+    paddingBottom: 25,
   },
-  dayCircleActiveWrapper: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  dayCircleActive: {
-    width: '100%',
-    height: '100%',
-  },
-  dayCircleImage: {
-    width: '100%',
-    height: '100%',
-  },
-  dayName: {
-    ...BodyStyle,
-    color: '#342846',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  badgeField: {
-    borderWidth: 1,
-    borderColor: '#342846',
-    borderRadius: 8,
-    overflow: 'hidden',
+
+  // Engagement Card
+  engagementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
     marginBottom: 24,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  badgeFieldContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  engagementHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 20,
+  },
+  fireImageWrapper: {
+    height: 36,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  streakEmoji: {
+    width: 41.4,
+    height: 41.4,
+  },
+  engagementStats: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  daysActiveNumber: {
+    ...HeadingStyle,
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#342846',
+    lineHeight: 36,
+    includeFontPadding: false,
+  },
+  daysActiveLabel: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#7A8A9A',
+  },
+  engagementProgressTrack: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  engagementDot: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+  },
+  badgeSection: {
     alignItems: 'center',
   },
-  badgeFieldText: {
+  claimBadgeButton: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#342846',
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  claimBadgeButtonText: {
     ...BodyStyle,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Section
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    ...HeadingStyle,
+    fontSize: 18,
+    fontWeight: '700',
     color: '#342846',
+    letterSpacing: 0,
+    marginBottom: 15,
+  },
+  sectionTitleIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  celebrateEmoji: {
     fontSize: 16,
   },
-  goalField: {
-    borderWidth: 1,
-    borderColor: '#342846',
-    borderRadius: 8,
-    overflow: 'hidden',
+
+  // Path Card
+  pathCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  goalFieldContent: {
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
-    paddingVertical: 16,
+  pathHeader: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  pathIcon: {
+    width: 44,
+    height: 44,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pathIconImage: {
+    width: 34.5,
+    height: 34.5,
+  },
+  pathInfo: {
+    flex: 1,
+  },
+  pathName: {
+    ...HeadingStyle,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#342846',
+    marginBottom: 4,
+    lineHeight: 20,
+    textTransform: 'uppercase',
+  },
+  currentGoalLabel: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#7A8A9A',
+  },
+  currentGoalName: {
+    color: '#342846',
+  },
+  levelProgress: {
+    marginBottom: 12,
+  },
+  levelInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 20, // More spacing between "New Goal" and "+"
+    marginBottom: 8,
   },
-  goalFieldText: {
+  levelText: {
     ...BodyStyle,
-    color: '#342846',
-    fontSize: 16,
+    fontSize: 12,
+    color: '#7A8A9A',
   },
-  goalPlusText: {
-    ...BodyStyle,
+  levelPercent: {
+    ...HeadingStyle,
+    fontSize: 12,
+    fontWeight: '600',
     color: '#342846',
-    fontSize: 24,
+    textTransform: 'none',
+  },
+  levelTrack: {
+    height: 6,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  levelFill: {
+    height: '100%',
+    backgroundColor: '#342846',
+    borderRadius: 3,
+  },
+  stepsCompleted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+    marginBottom: 14,
+  },
+  stepsIcon: {
+    color: '#e1e1bb',
     fontWeight: 'bold',
+    fontSize: 14,
+    marginRight: 8,
   },
+  stepsText: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#342846',
+  },
+  viewGoalMapButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#342846',
+    borderRadius: 50,
+  },
+  viewGoalMapButtonText: {
+    ...BodyStyle,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#342846',
+    marginRight: 8,
+  },
+
+  // Reflections Grid
+  reflectionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  reflectionItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    width: '48%',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  reflectionEmoji: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  reflectionImage: {
+    width: 27.6,
+    height: 27.6,
+    marginBottom: 6,
+  },
+  reflectionLabel: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#7A8A9A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  reflectionCount: {
+    ...HeadingStyle,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#342846',
+    textTransform: 'none',
+  },
+
+  // Pattern Card
+  patternCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: '#a592b0',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  patternText: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#342846',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+
+  // Mood Card
+  moodCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  moodEmoji: {
+    fontSize: 40,
+    marginRight: 16,
+  },
+  moodInfo: {
+    flex: 1,
+  },
+  moodLabel: {
+    ...HeadingStyle,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#342846',
+    textTransform: 'none',
+  },
+  moodCount: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#7A8A9A',
+  },
+
+  // Wins Card
+  winsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  winItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  winItemCentered: {
+    justifyContent: 'center',
+  },
+  winCheckmark: {
+    width: 22,
+    height: 22,
+    backgroundColor: '#e1e1bb',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+    marginRight: 12,
+  },
+  winText: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#342846',
+    lineHeight: 21,
+    flex: 1,
+  },
+  winTextCentered: {
+    textAlign: 'center',
+  },
+
+  // Looking Ahead Card
+  lookingAheadCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingTop: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingBottom: 0,
+    marginBottom: 16,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  nextStepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  nextStepIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  nextStepLabel: {
+    ...HeadingStyle,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7A8A9A',
+    letterSpacing: 1,
+    textTransform: 'none',
+  },
+  nextStepAction: {
+    ...BodyStyle,
+    fontSize: 15,
+    color: '#342846',
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  ikigaiConnection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    backgroundColor: '#F8F4FA',
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  ikigaiIcon: {
+    marginRight: 10,
+  },
+  ikigaiText: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#7A8A9A',
+    lineHeight: 20,
+    fontStyle: 'italic',
+    flex: 1,
+  },
+  newGoalButton: {
+    width: '100%',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+  newGoalText: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#7A8A9A',
+    marginBottom: 4,
+  },
+  newGoalCta: {
+    ...HeadingStyle,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#342846',
+    textTransform: 'none',
+  },
+
+  // Bottom Spacer
+  bottomSpacer: {
+    height: 25,
+  },
+
+  // Badge Modal Styles
   badgeModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1419,12 +1689,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
-    paddingHorizontal: 20, // Minimum 20px padding (was 8)
+    paddingHorizontal: 20,
   },
   addToProfileButton: {
     width: '100%',
     backgroundColor: '#342846',
-    borderRadius: 16,
+    borderRadius: 50,
     paddingVertical: 16,
     paddingHorizontal: 24,
     flexDirection: 'row',
@@ -1447,14 +1717,185 @@ const styles = StyleSheet.create({
   arrowIcon: {
     marginLeft: 4,
   },
-  shareAchievementLink: {
-    paddingVertical: 8,
+  
+  // Help Modal Styles
+  helpModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  shareAchievementText: {
-    fontFamily: 'AnonymousPro-Regular',
-    fontSize: 14,
-    color: '#6D7581',
+  helpModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  helpModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 0,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    minHeight: 700,
+    flexDirection: 'column',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  helpModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    position: 'relative',
+  },
+  helpModalTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+  },
+  helpModalTitle: {
+    ...HeadingStyle,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#342846',
+    marginBottom: 8,
     textAlign: 'center',
   },
+  helpModalSubtitle: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    textAlign: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 6,
+  },
+  helpModalCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 20,
+    top: 20,
+  },
+  helpModalScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  helpModalScrollContent: {
+    padding: 24,
+    paddingTop: 18,
+    paddingBottom: 24,
+    gap: 14,
+  },
+  helpQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  helpQuickCard: {
+    width: '48%',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    minHeight: 132,
+  },
+  helpQuickIcon: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  helpQuickTitle: {
+    ...HeadingStyle,
+    fontSize: 14,
+    color: '#342846',
+    marginBottom: 6,
+  },
+  helpQuickText: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#5B536B',
+    lineHeight: 18,
+  },
+  helpFocusCard: {
+    backgroundColor: '#FFF8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFE8D6',
+    padding: 14,
+  },
+  helpFocusTitle: {
+    ...HeadingStyle,
+    fontSize: 14,
+    color: '#342846',
+    marginBottom: 6,
+  },
+  helpFocusText: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#5B536B',
+    lineHeight: 20,
+  },
+  helpSection: {
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  helpSectionTitle: {
+    ...HeadingStyle,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#342846',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    alignSelf: 'center',
+    width: '100%',
+  },
+  helpSectionText: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#342846',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  helpBulletPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  helpBullet: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#342846',
+    marginRight: 8,
+    lineHeight: 22,
+  },
+  helpBulletText: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#342846',
+    lineHeight: 22,
+    flex: 1,
+  },
+  helpBold: {
+    fontWeight: '600',
+  },
 });
-

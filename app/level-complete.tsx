@@ -1,6 +1,6 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
-import { markGoalAsCompleted } from '@/utils/goalTracking';
+import { markGoalAsCompleted, trackLevelCompletionEvent } from '@/utils/goalTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -10,14 +10,16 @@ import { useTranslation } from 'react-i18next';
 const { width, height } = Dimensions.get('window');
 
 export default function LevelCompleteScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const router = useRouter();
   const params = useLocalSearchParams();
   const levelNumber = params.level ? parseInt(params.level as string) : 1;
   const totalLevels = params.totalLevels ? parseInt(params.totalLevels as string) : 4;
-  const goalName = params.goalName as string || 'Get an internship'; // Dynamic goal name
+  const goalName = params.goalName as string || tr('Get an internship', 'Получить стажировку'); // Dynamic goal name
   const goalId = params.goalId as string || ''; // Goal ID for marking as completed
-  const userName = params.userName as string || 'Arena'; // Dynamic user name
+  const userName = params.userName as string || tr('Friend', 'Друг'); // Dynamic user name
   const isLastLevel = levelNumber >= totalLevels;
 
   // Mark goal as completed when last level is finished
@@ -247,35 +249,35 @@ export default function LevelCompleteScreen() {
   // Dynamic rewards based on level
   const levelRewards = {
     1: {
-      badge: 'Great Researcher Badge',
+      badge: tr('Reward: strong researcher', 'Награда: сильный исследователь'),
       badgeImage: require('../assets/images/trophy.png'),
-      points: 'Confidence + 25 Points',
+      points: tr('Confidence + 25 points', 'Уверенность + 25 очков'),
       pointsImage: require('../assets/images/fire.png'),
-      skill: 'Your Research Skills',
+      skill: tr('Your research skills', 'Твои исследовательские навыки'),
       skillImage: require('../assets/images/stars.png'),
     },
     2: {
-      badge: 'Communication Master Badge',
+      badge: tr('Reward: communication master', 'Награда: мастер коммуникации'),
       badgeImage: require('../assets/images/medal.png'),
-      points: 'Confidence + 30 Points',
+      points: tr('Confidence + 30 points', 'Уверенность + 30 очков'),
       pointsImage: require('../assets/images/fire.png'),
-      skill: 'Your Writing Skills',
+      skill: tr('Your writing skills', 'Твои навыки письма'),
       skillImage: require('../assets/images/stars.png'),
     },
     3: {
-      badge: 'Action Taker Badge',
+      badge: tr('Reward: person of action', 'Награда: человек действия'),
       badgeImage: require('../assets/images/trophy.png'),
-      points: 'Confidence + 35 Points',
+      points: tr('Confidence + 35 points', 'Уверенность + 35 очков'),
       pointsImage: require('../assets/images/fire.png'),
-      skill: 'Your Application Skills',
-      skillImage: require('../assets/images/present.png'),
+      skill: tr('Your execution skills', 'Твои навыки применения'),
+      skillImage: require('../assets/images/stars.png'),
     },
     4: {
-      badge: 'Goal Achiever Badge',
+      badge: tr('Reward: goal achiever', 'Награда: достигатель целей'),
       badgeImage: require('../assets/images/medal.png'),
-      points: 'Confidence + 50 Points',
+      points: tr('Confidence + 50 points', 'Уверенность + 50 очков'),
       pointsImage: require('../assets/images/fire.png'),
-      skill: 'Your Persistence',
+      skill: tr('Your persistence', 'Твоя настойчивость'),
       skillImage: require('../assets/images/trophy.png'),
     },
   };
@@ -285,8 +287,11 @@ export default function LevelCompleteScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `I just completed Level ${levelNumber} of my goal "${goalName}"! 🎉`,
-        title: 'Level Complete!',
+        message: tr(
+          `I just completed level ${levelNumber} for "${goalName}"! 🎉`,
+          `Я только что завершил(а) уровень ${levelNumber} в цели "${goalName}"! 🎉`
+        ),
+        title: tr('Level complete!', 'Уровень пройден!'),
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -324,6 +329,7 @@ export default function LevelCompleteScreen() {
             }
             
             await AsyncStorage.setItem('userGoals', JSON.stringify(userGoals));
+            await trackLevelCompletionEvent(goalId, goalName, levelNumber);
           }
         }
       } catch (error) {
@@ -457,7 +463,7 @@ export default function LevelCompleteScreen() {
       </TouchableOpacity>
 
       {/* How Did It Feel Question */}
-      <Text style={styles.feelingQuestion}>How did it feel?</Text>
+      <Text style={styles.feelingQuestion}>{tr('How are you feeling?', 'Как ты себя чувствуешь?')}</Text>
 
       {/* Feeling Buttons */}
       <View style={styles.feelingButtonsContainer}>
@@ -518,7 +524,7 @@ export default function LevelCompleteScreen() {
       </TouchableOpacity>
 
       {/* Proud Text */}
-      <Text style={styles.proudText}>We are so proud of you.</Text>
+      <Text style={styles.proudText}>{tr('We are very proud of you.', 'Мы очень гордимся тобой.')}</Text>
       </ScrollView>
 
       {/* Goal Completion Celebration Modal */}
@@ -570,7 +576,7 @@ export default function LevelCompleteScreen() {
                 },
               ]}
             >
-              <Text style={styles.celebrationHeading}>CONGRATULATIONS, YOU'VE DONE IT!</Text>
+              <Text style={styles.celebrationHeading}>{tr('CONGRATULATIONS, YOU DID IT!', 'ПОЗДРАВЛЯЕМ, ТЫ СПРАВИЛСЯ!')}</Text>
             </Animated.View>
             
             <Text style={styles.celebrationSubtext}>
@@ -585,7 +591,7 @@ export default function LevelCompleteScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.celebrationExitButtonText}>Exit</Text>
+              <Text style={styles.celebrationExitButtonText}>{tr('Exit', 'Выйти')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -639,9 +645,9 @@ const styles = StyleSheet.create({
     fontSize: 30,
   },
   contentContainer: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingTop: 140, // Moved down by 40px (from 60 + 40 = 100, but we want more so 140)
-    paddingBottom: 40,
+    paddingBottom: 20,
     alignItems: 'center',
   },
   headingContainer: {

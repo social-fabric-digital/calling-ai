@@ -31,8 +31,8 @@ export default function AccountScreen() {
               // Clear the saved language
               await AsyncStorage.removeItem(LANGUAGE_STORAGE_KEY);
               console.log('Language preference cleared');
-              // Navigate directly to language selection screen
-              router.replace('/language-selection');
+              // Navigate back to landing screen
+              router.replace('/landing');
             } catch (error) {
               console.error('Error resetting language:', error);
               Alert.alert(t('account.error'), t('account.resetLanguageError'));
@@ -79,7 +79,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   content: {
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   title: {
     ...HeadingStyle,

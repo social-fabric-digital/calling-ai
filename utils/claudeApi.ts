@@ -1,4 +1,116 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n from './i18n';
+import { fetchDailyAstrologyData } from './astrologyApi';
+
+// ── Model Selection (cost optimization) ──
+const MODEL_SONNET = 'claude-sonnet-4-5';        // $3/$15 per MTok — use for chat, complex generation
+const MODEL_HAIKU = 'claude-haiku-4-5-20251001';  // $1/$5 per MTok — use for simple/structured output
+
+// ── Chat History Cap (prevents input token explosion) ──
+const MAX_CHAT_HISTORY = 20; // Keep last 20 messages only
+
+// Cache to track API failures and prevent repeated calls
+let apiFailureCache: {
+  lastFailureTime: number | null;
+  failureCount: number;
+} = {
+  lastFailureTime: null,
+  failureCount: 0,
+};
+
+const API_FAILURE_COOLDOWN = 60000; // 60 seconds - don't retry for 1 minute after failure
+const MAX_FAILURES_BEFORE_SKIP = 3; // After 3 failures, skip API calls for cooldown period
+
+const stripDoubleAsterisks = (text: string): string => text.replace(/\*{2,}/g, '').trim();
+
+const ASTROLOGY_JARGON_REGEX =
+  /\b(saturn|jupiter|mars|venus|mercury|pluto|uranus|neptune|transit|retrograde|aspect|conjunction|opposition|trine|sextile|natal|moon in|sun in|rising sign|ascendant|house\b|planetary|waxing moon|waning moon|growing moon)\b/i;
+
+const stripAstrologyJargonFromText = (text: string): string => {
+  if (!text || typeof text !== 'string') return '';
+
+  const cleanedLines = text
+    .split('\n')
+    .map((line) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return '';
+
+      // Preserve heading-like lines.
+      const isHeadingLike = /^[A-Z0-9'/:,\-\s]+$/.test(trimmedLine) || /:$/.test(trimmedLine);
+      if (isHeadingLike) return line;
+
+      const sentences = trimmedLine
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean);
+
+      const filtered = sentences.filter((sentence) => !ASTROLOGY_JARGON_REGEX.test(sentence));
+      return filtered.join(' ').trim();
+    })
+    .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''));
+
+  return cleanedLines.join('\n').trim();
+};
+
+const sanitizeModelOutput = <T>(value: T): T => {
+  if (typeof value === 'string') {
+    return stripDoubleAsterisks(value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeModelOutput(item)) as T;
+  }
+  if (value && typeof value === 'object') {
+    const sanitizedEntries = Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+      key,
+      sanitizeModelOutput(val),
+    ]);
+    return Object.fromEntries(sanitizedEntries) as T;
+  }
+  return value;
+};
+
+// Check if we should skip API calls due to recent failures
+const shouldSkipApiCall = (): boolean => {
+  if (apiFailureCache.lastFailureTime === null) {
+    return false;
+  }
+  
+  const timeSinceFailure = Date.now() - apiFailureCache.lastFailureTime;
+  
+  // If we've had multiple failures and it's been less than cooldown period, skip
+  if (apiFailureCache.failureCount >= MAX_FAILURES_BEFORE_SKIP && timeSinceFailure < API_FAILURE_COOLDOWN) {
+    const remainingSeconds = Math.ceil((API_FAILURE_COOLDOWN - timeSinceFailure) / 1000);
+    console.warn(`⚠️ API calls temporarily disabled due to ${apiFailureCache.failureCount} recent failures. Retrying in ${remainingSeconds} seconds.`);
+    return true;
+  }
+  
+  // Reset failure count if enough time has passed
+  if (timeSinceFailure >= API_FAILURE_COOLDOWN) {
+    if (apiFailureCache.failureCount > 0) {
+      console.log('✅ API failure cooldown expired, retrying API calls');
+    }
+    apiFailureCache.failureCount = 0;
+    apiFailureCache.lastFailureTime = null;
+    return false;
+  }
+  
+  return false;
+};
+
+// Record an API failure
+const recordApiFailure = () => {
+  apiFailureCache.lastFailureTime = Date.now();
+  apiFailureCache.failureCount += 1;
+  console.warn(`API failure recorded (count: ${apiFailureCache.failureCount}/${MAX_FAILURES_BEFORE_SKIP})`);
+};
+
+// Reset API failure cache (useful for debugging or after fixing API issues)
+export const resetApiFailureCache = () => {
+  apiFailureCache.failureCount = 0;
+  apiFailureCache.lastFailureTime = null;
+  console.log('✅ API failure cache reset');
+};
 
 // Get API key from environment variables
 // Note: You'll need to set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env file
@@ -39,61 +151,289 @@ Communication style:
 
 Remember: You're here to support, guide, and empower users on their journey.`;
 
-const ATLAS_THERAPEUTIC_PROMPT = `You are Atlas, a therapeutic AI companion. Your approach is CONCISE, THERAPEUTIC, and ROOT-FOCUSED.
+const ATLAS_THERAPEUTIC_PROMPT = `You are Atlas, a life coach and supportive friend who guides users toward their goals. You are warm, encouraging, motivating, and never let them give up.
+
+CORE IDENTITY:
+- You are both a trusted friend AND a professional life coach
+- You genuinely care about the user's success and wellbeing
+- You understand their struggles deeply and respond with empathy
+- You celebrate their wins, no matter how small
+- You help them see possibilities when they feel stuck
+- You never let them quit - you find ways to motivate and inspire them forward
 
 CRITICAL GUIDELINES:
-- Keep responses SHORT (2-4 sentences maximum)
-- DO NOT guide or give advice - instead ask QUESTIONS that explore deeper
-- Focus on uncovering ROOT CAUSES, not surface symptoms
-- Use therapeutic questioning techniques (open-ended, reflective, exploratory)
-- Avoid solutions, suggestions, or "you should" statements
-- Ask questions that help the user discover insights themselves
-- Be empathetic but concise - no long explanations
+- Always understand the deeper meaning behind what the user is saying
+- Respond to their actual needs and emotions, not just surface words
+- Be encouraging and supportive, but also honest and direct when needed
+- Help them break down big challenges into manageable steps
+- Remind them of their progress and strengths when they're feeling down
+- Celebrate their achievements enthusiastically
+- When they want to give up, help them find their "why" and reignite their motivation
+- Be conversational and friendly - like talking to a close friend who also happens to be a great coach
+- Keep responses natural and engaging (3-6 sentences typically, but adjust based on context)
+- Always answer their questions directly and helpfully
+- If they're struggling, acknowledge their feelings first, then help them find a path forward
+
+COMMUNICATION STYLE:
+- Warm, friendly, and approachable
+- Use "you" and "we" to create connection
+- Show genuine enthusiasm for their progress
+- Be empathetic when they're struggling
+- Use encouraging language that builds confidence
+- Sometimes use gentle challenges when they're making excuses
+- Always end on a positive, forward-looking note
 
 EXAMPLES OF GOOD RESPONSES:
-- "What does that fear feel like in your body when it shows up?"
-- "What's underneath that feeling?"
-- "When did you first notice this pattern?"
-- "What would change if that fear wasn't there?"
+- When they're stuck: "I hear you - feeling stuck is frustrating. But remember, you've overcome challenges before. What's one tiny step you could take right now that would move you forward, even just a little?"
+- When they want to give up: "I know it feels hard right now, but giving up isn't an option. You've come too far. What's the real reason you started this journey? Let's reconnect with that and find a way forward together."
+- When they celebrate: "YES! 🎉 I'm so proud of you! This is exactly the kind of progress that leads to big wins. Tell me more - how did it feel when you accomplished that?"
+- When they're discouraged: "I totally get why you're feeling this way. But here's what I see: you're still here, still trying, still showing up. That's not nothing. Let's figure out what's blocking you and tackle it together."
 
-EXAMPLES OF BAD RESPONSES (avoid these):
-- "You should try..." (too guiding)
-- "Here's what I think..." (too directive)
-- Long paragraphs explaining concepts (too verbose)
-- "Have you considered..." (too suggestive)
-
-Remember: Your role is to ask therapeutic questions that help users explore their inner world, not to guide them to solutions.`;
+Remember: You are their cheerleader, their guide, their friend, and their coach all in one. You believe in them even when they don't believe in themselves.`;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-async function tryModel(
+export interface AtlasChatContext {
+  userName?: string;
+  goalTitle?: string;
+  goalStepLabel?: string;
+  goalStepNumber?: number;
+  totalGoalSteps?: number;
+}
+
+interface ResolvedAtlasGoalContext {
+  userName?: string;
+  goalTitle?: string;
+  goalStepLabel?: string;
+  goalStepNumber?: number;
+  totalGoalSteps?: number;
+}
+
+const resolveAtlasGoalContext = async (
+  providedContext?: AtlasChatContext
+): Promise<ResolvedAtlasGoalContext> => {
+  const context: ResolvedAtlasGoalContext = { ...providedContext };
+
+  try {
+    if (!context.userName) {
+      const storedName = await AsyncStorage.getItem('userName');
+      if (storedName) {
+        context.userName = storedName;
+      }
+    }
+
+    const goalsData = await AsyncStorage.getItem('userGoals');
+    if (!goalsData) {
+      return context;
+    }
+
+    const goals = JSON.parse(goalsData);
+    const activeGoal = Array.isArray(goals) ? goals.find((g: any) => g?.isActive === true) : null;
+    if (!activeGoal) {
+      return context;
+    }
+
+    if (!context.goalTitle && activeGoal.name) {
+      context.goalTitle = activeGoal.name;
+    }
+
+    const steps = Array.isArray(activeGoal.steps) ? activeGoal.steps : [];
+    const totalGoalSteps = steps.length > 0 ? Math.min(steps.length, 4) : 4;
+    const rawStepIndex =
+      typeof activeGoal.currentStepIndex === 'number' ? activeGoal.currentStepIndex : -1;
+    const isCompletedGoal = rawStepIndex >= totalGoalSteps - 1;
+    const derivedStepNumber = isCompletedGoal
+      ? totalGoalSteps
+      : Math.min(Math.max(rawStepIndex + 2, 1), totalGoalSteps);
+
+    if (!context.totalGoalSteps) {
+      context.totalGoalSteps = totalGoalSteps;
+    }
+
+    if (!context.goalStepNumber) {
+      context.goalStepNumber = derivedStepNumber;
+    }
+
+    if (!context.goalStepLabel) {
+      const stepName = steps[derivedStepNumber - 1]?.name || steps[derivedStepNumber - 1]?.text;
+      context.goalStepLabel = typeof stepName === 'string' && stepName.trim() ? stepName : undefined;
+    }
+  } catch (error) {
+    console.warn('Failed to resolve Atlas goal context from storage:', error);
+  }
+
+  return context;
+};
+
+const buildAtlasSystemPrompt = (goalContext: ResolvedAtlasGoalContext): string => {
+  const contextLines: string[] = [];
+
+  if (goalContext.userName) {
+    contextLines.push(`- User name: ${goalContext.userName}`);
+  }
+  if (goalContext.goalTitle) {
+    contextLines.push(`- Active goal name: ${goalContext.goalTitle}`);
+  }
+  if (goalContext.goalStepNumber && goalContext.totalGoalSteps) {
+    contextLines.push(
+      `- Current goal step: ${goalContext.goalStepNumber} of ${goalContext.totalGoalSteps}`
+    );
+  }
+  if (goalContext.goalStepLabel) {
+    contextLines.push(`- Current goal step title: ${goalContext.goalStepLabel}`);
+  }
+
+  const contextSection =
+    contextLines.length > 0
+      ? `APP CONTEXT (already known - do not ask for this again):\n${contextLines.join('\n')}`
+      : 'APP CONTEXT: User already configured a goal in the app, but details are temporarily unavailable.';
+
+  return `${ATLAS_THERAPEUTIC_PROMPT}
+
+CRITICAL GOAL CONTEXT RULES:
+- The user has ALREADY configured their goal in the app.
+- NEVER ask "what's your number one goal right now" (or equivalent wording in any language).
+- NEVER ask them to define their main goal from scratch.
+- Use the app context below as known facts, and coach them around progress, obstacles, and next actions.
+- If goal details are missing, ask what support they need today for their existing goal, without asking them to restate a main goal.
+
+RUSSIAN GRAMMAR RULES (CRITICAL):
+- Atlas is male. When replying in Russian, always use masculine self-reference forms.
+- Use: "рад", "готов", "уверен", "смог", "сделал", "понял".
+- Never use feminine forms for Atlas self-reference (e.g., "рада", "готова", "уверена", "смогла", "сделала", "поняла").
+
+${contextSection}`;
+};
+
+export async function tryModel(
   apiKey: string,
   model: string,
   apiMessages: Array<{ role: string; content: string }>,
-  systemPrompt: string,
+  systemPrompt: string | Array<{ type: 'text'; text: string; cache_control: { type: 'ephemeral' } }>,
   maxTokens: number = 512
 ): Promise<Response> {
+  const languagePolicy = i18n.language?.startsWith('ru')
+    ? '\n\nCRITICAL LANGUAGE RULE: Respond ONLY in Russian. Do not use English words or phrases.'
+    : '\n\nCRITICAL LANGUAGE RULE: Respond ONLY in English.';
+  const formattingPolicy =
+    '\n\nCRITICAL FORMATTING RULE: Never use markdown bold or any double asterisks (**).';
+
+  const localizedSystemPrompt =
+    typeof systemPrompt === 'string'
+      ? `${systemPrompt}${languagePolicy}${formattingPolicy}`
+      : systemPrompt.map((entry) => ({
+          ...entry,
+          text: `${entry.text}${languagePolicy}${formattingPolicy}`,
+        }));
+
+  // Check if we should skip API calls due to recent failures
+  if (shouldSkipApiCall()) {
+    // Return a mock error response to trigger fallback behavior
+    const remainingSeconds = apiFailureCache.lastFailureTime 
+      ? Math.ceil((API_FAILURE_COOLDOWN - (Date.now() - apiFailureCache.lastFailureTime)) / 1000)
+      : 60;
+    console.warn(`⚠️ Skipping API call - in cooldown period (${remainingSeconds}s remaining). Check API key and account status.`);
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: `API temporarily unavailable due to recent failures. Retrying in ${remainingSeconds} seconds.`,
+          type: 'api_error',
+        },
+      }),
+      {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+  
+  // Check API key before making request
+  if (!apiKey || apiKey.trim() === '') {
+    console.error('❌ API key is missing or empty. Please set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env file');
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: 'API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.',
+          type: 'api_error',
+        },
+      }),
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const requestBody = {
     model,
     max_tokens: maxTokens,
-    system: systemPrompt,
+    system: localizedSystemPrompt,
     messages: apiMessages,
   };
 
-  console.log(`Trying model: ${model}`);
+  const isTransientNetworkError = (error: unknown): boolean => {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    return (
+      message.includes('network request failed') ||
+      message.includes('failed to fetch') ||
+      message.includes('fetch failed') ||
+      message.includes('timeout') ||
+      message.includes('aborted')
+    );
+  };
 
-  return fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(requestBody),
-  });
+  const NETWORK_RETRIES = 3;
+  const REQUEST_TIMEOUT_MS = 60000;
+  let response: Response | null = null;
+  let lastNetworkError: unknown = null;
+
+  for (let attempt = 0; attempt <= NETWORK_RETRIES; attempt++) {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+      break;
+    } catch (error) {
+      lastNetworkError = error;
+      if (!isTransientNetworkError(error) || attempt === NETWORK_RETRIES) {
+        break;
+      }
+      const retryDelayMs = 400 * (attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  if (!response) {
+    if (isTransientNetworkError(lastNetworkError)) {
+      throw new Error('Network request failed. Please check your internet connection and try again.');
+    }
+    throw (lastNetworkError instanceof Error ? lastNetworkError : new Error(String(lastNetworkError)));
+  }
+
+  // Record failures (400, 402, 429) for credit/payment issues
+  if (!response.ok && (response.status === 400 || response.status === 402 || response.status === 429)) {
+    recordApiFailure();
+  }
+
+  return response;
 }
 
 export async function getClaudeResponse(
@@ -108,15 +448,16 @@ export async function getClaudeResponse(
   try {
     // Use fetch API directly since Anthropic SDK may not work in React Native
     // Convert messages to the format expected by Claude API
-    const apiMessages = conversationHistory.map((msg) => ({
+    // Cap conversation history to prevent input token explosion
+    const apiMessages = conversationHistory.slice(-MAX_CHAT_HISTORY).map((msg) => ({
       role: msg.role,
       content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
     }));
 
     // Try multiple models in order of preference
     const modelsToTry = [
-      'claude-sonnet-4-20250514', // Claude Sonnet 4 (latest, for complex tasks)
-      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback, cost-effective)
+      'claude-sonnet-4-5', // Claude Sonnet 4.5 (high quality)
+      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback)
     ];
 
     let lastError: Error | null = null;
@@ -124,7 +465,14 @@ export async function getClaudeResponse(
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, SYSTEM_PROMPT);
+        const cachedSystemPrompt = [
+          {
+            type: 'text' as const,
+            text: SYSTEM_PROMPT,
+            cache_control: { type: 'ephemeral' as const },
+          },
+        ];
+        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt);
         
         if (response.ok) {
           console.log(`✅ Successfully using model: ${model}`);
@@ -184,7 +532,7 @@ export async function getClaudeResponse(
       throw new Error('No text content in Claude response');
     }
 
-    return textContent.text;
+    return sanitizeModelOutput(stripAstrologyJargonFromText(textContent.text));
   } catch (error) {
     console.error('Error calling Claude API:', error);
     
@@ -212,7 +560,8 @@ export async function getClaudeResponse(
 }
 
 export async function getAtlasChatResponse(
-  conversationHistory: ChatMessage[]
+  conversationHistory: ChatMessage[],
+  context?: AtlasChatContext
 ): Promise<string> {
   const apiKey = getApiKey();
   
@@ -221,16 +570,20 @@ export async function getAtlasChatResponse(
   }
 
   try {
+    const resolvedGoalContext = await resolveAtlasGoalContext(context);
+    const atlasSystemPrompt = buildAtlasSystemPrompt(resolvedGoalContext);
+
     // Convert messages to the format expected by Claude API
-    const apiMessages = conversationHistory.map((msg) => ({
+    // Cap conversation history to prevent input token explosion
+    const apiMessages = conversationHistory.slice(-MAX_CHAT_HISTORY).map((msg) => ({
       role: msg.role,
       content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
     }));
 
-    // Use Haiku for cost optimization (concise responses don't need Sonnet)
+    // Use Sonnet for high-quality responses
     const modelsToTry = [
-      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (cost-effective for concise responses)
-      'claude-sonnet-4-20250514', // Claude Sonnet 4 (fallback)
+      'claude-sonnet-4-5', // Claude Sonnet 4.5 (high quality)
+      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback)
     ];
 
     let lastError: Error | null = null;
@@ -238,7 +591,14 @@ export async function getAtlasChatResponse(
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, ATLAS_THERAPEUTIC_PROMPT);
+        const cachedSystemPrompt = [
+          {
+            type: 'text' as const,
+            text: atlasSystemPrompt,
+            cache_control: { type: 'ephemeral' as const },
+          },
+        ];
+        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt);
         
         if (response.ok) {
           console.log(`✅ Successfully using model: ${model}`);
@@ -298,7 +658,7 @@ export async function getAtlasChatResponse(
       throw new Error('No text content in Claude response');
     }
 
-    return textContent.text;
+    return sanitizeModelOutput(stripAstrologyJargonFromText(textContent.text));
   } catch (error) {
     console.error('Error calling Claude API for Atlas chat:', error);
     
@@ -325,7 +685,275 @@ export async function getAtlasChatResponse(
   }
 }
 
-// Astrology report generation
+// Personal astrological birth chart report generation
+export interface PersonalAstrologyReport {
+  sunSign: string;
+  moonSign: string;
+  risingSign: string;
+  keyPlanetaryAspects: string[];
+  housePlacements: string[];
+  cosmicInsights: string; // Detailed personalized insights
+}
+
+export async function generatePersonalAstrologyReport(
+  birthMonth: string,
+  birthDate: string,
+  birthYear: string,
+  birthCity?: string,
+  birthHour?: string,
+  birthMinute?: string,
+  birthPeriod?: string
+): Promise<PersonalAstrologyReport> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+  }
+
+  // Format birth date
+  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  let birthTimeStr = '';
+  if (birthHour && birthMinute && birthPeriod) {
+    birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
+  }
+  const locationStr = birthCity ? ` in ${birthCity}` : '';
+
+  // Calculate sun sign
+  const month = parseInt(birthMonth);
+  const day = parseInt(birthDate);
+  let sunSign = '';
+  
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+  else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+
+  const astrologyPrompt = `You are an expert astrologer. Generate a comprehensive personal birth chart analysis.
+
+BIRTH INFORMATION:
+- Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
+- Birth Time: ${birthHour && birthMinute && birthPeriod ? `${birthHour}:${birthMinute} ${birthPeriod}` : 'Not provided'}
+- Birth Location: ${birthCity || 'Not provided'}
+
+Based on this birth information, generate a detailed personal astrological birth chart report. Include:
+
+1. SUN SIGN: ${sunSign} (already calculated)
+2. MOON SIGN: Determine the moon sign based on the birth date, time, and location. The moon sign reveals emotional nature and inner needs.
+3. RISING SIGN (ASCENDANT): Determine the rising sign based on birth time and location. This shows how the person presents to the world.
+4. KEY PLANETARY ASPECTS: Identify 3-5 significant planetary aspects (conjunctions, squares, trines, oppositions) that shape personality and life path.
+5. HOUSE PLACEMENTS: Identify 3-5 key planetary house placements that influence life areas (e.g., "Venus in 6th house of service", "Mars in 10th house of career").
+6. COSMIC INSIGHTS: Provide 2-3 paragraphs of personalized insights explaining how these astrological elements combine to create this person's unique cosmic blueprint. Focus on personality traits, natural tendencies, life themes, and how the planetary energies interact.
+
+IMPORTANT:
+- If birth time is not provided, estimate moon sign and rising sign based on typical placements for the birth date, but note this is approximate.
+- If birth location is not provided, use general astrological knowledge but note limitations.
+- Make the insights feel deeply personal and specific to this birth chart, not generic sun sign descriptions.
+- Connect how different planetary placements interact and influence each other.
+
+OUTPUT FORMAT (JSON only):
+{
+  "sunSign": "${sunSign}",
+  "moonSign": "calculated moon sign",
+  "risingSign": "calculated rising sign",
+  "keyPlanetaryAspects": [
+    "aspect 1 description",
+    "aspect 2 description",
+    "aspect 3 description"
+  ],
+  "housePlacements": [
+    "placement 1 description",
+    "placement 2 description",
+    "placement 3 description"
+  ],
+  "cosmicInsights": "2-3 paragraphs of personalized insights explaining how these elements combine"
+}
+
+Return ONLY valid JSON, no markdown, no code blocks, no explanations.`;
+
+  try {
+    const apiMessages: Array<{ role: string; content: string }> = [
+      {
+        role: 'user',
+        content: astrologyPrompt,
+      },
+    ];
+
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer who provides detailed, personalized birth chart analyses.', 2000);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API error (${response.status}): ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    const textContent = data.content?.find(
+      (block: any) => block.type === 'text'
+    ) as { type: 'text'; text: string } | undefined;
+
+    if (!textContent || !textContent.text) {
+      console.error('No text content in astrology report response:', JSON.stringify(data, null, 2));
+      throw new Error('No text content in Claude response');
+    }
+
+    console.log('[Astrology Report] Raw response length:', textContent.text.length);
+    console.log('[Astrology Report] Raw response preview:', textContent.text.substring(0, 300));
+    
+    // Check if response might be truncated (less than 500 chars is suspicious for a full report)
+    if (textContent.text.length < 500) {
+      console.warn('[Astrology Report] Response seems unusually short, might be truncated. Length:', textContent.text.length);
+    }
+
+    // Parse JSON response
+    let cleanedResponse = textContent.text.trim();
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/```\n?/g, '').trim();
+    }
+
+    // Helper function to extract JSON object from text
+    const extractJSON = (text: string): string | null => {
+      // First, try to find complete JSON object by matching braces
+      let braceCount = 0;
+      let startIndex = -1;
+      
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === '{') {
+          if (startIndex === -1) startIndex = i;
+          braceCount++;
+        } else if (text[i] === '}') {
+          braceCount--;
+          if (braceCount === 0 && startIndex !== -1) {
+            const extracted = text.substring(startIndex, i + 1);
+            console.log('[Astrology Report] Extracted JSON length:', extracted.length);
+            return extracted;
+          }
+        }
+      }
+      
+      // If no complete JSON found, try regex as fallback
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        console.log('[Astrology Report] Found JSON via regex, length:', jsonMatch[0].length);
+        return jsonMatch[0];
+      }
+      
+      console.log('[Astrology Report] No JSON found. Text preview:', text.substring(0, 200));
+      return null;
+    };
+
+    // Try to extract JSON from the response if it's wrapped in text
+    let parsed: any;
+    try {
+      // First, try parsing the cleaned response directly
+      parsed = JSON.parse(cleanedResponse);
+    } catch (firstParseError) {
+      // If that fails, try to extract JSON object from the text
+      const jsonString = extractJSON(cleanedResponse);
+      if (jsonString) {
+        try {
+          parsed = JSON.parse(jsonString);
+        } catch (secondParseError) {
+          console.error('Failed to parse extracted JSON:', jsonString.substring(0, 500));
+          console.error('Parse error:', secondParseError);
+          // Try one more time with a more lenient approach - find the first complete JSON object
+          const firstBrace = cleanedResponse.indexOf('{');
+          if (firstBrace !== -1) {
+            let braceCount = 0;
+            let endIndex = -1;
+            for (let i = firstBrace; i < cleanedResponse.length; i++) {
+              if (cleanedResponse[i] === '{') braceCount++;
+              if (cleanedResponse[i] === '}') braceCount--;
+              if (braceCount === 0) {
+                endIndex = i;
+                break;
+              }
+            }
+            if (endIndex !== -1) {
+              try {
+                parsed = JSON.parse(cleanedResponse.substring(firstBrace, endIndex + 1));
+              } catch (thirdParseError) {
+                console.error('All JSON parsing attempts failed. Response preview:', cleanedResponse.substring(0, 500));
+                throw new Error(`Failed to parse astrology report JSON: ${thirdParseError instanceof Error ? thirdParseError.message : 'Unknown error'}`);
+              }
+            } else {
+              throw new Error(`Failed to parse astrology report JSON: ${secondParseError instanceof Error ? secondParseError.message : 'Unknown error'}`);
+            }
+          } else {
+            throw new Error(`Failed to parse astrology report JSON: ${secondParseError instanceof Error ? secondParseError.message : 'Unknown error'}`);
+          }
+        }
+      } else {
+        console.error('No JSON object found in astrology report response:', cleanedResponse.substring(0, 500));
+        throw new Error('No valid JSON found in astrology report response');
+      }
+    }
+    
+    // Validate parsed data
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Invalid JSON structure in astrology report');
+    }
+    
+    return sanitizeModelOutput({
+      sunSign: parsed.sunSign || sunSign,
+      moonSign: parsed.moonSign || 'Unknown',
+      risingSign: parsed.risingSign || 'Unknown',
+      keyPlanetaryAspects: Array.isArray(parsed.keyPlanetaryAspects) ? parsed.keyPlanetaryAspects : [],
+      housePlacements: Array.isArray(parsed.housePlacements) ? parsed.housePlacements : [],
+      cosmicInsights: parsed.cosmicInsights || `As a ${sunSign}, you have natural strengths and tendencies aligned with your sun sign.`,
+    });
+  } catch (error) {
+    console.error('Error generating personal astrology report:', error);
+    // Return fallback with sun sign only
+    return sanitizeModelOutput({
+      sunSign,
+      moonSign: 'Unknown',
+      risingSign: 'Unknown',
+      keyPlanetaryAspects: [],
+      housePlacements: [],
+      cosmicInsights: `As a ${sunSign}, you have natural strengths and tendencies aligned with your sun sign.`,
+    });
+  }
+}
+
+// Personalized daily cosmic insight generation
+export interface PersonalizedDailyInsightParams {
+  userName?: string;
+  birthMonth: string;
+  birthDate: string;
+  birthYear: string;
+  birthCity?: string;
+  birthHour?: string;
+  birthMinute?: string;
+  birthPeriod?: string;
+  birthLatitude?: number;
+  birthLongitude?: number;
+  birthTimezone?: string;
+  currentTimezone?: string;
+  birthChart?: PersonalAstrologyReport; // Full birth chart if available
+  goals?: Array<{ title: string }>;
+  ikigaiData?: {
+    whatYouLove?: string;
+    whatYouGoodAt?: string;
+    whatWorldNeeds?: string;
+    whatCanBePaidFor?: string;
+  };
+  lifeContext?: {
+    currentSituation?: string;
+    biggestConstraint?: string;
+    whatMattersMost?: string[];
+  };
+}
+
+// Astrology report generation (daily reports) - generic version for shared caching
 export async function generateAstrologyReport(
   birthMonth: string,
   birthDate: string,
@@ -384,39 +1012,40 @@ export async function generateAstrologyReport(
 
   const astrologyPrompt = `You are an expert astrologer. Today is ${todayDateStr}.
 
-For a person born on ${birthDateStr}${birthTimeStr}${locationStr}, provide a personalized daily cosmic insight report for TODAY (maximum 300 words).
+Generate a daily cosmic insight report for TODAY (maximum 300 words) for someone with Sun sign ${sunSign}.
 
-IMPORTANT: This report must be personalized to THEIR specific astrological chart:
-- Their Sun Sign is ${sunSign} (born ${birthDateStr})
-- ${birthTimeStr ? `Their birth time is ${birthTimeStr}` : 'Birth time not provided'}
-- ${locationStr ? `Their birth location is ${locationStr}` : 'Birth location not provided'}
+IMPORTANT: This report will be shared by all users with Sun sign ${sunSign}, so make it relevant and meaningful for anyone with this sign:
+- Focus on the Sun sign ${sunSign} and its general characteristics
+- Consider current planetary transits affecting ${sunSign} energy TODAY
+- Provide insights that resonate with ${sunSign} traits and tendencies
+- Make it applicable to anyone with this Sun sign, not specific to individual birth charts
 
-Calculate their astrological chart (Sun sign: ${sunSign}, Moon sign, Rising sign if birth time/location available) and provide insights based on:
-1. Their natal chart (their specific planetary positions at birth)
-2. Current planetary transits affecting their chart TODAY
-3. How today's energies interact with their personal astrological makeup
+Provide insights based on:
+1. The ${sunSign} Sun sign's core traits and energy
+2. Current planetary transits affecting ${sunSign} energy TODAY
+3. How today's cosmic energies interact with ${sunSign} characteristics
 
 Provide a concise daily report for TODAY (${todayDateStr}) with the following structure. Start with the date as a heading, then include these sections:
 
 HEADING: ${todayDateStr}
 
 SECTION: What to Focus On Today
-- Main opportunities and priorities for today based on current planetary transits affecting THEIR natal chart (Sun in ${sunSign})
+- Main opportunities and priorities for today based on current planetary transits affecting ${sunSign} energy
 
 SECTION: What to Be Cautious Of
-- Things to watch out for or be mindful of today based on challenging transits to THEIR chart
+- Things to watch out for or be mindful of today based on challenging transits for ${sunSign}
 
 SECTION: Daily Tips
-- Practical advice and guidance for navigating today based on THEIR astrological profile
+- Practical advice and guidance for navigating today that resonates with ${sunSign} characteristics
 
 Format requirements:
 - Start with "${todayDateStr}" as a heading
 - Use "What to Focus On Today", "What to Be Cautious Of", and "Daily Tips" as section headings
 - Keep it to exactly 300 words or less
 - Make it warm, encouraging, and practical
-- Reference their Sun sign (${sunSign}) and make it personal to THEIR chart
+- Reference the ${sunSign} Sun sign and its general traits
 - Focus on TODAY's specific insights (${todayDateStr}) rather than general personality traits
-- Ensure the report is personalized and references their actual astrological chart, not generic horoscope`;
+- Make it relevant for anyone with Sun sign ${sunSign}, using "you" language that feels personal but applies broadly`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -426,10 +1055,10 @@ Format requirements:
       },
     ];
 
-    // Try multiple models in order of preference
+    // Use Haiku for astrology reports
     const modelsToTry = [
-      'claude-sonnet-4-20250514', // Claude Sonnet 4 (latest, for complex tasks)
-      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback, cost-effective)
+      MODEL_HAIKU, // Claude Haiku 4.5 (cost-effective)
+      MODEL_HAIKU, // Claude Haiku 4.5 (fallback)
     ];
 
     let lastError: Error | null = null;
@@ -437,7 +1066,7 @@ Format requirements:
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, 'You are an expert astrologer who provides insightful, personalized astrology reports.');
+        response = await tryModel(apiKey, model, apiMessages, 'You are an expert astrologer who provides insightful, sign-based daily astrology reports that are relevant for anyone with a given Sun sign.');
         
         if (response.ok) {
           console.log(`✅ Successfully generated astrology report using model: ${model}`);
@@ -491,7 +1120,7 @@ Format requirements:
       throw new Error('No text content in Claude response');
     }
 
-    return textContent.text;
+    return sanitizeModelOutput(textContent.text);
   } catch (error) {
     console.error('Error generating astrology report:', error);
     
@@ -516,6 +1145,291 @@ Format requirements:
   }
 }
 
+// NEW: Personalized daily cosmic insight generation
+export async function generatePersonalizedDailyInsight(
+  params: PersonalizedDailyInsightParams
+): Promise<string> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+  }
+
+  const {
+    userName,
+    birthMonth,
+    birthDate,
+    birthYear,
+    birthHour,
+    birthMinute,
+    birthPeriod,
+    birthLatitude,
+    birthLongitude,
+    birthTimezone,
+    currentTimezone,
+    goals,
+    ikigaiData,
+    lifeContext,
+  } = params;
+
+  const monthPadded = birthMonth.padStart(2, '0');
+  const dayPadded = birthDate.padStart(2, '0');
+  const birthDateIso = `${birthYear}-${monthPadded}-${dayPadded}`;
+  const hourRaw = Number.parseInt(birthHour || '', 10);
+  const minuteRaw = Number.parseInt(birthMinute || '', 10);
+  const minutePadded = Number.isFinite(minuteRaw) ? String(minuteRaw).padStart(2, '0') : '00';
+  const hasAmPm = birthPeriod === 'AM' || birthPeriod === 'PM';
+  const computedHour24 = Number.isFinite(hourRaw)
+    ? hasAmPm
+      ? (() => {
+          if (birthPeriod === 'AM') return hourRaw === 12 ? 0 : hourRaw;
+          return hourRaw === 12 ? 12 : hourRaw + 12;
+        })()
+      : Math.max(0, Math.min(23, hourRaw))
+    : 12;
+  const birthTimeForApi = `${String(computedHour24).padStart(2, '0')}:${minutePadded}`;
+
+  const hasCoordinates =
+    typeof birthLatitude === 'number' &&
+    Number.isFinite(birthLatitude) &&
+    typeof birthLongitude === 'number' &&
+    Number.isFinite(birthLongitude);
+
+  if (hasCoordinates) {
+    console.log('[Astrology API] Prepared inputs from profile:', {
+      birthDateIso,
+      birthTimeForApi,
+      birthLatitude,
+      birthLongitude,
+      birthTimezone,
+    });
+  } else {
+    console.log('[Astrology API] Skipping API call because coordinates are missing:', {
+      birthDateIso,
+      birthTimeForApi,
+      birthLatitude,
+      birthLongitude,
+      birthTimezone,
+    });
+  }
+
+  let astrologyData: Awaited<ReturnType<typeof fetchDailyAstrologyData>> | null = null;
+  if (hasCoordinates) {
+    console.log('CALLING ASTROLOGY API');
+    astrologyData = await fetchDailyAstrologyData(
+      birthDateIso,
+      birthTimeForApi,
+      birthLatitude as number,
+      birthLongitude as number,
+      birthTimezone
+    );
+    console.log('ASTROLOGY RESPONSE', astrologyData);
+  }
+
+  const goalsList =
+    goals && goals.length > 0
+      ? goals
+          .map((goal) => goal.title?.trim())
+          .filter(Boolean)
+          .join('\n')
+      : 'No goals set yet.';
+
+  const ikigaiSection = ikigaiData
+    ? `
+IKIGAI / CALLING CONTEXT:
+- What they love: ${ikigaiData.whatYouLove || 'Not provided'}
+- What they are good at: ${ikigaiData.whatYouGoodAt || 'Not provided'}
+- What the world needs: ${ikigaiData.whatWorldNeeds || 'Not provided'}
+- What can be paid for: ${ikigaiData.whatCanBePaidFor || 'Not provided'}`
+    : '';
+
+  const lifeContextSection = lifeContext
+    ? `
+CURRENT LIFE CONTEXT:
+- Current situation: ${lifeContext.currentSituation || 'Not provided'}
+- Biggest constraint: ${lifeContext.biggestConstraint || 'Not provided'}
+- What matters most: ${
+        lifeContext.whatMattersMost && lifeContext.whatMattersMost.length > 0
+          ? lifeContext.whatMattersMost.join(', ')
+          : 'Not provided'
+      }`
+    : '';
+
+  const russianPromptAddition = i18n.language?.startsWith('ru')
+    ? `
+Write the entire response in Russian. Use warm, supportive language. Section titles in Russian:
+- Твой Космический Щит на Сегодня
+- Что Вселенная Хочет, Чтобы Ты Знал(а)
+- Твои Защищённые Окна
+- Мягкое Завершение Вечера
+- Твой Якорь на Сегодня`
+    : '';
+
+  const todayLocalKey = (() => {
+    try {
+      const tz = currentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      return formatter.format(new Date());
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  })();
+
+  const personalizedPrompt = `
+You are a protective, caring guide helping someone navigate their day. You have access to real astronomical data about how today's sky affects this specific person.
+
+${astrologyData?.summaryForClaude || 'No specific transit data available.'}
+
+USER'S CURRENT GOALS:
+${goalsList}
+${ikigaiSection}${lifeContextSection}
+PERSON NAME: ${userName || 'Not provided'}
+TODAY (user local date): ${todayLocalKey}
+
+CRITICAL RULES:
+- NEVER use astrology jargon (no "Mercury", "Venus", "natal", "transit", "square", "opposition", "conjunct", etc.)
+- ONLY write about feelings, behaviors, thoughts, and practical advice
+- Write like a caring friend who happens to know what kind of day they are going to have
+- Be specific and protective, not vague
+- Make them feel safe and prepared
+- Make this guidance specific to TODAY and avoid reusing generic wording from prior days
+
+Write the daily insight in these 5 sections:
+
+---
+
+Your Cosmic Shield for Today
+(3-4 sentences. Describe how they will FEEL today - their mind, emotions, energy. What is the overall vibe? Make them feel seen and protected. End with something reassuring.)
+
+What the Universe Wants You to Know
+(3-4 sentences. Warn them gently about challenges - irritability, overthinking, relationship tension, impulsive decisions. Frame it as awareness, not fear. Tell them specifically what to avoid doing today.)
+
+Your Protected Windows
+(Give 3 time windows with 1 sentence each:)
+- Morning (before 11am): [what to do or avoid]
+- Midday (11am-3pm): [what to do or avoid]
+- Evening (after 6pm): [what to do or avoid]
+
+Tonight's Gentle Landing
+(2 sentences. A soft wind-down prompt. A question to reflect on or permission to let go. Nurturing tone.)
+
+Your Anchor for Today
+(One short mantra/affirmation that matches today's energy. No astrology words. Something they can repeat when feeling anxious.)
+
+---
+
+Remember: Translate the planetary data into HUMAN EXPERIENCES. Never mention planets.${russianPromptAddition}
+`;
+
+  try {
+    const apiMessages: Array<{ role: string; content: string }> = [
+      {
+        role: 'user',
+        content: personalizedPrompt,
+      },
+    ];
+
+    // Use Sonnet for personalized reports (higher quality needed)
+    const modelsToTry = [
+      'claude-sonnet-4-5',
+      'claude-haiku-4-5-20251001', // Fallback
+    ];
+
+    let lastError: Error | null = null;
+    let response: Response | null = null;
+
+    for (const model of modelsToTry) {
+      try {
+        response = await tryModel(
+          apiKey,
+          model,
+          apiMessages,
+          'You provide straightforward daily guidance that is personal, practical, and predictive. Avoid technical astrology jargon and keep language clear and grounded.',
+          2000
+        );
+        
+        if (response.ok) {
+          console.log(`✅ Successfully generated personalized daily insight using model: ${model}`);
+          break;
+        } else if (response.status === 404) {
+          console.log(`❌ Model ${model} not found (404), trying next...`);
+          const errorData = await response.json().catch(() => ({}));
+          lastError = new Error(`Model ${model} not available: ${errorData.error?.message || '404 Not Found'}`);
+          continue;
+        } else {
+          break;
+        }
+      } catch (error) {
+        console.log(`❌ Error with model ${model}:`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        continue;
+      }
+    }
+
+    if (!response) {
+      throw new Error('Failed to get response from any model. ' + (lastError?.message || ''));
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const fullError = JSON.stringify(errorData, null, 2);
+      console.error('Claude API error response:', response.status);
+      console.error('Error details:', fullError);
+      
+      if (response.status === 401) {
+        throw new Error('API key is invalid. Please check your EXPO_PUBLIC_ANTHROPIC_API_KEY in .env file.');
+      }
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
+      }
+      if (response.status === 400) {
+        throw new Error(`Invalid request: ${errorData.error?.message || fullError || 'Please check your message format.'}`);
+      }
+      
+      throw new Error(`API error (${response.status}): ${errorData.error?.message || fullError || 'Please try again.'}`);
+    }
+
+    const data = await response.json();
+    
+    const textContent = data.content?.find(
+      (block: any) => block.type === 'text'
+    ) as { type: 'text'; text: string } | undefined;
+
+    if (!textContent || !textContent.text) {
+      console.error('Unexpected response format:', data);
+      throw new Error('No text content in Claude response');
+    }
+
+    return sanitizeModelOutput(textContent.text);
+  } catch (error) {
+    console.error('Error generating personalized daily insight:', error);
+    
+    if (error instanceof Error && error.message.includes('API key')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.includes('Rate limit')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.includes('API error')) {
+      throw error;
+    }
+    
+    if (error instanceof Error) {
+      if (error.message.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      throw new Error(`Error: ${error.message}`);
+    }
+    
+    throw new Error('Sorry, I encountered an error generating your personalized daily insight. Please try again.');
+  }
+}
+
 // Ikigai conclusion structure
 export interface IkigaiConclusion {
   callingType: string; // 1-3 word conclusion about calling type
@@ -527,13 +1441,19 @@ export async function generateIkigaiConclusion(
   whatYouLove: string,
   whatYouGoodAt: string,
   whatWorldNeeds: string,
-  whatCanBePaidFor: string
+  whatCanBePaidFor: string,
+  locale: 'en' | 'ru' = 'en'
 ): Promise<IkigaiConclusion> {
   const apiKey = getApiKey();
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
+
+  const outputLanguageInstruction =
+    locale === 'ru'
+      ? 'IMPORTANT: Write the entire response in Russian.'
+      : 'IMPORTANT: Write the entire response in English.';
 
   const ikigaiPrompt = `You are a wise life coach and Ikigai expert. Based on a person's answers to the four dimensions of Ikigai, provide a personalized, insightful conclusion about their path and calling.
 
@@ -545,7 +1465,7 @@ The person's answers:
 
 Analyze the intersection of these four dimensions and provide your response in EXACTLY this format:
 
-CALLING_TYPE: [Provide a concise 1-3 word conclusion about what type of calling awaits this person. Examples: "Creative Visionary", "Healing Guide", "Innovation Catalyst", "Community Builder", "Artistic Mentor", "Tech Pioneer", etc. Be specific and capture their unique essence.]
+CALLING_TYPE: [Provide a concise 1-3 word conclusion about what type of calling awaits this person. Examples: "Creative Visionary", "Healing Guide", "Innovation Catalyst", "Community Builder", "Artistic Mentor", "Tech Pioneer", etc. Be specific and capture their unique essence. Never use asterisks "**" - write in plain text only.]
 
 PATH_REPORT: [Provide a comprehensive, detailed report (500-700 words) about the best path forward for this person. Include:
 1. A clear analysis of how their four Ikigai dimensions intersect
@@ -556,9 +1476,13 @@ PATH_REPORT: [Provide a comprehensive, detailed report (500-700 words) about the
 6. What challenges they might face and how to overcome them
 7. Long-term vision for their path
 
-Write in a warm, encouraging, and insightful tone. Be specific and reference their actual answers. Make it comprehensive and actionable.];
+Write in a warm, encouraging, and insightful tone. Be specific and reference their actual answers. Make it comprehensive and actionable.
 
-IMPORTANT: Your response must start with "DESTINY_TYPE:" followed by the 1-3 word conclusion, then "PATH_REPORT:" followed by the comprehensive report.`;
+CRITICAL: Never use asterisks "**" for formatting, emphasis, or any other purpose. Do not use markdown bold syntax or any asterisks in your response. Write in plain text only.];
+
+IMPORTANT: Your response must start with "DESTINY_TYPE:" followed by the 1-3 word conclusion, then "PATH_REPORT:" followed by the comprehensive report. Never use asterisks "**" anywhere in your response.
+
+${outputLanguageInstruction}`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -570,8 +1494,8 @@ IMPORTANT: Your response must start with "DESTINY_TYPE:" followed by the 1-3 wor
 
     // Try multiple models in order of preference
     const modelsToTry = [
-      'claude-sonnet-4-20250514', // Claude Sonnet 4 (latest, for complex tasks)
-      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback, cost-effective)
+      'claude-sonnet-4-5', // Claude Sonnet 4.5 (high quality)
+      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback)
     ];
 
     let lastError: Error | null = null;
@@ -634,7 +1558,7 @@ IMPORTANT: Your response must start with "DESTINY_TYPE:" followed by the 1-3 wor
     }
 
     // Parse the response to extract CALLING_TYPE and PATH_REPORT
-    const responseText = textContent.text;
+    const responseText = sanitizeModelOutput(textContent.text);
     const callingTypeMatch = responseText.match(/CALLING_TYPE:\s*(.+?)(?:\n|PATH_REPORT:)/s);
     const pathReportMatch = responseText.match(/PATH_REPORT:\s*(.+?)(?:\n\n|$)/s) || responseText.match(/PATH_REPORT:\s*(.+)/s);
     
@@ -646,10 +1570,10 @@ IMPORTANT: Your response must start with "DESTINY_TYPE:" followed by the 1-3 wor
       ? pathReportMatch[1].trim()
       : responseText; // Fallback to full response if parsing fails
 
-    return {
+    return sanitizeModelOutput({
       callingType,
       pathReport,
-    };
+    });
   } catch (error) {
     console.error('Error generating Ikigai conclusion:', error);
     
@@ -734,8 +1658,8 @@ Write in a warm, supportive, and non-judgmental tone. Be specific and reference 
 
     // Try multiple models in order of preference
     const modelsToTry = [
-      'claude-sonnet-4-20250514', // Claude Sonnet 4 (latest, for complex tasks)
-      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback, cost-effective)
+      'claude-sonnet-4-5', // Claude Sonnet 4.5 (high quality)
+      'claude-haiku-4-5-20251001', // Claude Haiku 4.5 (fallback)
     ];
 
     let lastError: Error | null = null;
@@ -797,7 +1721,7 @@ Write in a warm, supportive, and non-judgmental tone. Be specific and reference 
       throw new Error('No text content in Claude response');
     }
 
-    return textContent.text;
+    return sanitizeModelOutput(textContent.text);
   } catch (error) {
     console.error('Error generating analysis report:', error);
     
@@ -830,9 +1754,9 @@ export interface GeneratedPath {
 }
 
 export async function generateCallingPaths(
-  birthMonth: string,
-  birthDate: string,
-  birthYear: string,
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
   birthCity?: string,
   birthHour?: string,
   birthMinute?: string,
@@ -850,37 +1774,47 @@ export async function generateCallingPaths(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
+  const hasSunSign = month > 0 && day > 0;
   let sunSign = '';
   
-  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
-  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
-  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
-  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
-  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
-  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
-  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
-  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
-  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
-  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
-  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
-  else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  if (hasSunSign) {
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+    else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+    else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+    else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+    else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+    else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+    else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+    else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+    else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+    else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+    else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+    else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  }
+
+  // Build prompt conditionally based on available data
+  const sunSignSection = hasSunSign 
+    ? `- Sun Sign: ${sunSign}`
+    : `- Sun Sign: Not provided (birth date information unavailable)`;
 
   const pathsPrompt = `You are an expert astrologer and career counselor. Generate 3 personalized career/life paths for a person based on their complete profile.
 
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
-- Sun Sign: ${sunSign}
+${sunSignSection}
 ${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
 ${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
 
@@ -897,21 +1831,22 @@ ${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: No
 INSTRUCTIONS:
 Generate exactly 3 distinct career/life paths that align with their destiny. Each path should:
 - Be specific, actionable, and personalized
-- Consider their Sun sign (${sunSign}), Ikigai responses, fears, and excitements
+${hasSunSign ? `- Consider their Sun sign (${sunSign}), ` : '- Focus primarily on '}their Ikigai responses, fears, and excitements
 - Be inspiring and aligned with their true purpose
+- Each path must connect to their Ikigai answers: what they love (${whatYouLove || 'not provided'}), what they're good at (${whatYouGoodAt || 'not provided'}), what the world needs (${whatWorldNeeds || 'not provided'}), and what can be paid for (${whatCanBePaidFor || 'not provided'})
 
 OUTPUT FORMAT (JSON only, no other text):
 Return a JSON array with exactly 3 objects. Each object must have:
 - "title": A short, compelling title for the path (max 50 characters)
 - "description": A concise description explaining why this path aligns with their destiny (max 100 characters)
-- "glowColor": One of these colors: "#c6afb8" (dusty rose), "#baccd7" (soft blue), "#a6a76c" (sage green)
+- "glowColor": One of these colors: "#cdbad8" (dusty rose), "#baccd7" (soft blue), "#a6a76c" (sage green)
 
 Example format:
 [
   {
     "title": "Creative Writing and Content",
     "description": "Your Aries energy and love for words align perfectly with creative expression that inspires others.",
-    "glowColor": "#c6afb8"
+    "glowColor": "#cdbad8"
   },
   {
     "title": "Performance and Speaking",
@@ -935,25 +1870,75 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       },
     ];
 
-    // Use Sonnet for complex calling path analysis with reduced max_tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert astrologer and career counselor.', 400);
+    // Use Haiku for calling path analysis
+    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert astrologer and career counselor.', 400);
 
-    // Parse the JSON response
+    // Check response status BEFORE trying to parse JSON
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || 'Unknown error';
+      
+      // Only log warnings occasionally to reduce spam
+      const shouldLog = apiFailureCache.failureCount <= 1 || apiFailureCache.failureCount % 5 === 0;
+      if (shouldLog) {
+        console.warn(`API error (${response.status}): ${errorMessage}`);
+      }
+      
+      // Handle specific error cases gracefully with fallback
+      if (response.status === 400 || response.status === 429 || response.status === 402) {
+        // Credit balance too low, rate limit, or payment required - use fallback
+        if (shouldLog) {
+          console.warn('API unavailable, using fallback paths');
+        }
+        return [
+          {
+            id: 1,
+            title: 'Creative Expression',
+            description: 'A path aligned with your unique talents and passions.',
+            glowColor: '#cdbad8',
+          },
+          {
+            id: 2,
+            title: 'Personal Growth',
+            description: 'A journey that helps you overcome fears and reach your potential.',
+            glowColor: '#baccd7',
+          },
+          {
+            id: 3,
+            title: 'Purposeful Impact',
+            description: 'A way to make a meaningful difference in the world.',
+            glowColor: '#a6a76c',
+          },
+        ];
+      }
+      
+      // For other errors, still return fallback but log the error
+      console.error(`API error: ${response.status} - ${errorMessage}`);
+      return [
+        {
+          id: 1,
+          title: 'Creative Expression',
+          description: 'A path aligned with your unique talents and passions.',
+          glowColor: '#cdbad8',
+        },
+        {
+          id: 2,
+          title: 'Personal Growth',
+          description: 'A journey that helps you overcome fears and reach your potential.',
+          glowColor: '#baccd7',
+        },
+        {
+          id: 3,
+          title: 'Purposeful Impact',
+          description: 'A way to make a meaningful difference in the world.',
+          glowColor: '#a6a76c',
+        },
+      ];
+    }
+
+    // Parse the JSON response only if response is ok
     let paths: GeneratedPath[] = [];
     try {
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error?.message || 'Unknown error';
-        
-        // Handle rate limit errors gracefully
-        if (response.status === 429) {
-          console.warn('Rate limit exceeded, using fallback paths');
-          throw new Error('RATE_LIMIT_EXCEEDED');
-        }
-        
-        throw new Error(`API error: ${response.status} - ${errorMessage}`);
-      }
-
       const responseData = await response.json();
       const responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
       
@@ -975,44 +1960,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
           id: index + 1,
           title: path.title || `Path ${index + 1}`,
           description: path.description || '',
-          glowColor: path.glowColor || '#c6afb8',
+          glowColor: path.glowColor || '#cdbad8',
         }));
       }
     } catch (parseError: any) {
       console.error('Error parsing paths JSON:', parseError);
-      
-      // If rate limit exceeded, return fallback immediately
-      if (parseError?.message === 'RATE_LIMIT_EXCEEDED') {
-        return [
-          {
-            id: 1,
-            title: 'Creative Expression',
-            description: 'A path aligned with your unique talents and passions.',
-            glowColor: '#c6afb8',
-          },
-          {
-            id: 2,
-            title: 'Personal Growth',
-            description: 'A journey that helps you overcome fears and reach your potential.',
-            glowColor: '#baccd7',
-          },
-          {
-            id: 3,
-            title: 'Purposeful Impact',
-            description: 'A way to make a meaningful difference in the world.',
-            glowColor: '#a6a76c',
-          },
-        ];
-      }
-      
-      console.error('Response status:', response.status);
-      // Fallback to default paths
+      // Fallback to default paths on parse error
       paths = [
         {
           id: 1,
           title: 'Creative Expression',
           description: 'A path aligned with your unique talents and passions.',
-          glowColor: '#c6afb8',
+          glowColor: '#cdbad8',
         },
         {
           id: 2,
@@ -1038,7 +1997,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         id: 1,
         title: 'Creative Expression',
         description: 'A path aligned with your unique talents and passions.',
-        glowColor: '#c6afb8',
+        glowColor: '#cdbad8',
         },
         {
           id: 2,
@@ -1073,9 +2032,9 @@ export interface CallingAwaitsContent {
 }
 
 export async function generateCallingAwaitsContent(
-  birthMonth: string,
-  birthDate: string,
-  birthYear: string,
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
   birthCity?: string,
   birthHour?: string,
   birthMinute?: string,
@@ -1085,7 +2044,8 @@ export async function generateCallingAwaitsContent(
   whatWorldNeeds?: string,
   whatCanBePaidFor?: string,
   fear?: string,
-  whatExcites?: string
+  whatExcites?: string,
+  astrologyReport?: PersonalAstrologyReport
 ): Promise<CallingAwaitsContent> {
   const apiKey = getApiKey();
   
@@ -1093,62 +2053,118 @@ export async function generateCallingAwaitsContent(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
   let sunSign = '';
+  const hasSunSign = month > 0 && day > 0;
   
-  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
-  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
-  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
-  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
-  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
-  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
-  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
-  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
-  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
-  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
-  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
-  else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  if (hasSunSign) {
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+    else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+    else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+    else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+    else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+    else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+    else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+    else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+    else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+    else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+    else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+    else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  }
 
-  const callingPrompt = `You are an expert astrologer and life coach. Generate personalized content for a user's calling profile based on their complete profile.
+  // Build astrological section with full report if available
+  let astrologySection = '';
+  if (astrologyReport && astrologyReport.sunSign) {
+    astrologySection = `CRITICAL ASTROLOGICAL BLUEPRINT - USE THESE SPECIFIC INSIGHTS:
+
+This user's complete astrological profile:
+- Sun Sign: ${astrologyReport.sunSign} (core identity and ego expression)
+- Moon Sign: ${astrologyReport.moonSign} (emotional nature and inner needs)
+- Rising Sign (Ascendant): ${astrologyReport.risingSign} (how they present to the world and first impressions)
+
+KEY PLANETARY ASPECTS (shaping personality and life path):
+${astrologyReport.keyPlanetaryAspects.length > 0 
+  ? astrologyReport.keyPlanetaryAspects.map(aspect => `- ${aspect}`).join('\n')
+  : '- No specific aspects provided'}
+
+KEY HOUSE PLACEMENTS (influencing life areas):
+${astrologyReport.housePlacements.length > 0 
+  ? astrologyReport.housePlacements.map(placement => `- ${placement}`).join('\n')
+  : '- No specific house placements provided'}
+
+COSMIC INSIGHTS:
+${astrologyReport.cosmicInsights || `As a ${astrologyReport.sunSign}, this person has natural strengths aligned with their sun sign.`}
+
+CRITICAL INSTRUCTION: You MUST reference SPECIFIC insights from this astrological report in your natural gifts and Ikigai circle summaries. Do NOT use generic sun sign descriptions. Instead:
+- Reference how their Sun + Moon combination creates unique traits
+- Explain how their Rising sign influences their presentation and approach
+- Connect planetary aspects to their natural gifts
+- Reference house placements to explain WHY certain Ikigai answers resonate
+- Make it feel like a personalized reading, not a horoscope`;
+  } else if (hasSunSign) {
+    astrologySection = `NOTE: Only Sun sign is available (${sunSign}). Birth chart details are not available, so focus on ${sunSign} traits combined with Ikigai responses.`;
+  } else {
+    astrologySection = `NOTE: Birth date information is not available, so astrological influences cannot be determined. Focus on the user's Ikigai responses and personal motivations.`;
+  }
+
+  const callingPrompt = `You are an expert astrologer and life coach. Generate deeply personalized content for a user's calling profile.
+
+${astrologySection}
 
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
-- Sun Sign: ${sunSign}
 ${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
 ${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
 
-IKIGAI RESPONSES:
-${whatYouLove ? `- What they love: ${whatYouLove}` : '- What they love: Not provided'}
-${whatYouGoodAt ? `- What they are good at: ${whatYouGoodAt}` : '- What they are good at: Not provided'}
-${whatWorldNeeds ? `- What the world needs: ${whatWorldNeeds}` : '- What the world needs: Not provided'}
-${whatCanBePaidFor ? `- What can be paid for: ${whatCanBePaidFor}` : '- What can be paid for: Not provided'}
+IKIGAI RESPONSES (USE THESE SPECIFIC ANSWERS):
+- What they love: "${whatYouLove || 'Not provided'}"
+- What they're good at: "${whatYouGoodAt || 'Not provided'}"
+- What the world needs: "${whatWorldNeeds || 'Not provided'}"
+- What can be paid for: "${whatCanBePaidFor || 'Not provided'}"
 
 FEARS AND MOTIVATIONS:
 ${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
 ${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
 
 INSTRUCTIONS:
-1. Generate exactly 4 natural gifts SPECIFICALLY based on their astrological chart (Sun sign: ${sunSign}), their Ikigai responses (${whatYouLove ? `"${whatYouLove}"` : 'not provided'}, ${whatYouGoodAt ? `"${whatYouGoodAt}"` : 'not provided'}, ${whatWorldNeeds ? `"${whatWorldNeeds}"` : 'not provided'}, ${whatCanBePaidFor ? `"${whatCanBePaidFor}"` : 'not provided'}), their fears (${fear || 'not provided'}), and what excites them (${whatExcites || 'not provided'}). Each gift must be personalized and specific to THIS user, not generic. Each gift should have:
-   - A name: 2-4 words (e.g., "Creative self-expression", "Bold leadership")
-   - A description: A short explanation (1-2 sentences, max 30 words) of what this gift means and how it applies to this specific user
+1. Generate exactly 4 natural gifts that are HIGHLY PERSONALIZED to this specific user. CRITICAL REQUIREMENTS:
+   ${astrologyReport && astrologyReport.sunSign ? `- Each gift MUST deeply integrate their astrological blueprint. Reference SPECIFIC insights from their birth chart:
+     * How their ${astrologyReport.sunSign} Sun combines with their ${astrologyReport.moonSign} Moon creates unique traits
+     * How their ${astrologyReport.risingSign} Rising sign influences their approach
+     * Reference specific planetary aspects and house placements that explain WHY this gift is natural to them
+     * Example: "Your ${astrologyReport.sunSign} Sun combined with your ${astrologyReport.moonSign} Moon creates a rare blend of [trait]. This cosmic pairing is why you don't just want to [Ikigai answer] — you FEEL it on a soul level. With [house placement], [Ikigai answer] isn't just a passion; it's woven into your life purpose."
+   - DO NOT use generic sun sign descriptions. Use SPECIFIC insights from their complete birth chart.` : hasSunSign ? `- Each gift MUST explicitly reflect their Sun sign: ${sunSign}. Reference ${sunSign} traits that align with their gifts.` : '- Focus on the user\'s unique combination of Ikigai responses and personal motivations.'}
+   - Each gift MUST connect to their specific Ikigai answers:
+     * What they love: "${whatYouLove || 'not provided'}"
+     * What they're good at: "${whatYouGoodAt || 'not provided'}"
+     * What the world needs: "${whatWorldNeeds || 'not provided'}"
+     * What can be paid for: "${whatCanBePaidFor || 'not provided'}"
+   ${astrologyReport && astrologyReport.sunSign ? `- Each gift description MUST reference SPECIFIC astrological insights (Sun+Moon combination, Rising sign, aspects, or house placements) AND connect to their Ikigai responses. Make it feel like a personalized reading.` : hasSunSign ? `- Each gift description MUST mention their Sun sign (${sunSign}) and reference at least one of their Ikigai responses.` : '- Each gift description MUST reference at least one of their Ikigai responses and connect to their personal motivations.'}
+   - Consider their fears (${fear || 'not provided'}) and what excites them (${whatExcites || 'not provided'}) to make gifts more relevant.
+   - Each gift should have:
+     * A name: 2-4 words (e.g., "Creative self-expression", "Bold leadership")
+     * A description: A short explanation (1-2 sentences, max 30 words) that ${astrologyReport && astrologyReport.sunSign ? `references SPECIFIC astrological insights from their birth chart and ` : hasSunSign ? `explicitly mentions their ${sunSign} sign and ` : ''}connects to their Ikigai answers. ${astrologyReport && astrologyReport.sunSign ? `Example: "Your ${astrologyReport.sunSign} Sun combined with your ${astrologyReport.moonSign} Moon creates [unique trait]. This is why [Ikigai connection] resonates so deeply with your cosmic blueprint."` : hasSunSign ? `Example: "As a ${sunSign}, your natural [trait] combined with your passion for [whatYouLove] creates [gift description]."` : 'Example: "Your natural [trait] combined with your passion for [whatYouLove] creates [gift description]."'}
 
-2. For each Ikigai circle, create a VERY SHORT summary (2-3 words MAX) that condenses their answer:
-   - "What you love" circle: Condense "${whatYouLove || 'their passions'}" to 2-3 words
-   - "What you're good at" circle: Condense "${whatYouGoodAt || 'their talents'}" to 2-3 words
-   - "What the world needs" circle: Condense "${whatWorldNeeds || 'world needs'}" to 2-3 words
-   - "What you can be paid for" circle: Condense "${whatCanBePaidFor || 'monetizable skills'}" to 2-3 words
+2. For each Ikigai circle, create a summary of EXACTLY 2 WORDS that condenses their answer:
+   - "What you love" circle: Condense "${whatYouLove || 'their passions'}" to exactly 2 words (e.g., "creative expression", "helping others", "artistic pursuits")
+   - "What you're good at" circle: Condense "${whatYouGoodAt || 'their talents'}" to exactly 2 words (e.g., "problem solving", "creative design", "team leadership")
+   - "What the world needs" circle: Condense "${whatWorldNeeds || 'world needs'}" to exactly 2 words (e.g., "environmental sustainability", "mental health", "social justice")
+   - "What you can be paid for" circle: Condense "${whatCanBePaidFor || 'monetizable skills'}" to exactly 2 words (e.g., "content creation", "consulting services", "digital marketing")
+   CRITICAL: Each summary MUST be exactly 2 words. No more, no less. Choose the most impactful 2 words that capture the essence of their answer.
 
-3. Create a center summary (max 12 words, NO word "destiny") that synthesizes their Ikigai answers into a personalized path to purpose and fulfillment. This should be primarily based on the intersection of what they love (${whatYouLove || 'not provided'}), what they're good at (${whatYouGoodAt || 'not provided'}), what the world needs (${whatWorldNeeds || 'not provided'}), and what they can be paid for (${whatCanBePaidFor || 'not provided'}). The summary should reflect their unique path forward based on these four Ikigai dimensions. You may also consider their astrological influences, fears, and excitements, but the Ikigai intersection should be the primary focus. DO NOT use the word "destiny" in the center summary.
+3. Create a center summary (max 12 words, NO word "destiny") that synthesizes their Ikigai answers into a personalized path to purpose and fulfillment. This should be primarily based on the intersection of what they love (${whatYouLove || 'not provided'}), what they're good at (${whatYouGoodAt || 'not provided'}), what the world needs (${whatWorldNeeds || 'not provided'}), and what they can be paid for (${whatCanBePaidFor || 'not provided'}). ${astrologyReport && astrologyReport.cosmicInsights ? `Consider how their astrological blueprint (${astrologyReport.sunSign} Sun, ${astrologyReport.moonSign} Moon, ${astrologyReport.risingSign} Rising) influences this intersection.` : hasSunSign ? `You may also consider their ${sunSign} astrological influences.` : ''} The summary should reflect their unique path forward based on these four Ikigai dimensions. DO NOT use the word "destiny" in the center summary.
 
 OUTPUT FORMAT (JSON only, no other text):
 Return a JSON object with this exact structure:
@@ -1160,10 +2176,10 @@ Return a JSON object with this exact structure:
     {"name": "gift4 name", "description": "short explanation of gift4"}
   ],
   "ikigaiCircles": {
-    "whatYouLove": "2-3 words max",
-    "whatYouGoodAt": "2-3 words max",
-    "whatWorldNeeds": "2-3 words max",
-    "whatCanBePaidFor": "2-3 words max"
+    "whatYouLove": "exactly 2 words",
+    "whatYouGoodAt": "exactly 2 words",
+    "whatWorldNeeds": "exactly 2 words",
+    "whatCanBePaidFor": "exactly 2 words"
   },
   "centerSummary": "life path summary max 12 words, NO word 'calling'"
 }
@@ -1179,18 +2195,53 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex calling content analysis with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert astrologer and life coach.', 600);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 600);
 
-    // Parse the JSON response
-    let content: CallingAwaitsContent;
-    try {
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    // Check response status BEFORE trying to parse JSON
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || 'Unknown error';
+      
+      console.error(`❌ CallingAwaits API error (${response.status}): ${errorMessage}`);
+      console.error('Error details:', JSON.stringify(errorData, null, 2));
+      
+      // Provide helpful error messages based on status code
+      if (response.status === 401) {
+        console.error('💡 This usually means your API key is invalid. Check EXPO_PUBLIC_ANTHROPIC_API_KEY in .env');
+      } else if (response.status === 402) {
+        console.error('💡 This usually means your Anthropic account has insufficient credits. Check your account balance.');
+      } else if (response.status === 429) {
+        console.error('💡 Rate limit exceeded. Wait a moment and try again.');
+      } else if (response.status === 400) {
+        console.error('💡 Bad request. Check that your API key is valid and the request format is correct.');
       }
+      
+      // Return fallback content for API errors
+      const fallbackGifts: NaturalGift[] = [
+        { name: 'Creative expression', description: 'Your ability to express yourself through art, writing, or creative mediums that resonate with your inner truth.' },
+        { name: 'Bold leadership', description: 'Your natural capacity to inspire and guide others toward meaningful change and transformation.' },
+        { name: 'Artistic communication', description: 'Your gift for conveying complex ideas and emotions through visual, written, or spoken forms.' },
+        { name: 'Initiating projects', description: 'Your talent for starting new ventures and bringing innovative ideas to life with passion and determination.' },
+      ];
+      console.warn('CallingAwaits: Using fallback content due to API error');
+      return {
+        naturalGifts: fallbackGifts,
+        ikigaiCircles: {
+          whatYouLove: whatYouLove ? whatYouLove.split(' ').slice(0, 2).join(' ') : 'Your passions',
+          whatYouGoodAt: whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 2).join(' ') : 'Your talents',
+          whatWorldNeeds: whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 2).join(' ') : 'World needs',
+          whatCanBePaidFor: whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 2).join(' ') : 'Monetizable skills',
+        },
+        centerSummary: 'Your unique path to purpose and fulfillment.',
+      };
+    }
 
+    // Parse the JSON response only if response is ok
+    let content: CallingAwaitsContent;
+    let responseText = '';
+    try {
       const responseData = await response.json();
-      const responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
+      responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
       
       console.log('Destiny Awaits API Response:', responseText);
       
@@ -1202,7 +2253,35 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         cleanedResponse = cleanedResponse.replace(/```\n?/g, '');
       }
       
-      const parsed = JSON.parse(cleanedResponse);
+      // Try to extract JSON from the response if it's wrapped in text
+      let parsed: any;
+      try {
+        // First, try parsing the cleaned response directly
+        parsed = JSON.parse(cleanedResponse);
+      } catch (firstParseError) {
+        // If that fails, try to find JSON object in the text
+        // Look for content between { and } that might be JSON
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+          } catch (secondParseError) {
+            // If still failing, check if response starts with error text
+            if (cleanedResponse.toLowerCase().includes('error') || 
+                cleanedResponse.toLowerCase().includes('invalid') ||
+                cleanedResponse.toLowerCase().startsWith('i')) {
+              console.warn('API response appears to be an error message:', cleanedResponse.substring(0, 200));
+              throw new Error(`API returned error message: ${cleanedResponse.substring(0, 100)}`);
+            }
+            throw firstParseError; // Re-throw original error
+          }
+        } else {
+          // No JSON found in response
+          console.warn('No JSON object found in API response:', cleanedResponse.substring(0, 200));
+          throw new Error(`No valid JSON found in response: ${cleanedResponse.substring(0, 100)}`);
+        }
+      }
+      
       console.log('Parsed Calling Awaits Content:', parsed);
       
       // Validate and format the response
@@ -1227,16 +2306,17 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
             })
           : fallbackGifts,
         ikigaiCircles: {
-          whatYouLove: parsed.ikigaiCircles?.whatYouLove || (whatYouLove ? whatYouLove.split(' ').slice(0, 3).join(' ') : 'Your passions'),
-          whatYouGoodAt: parsed.ikigaiCircles?.whatYouGoodAt || (whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 3).join(' ') : 'Your talents'),
-          whatWorldNeeds: parsed.ikigaiCircles?.whatWorldNeeds || (whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 3).join(' ') : 'World needs'),
-          whatCanBePaidFor: parsed.ikigaiCircles?.whatCanBePaidFor || (whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 3).join(' ') : 'Monetizable skills'),
+          whatYouLove: parsed.ikigaiCircles?.whatYouLove || (whatYouLove ? whatYouLove.split(' ').slice(0, 2).join(' ') : 'Your passions'),
+          whatYouGoodAt: parsed.ikigaiCircles?.whatYouGoodAt || (whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 2).join(' ') : 'Your talents'),
+          whatWorldNeeds: parsed.ikigaiCircles?.whatWorldNeeds || (whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 2).join(' ') : 'World needs'),
+          whatCanBePaidFor: parsed.ikigaiCircles?.whatCanBePaidFor || (whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 2).join(' ') : 'Monetizable skills'),
         },
         centerSummary: parsed.centerSummary ? parsed.centerSummary.replace(/calling/gi, 'path').replace(/Calling/gi, 'Path') : 'Your unique path to purpose and fulfillment.',
       };
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error('Error parsing calling content JSON:', parseError);
-      // Fallback content
+      console.error('Response text that failed to parse:', responseText?.substring(0, 500));
+      // Fallback content - use user's actual Ikigai responses
       const fallbackGifts: NaturalGift[] = [
         { name: 'Creative expression', description: 'Your ability to express yourself through art, writing, or creative mediums that resonate with your inner truth.' },
         { name: 'Bold leadership', description: 'Your natural capacity to inspire and guide others toward meaningful change and transformation.' },
@@ -1246,10 +2326,10 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       content = {
         naturalGifts: fallbackGifts,
         ikigaiCircles: {
-          whatYouLove: whatYouLove ? whatYouLove.split(' ').slice(0, 3).join(' ') : 'Your passions',
-          whatYouGoodAt: whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 3).join(' ') : 'Your talents',
-          whatWorldNeeds: whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 3).join(' ') : 'World needs',
-          whatCanBePaidFor: whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 3).join(' ') : 'Monetizable skills',
+          whatYouLove: whatYouLove ? whatYouLove.split(' ').slice(0, 3).join(' ') : 'YOUR PASSIONS',
+          whatYouGoodAt: whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 3).join(' ') : 'YOUR TALENTS',
+          whatWorldNeeds: whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 3).join(' ') : 'WORLD NEEDS',
+          whatCanBePaidFor: whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 3).join(' ') : 'MONETIZABLE SKILLS',
         },
         centerSummary: 'Your unique path to purpose and fulfillment.',
       };
@@ -1278,6 +2358,11 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
   }
 }
 
+export interface UnifiedDestinyProfile {
+  callingAwaits: CallingAwaitsContent;
+  paths: GeneratedPath[];
+}
+
 export interface PathGoal {
   id: number;
   title: string;
@@ -1291,12 +2376,403 @@ export interface PathContent {
   goals: PathGoal[];
 }
 
+/**
+ * Unified API function that generates all destiny profile content in a single call.
+ * This combines calling awaits content and paths aligned content, including Current Life Context data.
+ * Should be called once at Step 6 (LoadingStep) after all onboarding data is collected.
+ */
+export async function generateUnifiedDestinyProfile(
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
+  birthCity?: string,
+  birthHour?: string,
+  birthMinute?: string,
+  birthPeriod?: string,
+  whatYouLove?: string,
+  whatYouGoodAt?: string,
+  whatWorldNeeds?: string,
+  whatCanBePaidFor?: string,
+  fear?: string,
+  whatExcites?: string,
+  currentSituation?: string,
+  biggestConstraint?: string,
+  whatMattersMost?: string[]
+): Promise<UnifiedDestinyProfile> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+  }
+
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
+  let birthTimeStr = '';
+  if (birthHour && birthMinute && birthPeriod) {
+    birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
+  }
+  const locationStr = birthCity ? ` in ${birthCity}` : '';
+
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
+  let sunSign = '';
+  const hasSunSign = month > 0 && day > 0;
+  
+  if (hasSunSign) {
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+    else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+    else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+    else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+    else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+    else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+    else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+    else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+    else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+    else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+    else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+    else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  }
+
+  // Format Current Life Context data
+  const currentSituationStr = currentSituation || 'Not provided';
+  const biggestConstraintStr = biggestConstraint || 'Not provided';
+  const whatMattersMostStr = whatMattersMost && whatMattersMost.length > 0 
+    ? whatMattersMost.join(', ') 
+    : 'Not provided';
+
+  // Use sun sign only for destiny profile loading step (skip full astrology report to keep load time fast)
+  const astrologyReport: PersonalAstrologyReport | undefined = undefined;
+
+  // Build unified prompt that generates both calling awaits content and paths
+  let astrologySection = '';
+  if (astrologyReport && astrologyReport.sunSign) {
+    astrologySection = `CRITICAL ASTROLOGICAL BLUEPRINT - USE THESE SPECIFIC INSIGHTS:
+
+This user's complete astrological profile:
+- Sun Sign: ${astrologyReport.sunSign} (core identity and ego expression)
+- Moon Sign: ${astrologyReport.moonSign} (emotional nature and inner needs)
+- Rising Sign (Ascendant): ${astrologyReport.risingSign} (how they present to the world and first impressions)
+
+KEY PLANETARY ASPECTS (shaping personality and life path):
+${astrologyReport.keyPlanetaryAspects.length > 0 
+  ? astrologyReport.keyPlanetaryAspects.map(aspect => `- ${aspect}`).join('\n')
+  : '- No specific aspects provided'}
+
+KEY HOUSE PLACEMENTS (influencing life areas):
+${astrologyReport.housePlacements.length > 0 
+  ? astrologyReport.housePlacements.map(placement => `- ${placement}`).join('\n')
+  : '- No specific house placements provided'}
+
+COSMIC INSIGHTS:
+${astrologyReport.cosmicInsights || `As a ${astrologyReport.sunSign}, this person has natural strengths aligned with their sun sign.`}
+
+CRITICAL INSTRUCTION: You MUST reference SPECIFIC insights from this astrological report in natural gifts, Ikigai circles, and paths. Do NOT use generic sun sign descriptions. Instead:
+- Reference how their Sun + Moon combination creates unique traits
+- Explain how their Rising sign influences their presentation and approach
+- Connect planetary aspects to their natural gifts and paths
+- Reference house placements to explain WHY certain Ikigai answers resonate
+- Make it feel like a personalized reading, not a horoscope`;
+  } else if (hasSunSign) {
+    astrologySection = `NOTE: Only Sun sign is available (${sunSign}). Birth chart details are not available, so focus on ${sunSign} traits combined with Ikigai responses and Current Life Context.`;
+  } else {
+    astrologySection = `NOTE: Birth date information is not available, so astrological influences cannot be determined. Focus on the user's Ikigai responses, Current Life Context, and personal motivations.`;
+  }
+
+  const unifiedPrompt = `You are an expert astrologer and life coach. Generate a complete personalized destiny profile for a user based on their complete onboarding data.
+
+${astrologySection}
+
+PERSONAL INFORMATION:
+- Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
+${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
+${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
+
+IKIGAI RESPONSES (USE THESE SPECIFIC ANSWERS):
+- What they love: "${whatYouLove || 'Not provided'}"
+- What they're good at: "${whatYouGoodAt || 'Not provided'}"
+- What the world needs: "${whatWorldNeeds || 'Not provided'}"
+- What can be paid for: "${whatCanBePaidFor || 'Not provided'}"
+
+FEARS AND MOTIVATIONS:
+${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
+${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
+
+CURRENT LIFE CONTEXT (CRITICAL - Use this to personalize paths and gifts):
+- Current Situation: ${currentSituationStr}
+- Biggest Constraint: ${biggestConstraintStr}
+- What Matters Most: ${whatMattersMostStr}
+
+INSTRUCTIONS:
+
+PART 1 - NATURAL GIFTS (for "Your Destiny Awaits" screen):
+Generate exactly 4 natural gifts that are HIGHLY PERSONALIZED to this specific user. 
+
+${astrologyReport && astrologyReport.sunSign ? `🚨 CRITICAL: You MUST use SPECIFIC astrological insights from their birth chart. DO NOT write generic descriptions.
+
+REQUIRED FORMAT FOR EACH GIFT:
+Each gift description MUST:
+1. Reference their SPECIFIC astrological combination (e.g., "${astrologyReport.sunSign} Sun + ${astrologyReport.moonSign} Moon" or "${astrologyReport.risingSign} Rising")
+2. Mention at least ONE specific planetary aspect or house placement from their chart
+3. Connect the astrological insight to their SPECIFIC Ikigai answer
+4. Explain WHY this gift is natural to them based on their cosmic blueprint
+
+EXAMPLE OF GOOD DESCRIPTION (use this style):
+"Your ${astrologyReport.sunSign} Sun combined with your ${astrologyReport.moonSign} Moon creates a rare blend of [specific trait from their chart]. This cosmic pairing is why you don't just want to [specific Ikigai answer] — you FEEL it on a soul level. With ${astrologyReport.housePlacements.length > 0 ? astrologyReport.housePlacements[0] : '[house placement]'}, [Ikigai answer] isn't just a passion; it's woven into your life purpose."
+
+EXAMPLE OF BAD DESCRIPTION (DO NOT DO THIS):
+"As a ${astrologyReport.sunSign}, your natural leadership abilities make you good at inspiring others." ❌ TOO GENERIC
+
+${astrologyReport.keyPlanetaryAspects.length > 0 ? `AVAILABLE PLANETARY ASPECTS TO REFERENCE:
+${astrologyReport.keyPlanetaryAspects.map((aspect, i) => `${i + 1}. ${aspect}`).join('\n')}` : ''}
+
+${astrologyReport.housePlacements.length > 0 ? `AVAILABLE HOUSE PLACEMENTS TO REFERENCE:
+${astrologyReport.housePlacements.map((placement, i) => `${i + 1}. ${placement}`).join('\n')}` : ''}
+
+COSMIC INSIGHTS TO DRAW FROM:
+${astrologyReport.cosmicInsights}
+
+REQUIREMENTS:
+- Each gift MUST connect to their specific Ikigai answers:
+  * What they love: "${whatYouLove || 'not provided'}"
+  * What they're good at: "${whatYouGoodAt || 'not provided'}"
+  * What the world needs: "${whatWorldNeeds || 'not provided'}"
+  * What can be paid for: "${whatCanBePaidFor || 'not provided'}"
+- Each gift description MUST be 1-2 sentences (max 40 words) and MUST include:
+  * Their Sun+Moon combination OR Rising sign
+  * At least one planetary aspect OR house placement
+  * Connection to their specific Ikigai answer
+  * Explanation of WHY this is natural to them cosmically
+- Make it feel like a personalized astrological reading, not a generic horoscope` : hasSunSign ? `- Each gift MUST explicitly reflect their Sun sign: ${sunSign}. Reference ${sunSign} traits that align with their gifts.
+- Each gift MUST connect to their specific Ikigai answers:
+  * What they love: "${whatYouLove || 'not provided'}"
+  * What they're good at: "${whatYouGoodAt || 'not provided'}"
+  * What the world needs: "${whatWorldNeeds || 'not provided'}"
+  * What can be paid for: "${whatCanBePaidFor || 'not provided'}"
+- Each gift description MUST mention their Sun sign (${sunSign}) and reference at least one of their Ikigai responses.` : `- Focus on the user's unique combination of Ikigai responses, Current Life Context, and personal motivations.
+- Each gift MUST connect to their specific Ikigai answers:
+  * What they love: "${whatYouLove || 'not provided'}"
+  * What they're good at: "${whatYouGoodAt || 'not provided'}"
+  * What the world needs: "${whatWorldNeeds || 'not provided'}"
+  * What can be paid for: "${whatCanBePaidFor || 'not provided'}"`}
+
+- Consider their Current Life Context: situation (${currentSituationStr}), constraint (${biggestConstraintStr}), and what matters (${whatMattersMostStr})
+- Consider their fears (${fear || 'not provided'}) and what excites them (${whatExcites || 'not provided'}) to make gifts more relevant.
+- Each gift should have:
+  * A name: 2-4 words (e.g., "Creative self-expression", "Bold leadership")
+  * A description: ${astrologyReport && astrologyReport.sunSign ? `1-2 sentences (max 40 words) that MUST reference their Sun+Moon combination OR Rising sign, at least one aspect/placement, and connect to Ikigai answers` : hasSunSign ? `A short explanation (1-2 sentences, max 30 words) that explicitly mentions their ${sunSign} sign and connects to their Ikigai answers` : 'A short explanation (1-2 sentences, max 30 words) that connects to their Ikigai answers'}
+
+PART 2 - IKIGAI CIRCLES (for visualization):
+For each Ikigai circle, create a summary of EXACTLY 2 WORDS that condenses their answer:
+- "What you love" circle: Condense "${whatYouLove || 'their passions'}" to exactly 2 words (e.g., "creative expression", "helping others", "artistic pursuits")
+- "What you're good at" circle: Condense "${whatYouGoodAt || 'their talents'}" to exactly 2 words (e.g., "problem solving", "creative design", "team leadership")
+- "What the world needs" circle: Condense "${whatWorldNeeds || 'world needs'}" to exactly 2 words (e.g., "environmental sustainability", "mental health", "social justice")
+- "What you can be paid for" circle: Condense "${whatCanBePaidFor || 'monetizable skills'}" to exactly 2 words (e.g., "content creation", "consulting services", "digital marketing")
+CRITICAL: Each summary MUST be exactly 2 words. No more, no less.
+
+PART 3 - CENTER SUMMARY:
+Create a center summary (max 12 words, NO word "destiny" or "calling") that synthesizes their Ikigai answers into a personalized path to purpose and fulfillment. This should be primarily based on the intersection of what they love (${whatYouLove || 'not provided'}), what they're good at (${whatYouGoodAt || 'not provided'}), what the world needs (${whatWorldNeeds || 'not provided'}), and what they can be paid for (${whatCanBePaidFor || 'not provided'}). ${astrologyReport && astrologyReport.cosmicInsights ? `Consider how their astrological blueprint (${astrologyReport.sunSign} Sun, ${astrologyReport.moonSign} Moon, ${astrologyReport.risingSign} Rising) influences this intersection.` : hasSunSign ? `You may also consider their ${sunSign} astrological influences.` : ''} Consider their Current Life Context (${currentSituationStr}, ${biggestConstraintStr}, ${whatMattersMostStr}) to make it relevant to where they are now.
+
+PART 4 - DESTINY PATHS (for "Paths Aligned" screen):
+Generate exactly 3 distinct career/life paths that align with their destiny. Each path should:
+- Be specific, actionable, and personalized
+${astrologyReport && astrologyReport.sunSign ? `- Deeply integrate their astrological blueprint: ${astrologyReport.sunSign} Sun, ${astrologyReport.moonSign} Moon, ${astrologyReport.risingSign} Rising, and key aspects/placements. Reference how planetary energies influence each path. ` : hasSunSign ? `- Consider their Sun sign (${sunSign}), ` : '- Focus primarily on '}their Ikigai responses, Current Life Context (situation: ${currentSituationStr}, constraint: ${biggestConstraintStr}, what matters: ${whatMattersMostStr}), fears, and excitements
+- Be inspiring and aligned with their true purpose
+- Each path must connect to their Ikigai answers: what they love (${whatYouLove || 'not provided'}), what they're good at (${whatYouGoodAt || 'not provided'}), what the world needs (${whatWorldNeeds || 'not provided'}), and what can be paid for (${whatCanBePaidFor || 'not provided'})
+- Consider their Current Life Context to ensure paths are realistic and achievable given their situation (${currentSituationStr}) and constraints (${biggestConstraintStr})
+- Align with what matters most to them: ${whatMattersMostStr}
+
+OUTPUT FORMAT (JSON only, no other text):
+Return a JSON object with this exact structure:
+{
+  "naturalGifts": [
+    {"name": "gift1 name", "description": "${astrologyReport && astrologyReport.sunSign ? 'MUST include Sun+Moon combination or Rising sign, at least one aspect/placement, and connect to Ikigai answer (max 40 words)' : 'short explanation of gift1 (max 30 words)'}"},
+    {"name": "gift2 name", "description": "${astrologyReport && astrologyReport.sunSign ? 'MUST include Sun+Moon combination or Rising sign, at least one aspect/placement, and connect to Ikigai answer (max 40 words)' : 'short explanation of gift2 (max 30 words)'}"},
+    {"name": "gift3 name", "description": "${astrologyReport && astrologyReport.sunSign ? 'MUST include Sun+Moon combination or Rising sign, at least one aspect/placement, and connect to Ikigai answer (max 40 words)' : 'short explanation of gift3 (max 30 words)'}"},
+    {"name": "gift4 name", "description": "${astrologyReport && astrologyReport.sunSign ? 'MUST include Sun+Moon combination or Rising sign, at least one aspect/placement, and connect to Ikigai answer (max 40 words)' : 'short explanation of gift4 (max 30 words)'}"}
+  ],
+  "ikigaiCircles": {
+    "whatYouLove": "exactly 2 words",
+    "whatYouGoodAt": "exactly 2 words",
+    "whatWorldNeeds": "exactly 2 words",
+    "whatCanBePaidFor": "exactly 2 words"
+  },
+  "centerSummary": "life path summary max 12 words, NO word 'destiny' or 'calling'",
+  "paths": [
+    {
+      "title": "Path 1 title (max 50 characters)",
+      "description": "Path 1 description explaining why this path aligns (max 100 characters)",
+      "glowColor": "#cdbad8"
+    },
+    {
+      "title": "Path 2 title (max 50 characters)",
+      "description": "Path 2 description explaining why this path aligns (max 100 characters)",
+      "glowColor": "#baccd7"
+    },
+    {
+      "title": "Path 3 title (max 50 characters)",
+      "description": "Path 3 description explaining why this path aligns (max 100 characters)",
+      "glowColor": "#a6a76c"
+    }
+  ]
+}
+
+${astrologyReport && astrologyReport.sunSign ? `🚨 FINAL REMINDER: Each natural gift description MUST reference SPECIFIC astrological details (Sun+Moon, Rising, aspects, or house placements). DO NOT write generic sun sign descriptions. Make it feel like a personalized astrological reading.` : ''}
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.`;
+
+  try {
+    const apiMessages: Array<{ role: string; content: string }> = [
+      {
+        role: 'user',
+        content: unifiedPrompt,
+      },
+    ];
+
+    // Use Sonnet for unified destiny profile generation
+    // Increased max_tokens to accommodate both calling awaits and paths content
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 2000);
+
+    // Check response status BEFORE trying to parse JSON
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || 'Unknown error';
+      
+      // Provide helpful error messages based on status code
+      let errorMsg = `API error (${response.status}): ${errorMessage}`;
+      if (response.status === 401) {
+        errorMsg += ' - Invalid API key';
+      } else if (response.status === 402) {
+        errorMsg += ' - Insufficient credits';
+      } else if (response.status === 429) {
+        errorMsg += ' - Rate limit exceeded';
+      }
+      
+      // DO NOT return fallback - throw error so LoadingStep can handle it
+      throw new Error(errorMsg);
+    }
+
+    // Parse the JSON response
+    let responseText = '';
+    let parsed: any;
+    try {
+      const responseData = await response.json();
+      responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
+      
+      // Clean the response - remove markdown code blocks if present
+      let cleanedResponse = responseText.trim();
+      if (cleanedResponse.startsWith('```json')) {
+        cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      } else if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse.replace(/```\n?/g, '');
+      }
+      
+      // Try to extract JSON from the response if it's wrapped in text
+      try {
+        parsed = JSON.parse(cleanedResponse);
+      } catch (firstParseError) {
+        // If that fails, try to find JSON object in the text
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+          } catch (secondParseError) {
+            if (cleanedResponse.toLowerCase().includes('error') || 
+                cleanedResponse.toLowerCase().includes('invalid') ||
+                cleanedResponse.toLowerCase().startsWith('i')) {
+              throw new Error(`API returned error message: ${cleanedResponse.substring(0, 100)}`);
+            }
+            throw firstParseError;
+          }
+        } else {
+          throw new Error(`No valid JSON found in response: ${cleanedResponse.substring(0, 100)}`);
+        }
+      }
+      
+      // Validate and format the response
+      const fallbackGifts: NaturalGift[] = [
+        { name: 'Creative expression', description: 'Your ability to express yourself through art, writing, or creative mediums that resonate with your inner truth.' },
+        { name: 'Bold leadership', description: 'Your natural capacity to inspire and guide others toward meaningful change and transformation.' },
+        { name: 'Artistic communication', description: 'Your gift for conveying complex ideas and emotions through visual, written, or spoken forms.' },
+        { name: 'Initiating projects', description: 'Your talent for starting new ventures and bringing innovative ideas to life with passion and determination.' },
+      ];
+
+      const callingAwaits: CallingAwaitsContent = {
+        naturalGifts: Array.isArray(parsed.naturalGifts) && parsed.naturalGifts.length === 4
+          ? parsed.naturalGifts.map((gift: any) => {
+              if (typeof gift === 'string') {
+                return { name: gift, description: `Your natural ability to ${gift.toLowerCase()} and express this gift in your daily life.` };
+              }
+              return {
+                name: gift.name || gift,
+                description: gift.description || `Your natural ability to ${(gift.name || gift).toLowerCase()} and express this gift in your daily life.`,
+              };
+            })
+          : fallbackGifts,
+        ikigaiCircles: {
+          whatYouLove: parsed.ikigaiCircles?.whatYouLove || (whatYouLove ? whatYouLove.split(' ').slice(0, 2).join(' ') : 'Your passions'),
+          whatYouGoodAt: parsed.ikigaiCircles?.whatYouGoodAt || (whatYouGoodAt ? whatYouGoodAt.split(' ').slice(0, 2).join(' ') : 'Your talents'),
+          whatWorldNeeds: parsed.ikigaiCircles?.whatWorldNeeds || (whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 2).join(' ') : 'World needs'),
+          whatCanBePaidFor: parsed.ikigaiCircles?.whatCanBePaidFor || (whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 2).join(' ') : 'Monetizable skills'),
+        },
+        centerSummary: parsed.centerSummary ? parsed.centerSummary.replace(/calling/gi, 'path').replace(/Calling/gi, 'Path') : 'Your unique path to purpose and fulfillment.',
+      };
+
+      const paths: GeneratedPath[] = Array.isArray(parsed.paths) && parsed.paths.length === 3
+        ? parsed.paths.map((path: any, index: number) => ({
+            id: index + 1,
+            title: path.title || `Path ${index + 1}`,
+            description: path.description || '',
+            glowColor: path.glowColor || ['#cdbad8', '#baccd7', '#a6a76c'][index] || '#cdbad8',
+          }))
+        : [
+            {
+              id: 1,
+              title: 'Creative Expression',
+              description: 'A path aligned with your unique talents and passions.',
+              glowColor: '#cdbad8',
+            },
+            {
+              id: 2,
+              title: 'Personal Growth',
+              description: 'A journey that helps you overcome fears and reach your potential.',
+              glowColor: '#baccd7',
+            },
+            {
+              id: 3,
+              title: 'Purposeful Impact',
+              description: 'A way to make a meaningful difference in the world.',
+              glowColor: '#a6a76c',
+            },
+          ];
+
+      return {
+        callingAwaits,
+        paths,
+      };
+    } catch (parseError: any) {
+      console.error('[Destiny Profile] Parse error:', parseError.message);
+      throw new Error(`Failed to parse API response: ${parseError.message}`);
+    }
+  } catch (error: any) {
+    const rawMessage = error?.message || String(error);
+    console.error('[Destiny Profile] API call failed:', rawMessage);
+    if (/network request failed|failed to fetch|fetch failed|timeout|aborted/i.test(rawMessage)) {
+      throw new Error('Network request failed. Please check your internet connection and try again.');
+    }
+    // DO NOT return fallback - throw error so LoadingStep can handle retry
+    throw error;
+  }
+}
+
 export async function generatePathContent(
   pathTitle: string,
   pathDescription: string,
-  birthMonth: string,
-  birthDate: string,
-  birthYear: string,
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
   birthCity?: string,
   birthHour?: string,
   birthMinute?: string,
@@ -1314,31 +2790,41 @@ export async function generatePathContent(
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
   }
 
-  // Format birth date and time
-  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  // Format birth date and time (handle empty values gracefully)
+  const birthDateStr = (birthMonth && birthDate && birthYear) 
+    ? `${birthMonth}/${birthDate}/${birthYear}` 
+    : 'Not provided';
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
   }
   const locationStr = birthCity ? ` in ${birthCity}` : '';
 
-  // Calculate sun sign
-  const month = parseInt(birthMonth);
-  const day = parseInt(birthDate);
+  // Calculate sun sign (handle empty values gracefully)
+  const month = birthMonth ? parseInt(birthMonth) : 0;
+  const day = birthDate ? parseInt(birthDate) : 0;
+  const hasSunSign = month > 0 && day > 0;
   let sunSign = '';
   
-  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
-  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
-  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
-  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
-  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
-  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
-  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
-  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
-  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
-  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
-  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
-  else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  if (hasSunSign) {
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+    else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+    else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+    else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+    else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+    else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+    else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+    else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+    else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+    else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+    else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+    else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+  }
+
+  // Build prompt conditionally based on available data
+  const sunSignSection = hasSunSign 
+    ? `- Sun Sign: ${sunSign}`
+    : `- Sun Sign: Not provided (birth date information unavailable)`;
 
   const pathContentPrompt = `You are an expert astrologer and life coach. Generate personalized content for a specific life path that aligns with the user's calling.
 
@@ -1348,7 +2834,7 @@ SELECTED PATH:
 
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
-- Sun Sign: ${sunSign}
+${sunSignSection}
 ${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
 ${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
 
@@ -1363,7 +2849,7 @@ ${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
 ${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
 
 INSTRUCTIONS:
-1. Generate exactly 3 reasons "Why this fits you" that connect their astrological chart (Sun sign: ${sunSign}), their Ikigai responses, and their fears/motivations to this specific path. Each reason should be one sentence (max 25 words).
+1. Generate exactly 3 reasons "Why this fits you" that connect ${hasSunSign ? `their astrological chart (Sun sign: ${sunSign}), ` : ''}their Ikigai responses, and their fears/motivations to this specific path. Each reason should be one sentence (max 25 words).
 
 2. Generate exactly 3 specific, actionable goals related to this path. Each goal should:
    - Have a clear, inspiring title (max 8 words)
@@ -1413,15 +2899,55 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex calling content analysis with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert astrologer and life coach.', 500);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 900);
 
-    // Parse the JSON response
+    // Check response status BEFORE trying to parse JSON
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || 'Unknown error';
+      
+      // Only log warnings occasionally to reduce spam
+      const shouldLog = apiFailureCache.failureCount <= 1 || apiFailureCache.failureCount % 5 === 0;
+      if (shouldLog) {
+        console.warn(`API error (${response.status}): ${errorMessage}`);
+      }
+      
+      // Return fallback content for API errors
+      return {
+        whyFitsYou: [
+          `Your ${sunSign} sun sign gives you natural strengths for this path.`,
+          'Your Ikigai responses show alignment with this direction.',
+          'This path addresses your fears while pursuing what excites you.',
+        ],
+        goals: [
+          {
+            id: 1,
+            title: 'Become a full-time professional in this path',
+            fear: fear || 'What if I go broke?',
+            timeFrame: 'three months, four steps',
+            description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
+          },
+          {
+            id: 2,
+            title: 'Launch your own venture in this field',
+            fear: fear || 'What if I fail?',
+            timeFrame: 'six months, eight steps',
+            description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
+          },
+          {
+            id: 3,
+            title: 'Create and share your work online',
+            fear: fear || 'What if no one buys it?',
+            timeFrame: 'two months, three steps',
+            description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
+          },
+        ],
+      };
+    }
+
+    // Parse the JSON response only if response is ok
     let content: PathContent;
     try {
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-      }
 
       const responseData = await response.json();
       const responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
@@ -1436,7 +2962,33 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         cleanedResponse = cleanedResponse.replace(/```\n?/g, '');
       }
       
-      const parsed = JSON.parse(cleanedResponse);
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleanedResponse);
+      } catch {
+        // Fallback: try extracting the first complete JSON object from wrapped/truncated text.
+        const firstBrace = cleanedResponse.indexOf('{');
+        if (firstBrace === -1) {
+          throw new Error('No JSON object found in path content response');
+        }
+
+        let braceCount = 0;
+        let endIndex = -1;
+        for (let i = firstBrace; i < cleanedResponse.length; i++) {
+          if (cleanedResponse[i] === '{') braceCount++;
+          if (cleanedResponse[i] === '}') braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+
+        if (endIndex === -1) {
+          throw new Error('Path content JSON appears truncated');
+        }
+
+        parsed = JSON.parse(cleanedResponse.substring(firstBrace, endIndex + 1));
+      }
       console.log('Parsed Path Content:', parsed);
       
       // Validate and format the response
@@ -1481,7 +3033,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
             ],
       };
     } catch (parseError) {
-      console.error('Error parsing path content JSON:', parseError);
+      console.warn('Path content response was not valid JSON, using fallback content:', parseError);
       // Fallback content
       content = {
         whyFitsYou: [
@@ -1552,6 +3104,198 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
 export interface GoalStep {
   number: number;
   text: string;
+}
+
+export interface LevelStepInstruction {
+  text: string;
+  icon?: string;
+}
+
+export async function generateLevelStepInstructions(
+  goalTitle: string,
+  levelNumber: number,
+  levelName: string,
+  totalLevels: number,
+  birthMonth: string,
+  birthDate: string,
+  birthYear: string,
+  birthCity?: string,
+  birthHour?: string,
+  birthMinute?: string,
+  birthPeriod?: string,
+  whatYouLove?: string,
+  whatYouGoodAt?: string,
+  whatWorldNeeds?: string,
+  whatCanBePaidFor?: string,
+  fear?: string,
+  whatExcites?: string
+): Promise<LevelStepInstruction[]> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+  }
+
+  // Format birth date and time
+  const birthDateStr = `${birthMonth}/${birthDate}/${birthYear}`;
+  let birthTimeStr = '';
+  if (birthHour && birthMinute && birthPeriod) {
+    birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
+  }
+  const locationStr = birthCity ? ` in ${birthCity}` : '';
+
+  // Calculate sun sign
+  const month = parseInt(birthMonth);
+  const day = parseInt(birthDate);
+  let sunSign = '';
+  
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
+  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
+  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
+  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
+  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
+  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
+  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
+  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
+  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
+  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
+  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
+  else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+
+  const stepInstructionsPrompt = `You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions for completing a level in a goal.
+
+GOAL: ${goalTitle}
+
+LEVEL INFORMATION:
+- Level Number: ${levelNumber} of ${totalLevels}
+- Level Name: ${levelName}
+- Progress: This is level ${levelNumber} out of ${totalLevels} total levels
+
+PERSONAL INFORMATION:
+- Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
+- Sun Sign: ${sunSign}
+${whatYouLove ? `- What they love: ${whatYouLove}` : ''}
+${whatYouGoodAt ? `- What they are good at: ${whatYouGoodAt}` : ''}
+${whatWorldNeeds ? `- What the world needs: ${whatWorldNeeds}` : ''}
+${whatCanBePaidFor ? `- What can be paid for: ${whatCanBePaidFor}` : ''}
+${fear ? `- Their fear: ${fear}` : ''}
+${whatExcites ? `- What excites them: ${whatExcites}` : ''}
+
+INSTRUCTIONS:
+Generate EXACTLY 3 specific, actionable step instructions that will help the user complete this level and move closer to their goal.
+
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 3 steps (no more, no less) - this prevents overwhelming the user
+- Each step must be SPECIFIC and ACTIONABLE (not vague concepts)
+- Each step must be MEASURABLE (user knows when it's complete)
+- Steps should be SEQUENTIAL (each builds on the previous)
+- Steps should be REALISTIC and ACHIEVABLE for this level
+- Each step should be concise (max 15 words)
+- Steps should directly relate to completing "${levelName}" (Level ${levelNumber})
+- Each step must bring the user closer to completing this specific level
+- Consider their Sun sign (${sunSign}) and Ikigai responses if relevant
+- Address their fears or leverage what excites them if relevant
+- Focus on what's needed to complete Level ${levelNumber}, not the entire goal
+
+EXAMPLES OF GOOD STEPS:
+- "Research 5 companies in your field and list their job openings"
+- "Write 3 bullet points describing your recent project accomplishments"
+- "Create a portfolio website with your 5 best projects"
+- "Send personalized pitch emails to 10 potential clients this week"
+- "Schedule 3 informational interviews with professionals in your target industry"
+
+EXAMPLES OF BAD STEPS (avoid these):
+- "Research career options" (too vague)
+- "Work on your resume" (not specific)
+- "Practice speaking" (not measurable)
+- "Daily journaling" (not directly related to level completion)
+
+OUTPUT FORMAT (JSON only, no other text):
+Return a JSON array with EXACTLY 3 steps (no more, no less):
+[
+  { "text": "First specific actionable step to complete this level (max 15 words)" },
+  { "text": "Second specific actionable step to complete this level (max 15 words)" },
+  { "text": "Third specific actionable step to complete this level (max 15 words)" }
+]
+
+CRITICAL REQUIREMENTS:
+- Return EXACTLY 3 steps - no more, no less
+- Each step must directly help complete "${levelName}" (Level ${levelNumber})
+- Steps should be sequential and build on each other
+- Each step must be specific, actionable, and measurable
+- Steps should progress the user toward completing this specific level
+- Consider the goal context: "${goalTitle}"
+- Each step should bring the user closer to completing Level ${levelNumber}
+
+IMPORTANT: 
+- Return ONLY valid JSON array
+- No markdown, no code blocks, no explanations
+- EXACTLY 3 steps (required, not optional)
+- Each step must be unique and directly related to completing this level`;
+
+  try {
+    const apiMessages: Array<{ role: string; content: string }> = [
+      {
+        role: 'user',
+        content: stepInstructionsPrompt,
+      },
+    ];
+
+    // Use Sonnet for step instructions
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions.', 500);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const responseData = await response.json();
+    const responseText = responseData.content?.[0]?.text || '';
+    
+    // Clean the response - remove markdown code blocks if present
+    let cleanedResponse = responseText.trim();
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/```\n?/g, '');
+    }
+    
+    // Parse JSON
+    const steps = JSON.parse(cleanedResponse) as LevelStepInstruction[];
+    
+    // Validate and ensure we have exactly 3 steps
+    if (!Array.isArray(steps) || steps.length === 0) {
+      throw new Error('Invalid response format');
+    }
+    
+    // Ensure steps have text property and limit to exactly 3 steps
+    const validSteps = steps
+      .filter(step => step && step.text && step.text.trim().length > 0)
+      .slice(0, 3) // Exactly 3 steps max
+      .map(step => ({ text: step.text.trim() }));
+    
+    // Ensure exactly 3 steps (add fallback if needed)
+    while (validSteps.length < 3) {
+      const stepNumber = validSteps.length + 1;
+      const fallbackSteps = [
+        `Research and prepare for ${levelName}`,
+        `Take concrete action toward ${levelName}`,
+        `Complete and verify ${levelName} progress`
+      ];
+      validSteps.push({ text: fallbackSteps[stepNumber - 1] || `Complete step ${stepNumber} for ${levelName}` });
+    }
+    
+    // Ensure we have exactly 3 steps (remove extras if somehow more than 3)
+    return validSteps.slice(0, 3);
+  } catch (error) {
+    console.error('Error generating level step instructions:', error);
+    // Return fallback steps (exactly 3)
+    return [
+      { text: `Research and prepare for ${levelName}` },
+      { text: `Take concrete action toward ${levelName}` },
+      { text: `Complete and verify ${levelName} progress` },
+    ];
+  }
 }
 
 export async function generateStepDescription(
@@ -1723,7 +3467,7 @@ Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headin
     ];
 
     // Use Sonnet for step instructions with reduced tokens (200 words max)
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert life coach and goal achievement specialist. Never use ** or bold markdown formatting.', 300);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert life coach and goal achievement specialist. Never use ** or bold markdown formatting.', 250);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1770,8 +3514,10 @@ export async function generateGoalSteps(
   whatWorldNeeds?: string,
   whatCanBePaidFor?: string,
   fear?: string,
-  whatExcites?: string
-): Promise<{ goalSummary: string; steps: GoalStep[] }> {
+  whatExcites?: string,
+  pathName?: string,
+  pathDescription?: string
+): Promise<{ goalSummary: string; estimatedDuration: string; steps: GoalStep[] }> {
   const apiKey = getApiKey();
   
   if (!apiKey) {
@@ -1825,6 +3571,8 @@ export async function generateGoalSteps(
   const goalStepsPrompt = `You are an expert life coach and goal achievement specialist with deep knowledge of astrology and natal chart analysis. Generate a personalized action plan for achieving a specific goal.
 
 GOAL: ${goalTitle}
+${pathName ? `\nPATH CHOSEN: ${pathName}` : ''}
+${pathDescription ? `\nPATH DESCRIPTION: ${pathDescription}` : ''}
 
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
@@ -1883,6 +3631,20 @@ FEARS AND MOTIVATIONS:
 ${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
 ${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
 
+${pathName || pathDescription ? `
+PATH CONTEXT:
+${pathName ? `- Path Name: ${pathName}` : ''}
+${pathDescription ? `- Path Description: ${pathDescription}` : ''}
+
+IMPORTANT: The user has chosen a specific path (${pathName || 'their chosen path'}). When generating goal steps, you MUST:
+1. Align the steps with the chosen path's theme and approach
+2. Incorporate the path's philosophy and methodology into the step structure
+3. Ensure the goal steps reflect the path's unique characteristics
+4. Combine the goal title with the path's framework to create a cohesive quest map
+5. The quest map should feel like a journey that follows the path's principles while achieving the specific goal
+
+` : ''}
+
 INSTRUCTIONS:
 1. Create a short summary (max 20 words) of their goal that captures the essence of what they want to achieve.
 
@@ -1917,17 +3679,57 @@ INSTRUCTIONS:
    - Use fewer words while maintaining clarity and actionability
    - Summarize information to your best ability while staying within the word limit
 
+2. Estimate a realistic, doable timeline for completing this entire goal. Consider:
+   - The complexity and scope of the goal
+   - The number of steps required
+   - Typical timeframes for similar goals
+   - The user's personal circumstances (if relevant from their astrological profile)
+   - Be realistic and achievable (e.g., "2 weeks", "1 month", "2 months", "3 months", "6 months")
+   ${birthHour && birthMinute && birthPeriod && birthCity ? `Consider their natural timing patterns based on their birth chart when estimating duration.` : ''}
+
 OUTPUT FORMAT (JSON only, no other text):
 Return a JSON object with this exact structure:
 {
   "goalSummary": "short summary of the goal (max 20 words)",
+  "estimatedDuration": "realistic timeline for goal completion (e.g., '2 weeks', '1 month', '2 months', '3 months')",
   "steps": [
-    { "number": 1, "text": "specific action with measurable outcome and timeframe (MAX 10 WORDS, e.g., 'List 5 companies and research job openings this week')" },
-    { "number": 2, "text": "specific action building on step 1 with measurable outcome and timeframe (MAX 10 WORDS, e.g., 'Write 3 bullet points describing project accomplishments today')" },
-    { "number": 3, "text": "specific action building on step 2 with measurable outcome and timeframe (MAX 10 WORDS)" },
-    { "number": 4, "text": "specific action building on step 3 with measurable outcome and timeframe (MAX 10 WORDS)" }
+    { 
+      "number": 1, 
+      "text": "Level name (descriptive, 2-4 words, NO 'Level 1:' prefix, e.g., 'Foundation Building', 'Skill Development')",
+      "name": "Level name (descriptive, 2-4 words, NO 'Level 1:' prefix)",
+      "description": "Short description (max 15 words) of what to do in this level",
+      "order": 1
+    },
+    { 
+      "number": 2, 
+      "text": "Level name (descriptive, 2-4 words, NO 'Level 2:' prefix)",
+      "name": "Level name (descriptive, 2-4 words, NO 'Level 2:' prefix)",
+      "description": "Short description (max 15 words) of what to do in this level",
+      "order": 2
+    },
+    { 
+      "number": 3, 
+      "text": "Level name (descriptive, 2-4 words, NO 'Level 3:' prefix)",
+      "name": "Level name (descriptive, 2-4 words, NO 'Level 3:' prefix)",
+      "description": "Short description (max 15 words) of what to do in this level",
+      "order": 3
+    },
+    { 
+      "number": 4, 
+      "text": "Level name (descriptive, 2-4 words, NO 'Level 4:' prefix)",
+      "name": "Level name (descriptive, 2-4 words, NO 'Level 4:' prefix)",
+      "description": "Short description (max 15 words) of what to do in this level",
+      "order": 4
+    }
   ]
 }
+
+CRITICAL REQUIREMENTS FOR LEVEL NAMES:
+- Each "name" should be a descriptive level name (2-4 words) WITHOUT any "Level X:" prefix
+- Examples of good names: "Foundation Building", "Skill Development", "Network Expansion", "Mastery Achievement"
+- Examples of bad names: "Level 1: Foundation", "Step 2: Development" (DO NOT include numbers or prefixes)
+- Each "description" must be SHORT (maximum 15 words) and actionable
+- The "text" field should match the "name" field (for backward compatibility)
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.`;
 
@@ -1940,7 +3742,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex goal planning with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert life coach and goal achievement specialist.', 600);
+    const cachedSystemPrompt = [
+      {
+        type: 'text' as const,
+        text: 'You are an expert life coach and goal achievement specialist.',
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ];
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 500);
 
     let result: { goalSummary: string; steps: GoalStep[] };
     try {
@@ -1967,31 +3776,63 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       
       // Validate and format the response
       const parsedSteps = Array.isArray(parsed.steps) && parsed.steps.length > 0
-        ? parsed.steps.map((step: any) => ({
-            number: step.number || 1,
-            text: step.text || 'Take action towards your goal',
-          })).sort((a: GoalStep, b: GoalStep) => a.number - b.number).slice(0, 4) // Limit to max 4 steps
+        ? parsed.steps.map((step: any) => {
+            // Extract level name (prefer 'name' field, fallback to 'text', clean any "Level X:" prefixes)
+            let levelName = step.name || step.text || '';
+            levelName = levelName.replace(/^Level\s*\d+\s*:?\s*/i, '').trim();
+            
+            // Extract description (prefer 'description' field, fallback to empty)
+            let description = step.description || '';
+            // Ensure description is short (max 15 words)
+            if (description) {
+              const words = description.split(' ');
+              if (words.length > 15) {
+                description = words.slice(0, 15).join(' ') + '...';
+              }
+            }
+            
+            // If no name after cleaning, use fallback
+            if (!levelName) {
+              const fallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
+              levelName = fallbackNames[(step.number || 1) - 1] || `Level ${step.number || 1}`;
+            }
+            
+            // If no description, create a short one from the name
+            if (!description) {
+              description = `Complete ${levelName.toLowerCase()} to progress`;
+            }
+            
+            return {
+              number: step.number || step.order || 1,
+              text: levelName, // Keep text for backward compatibility
+              name: levelName, // Add name field
+              description: description, // Add description field
+              order: step.order || step.number || 1,
+            };
+          }).sort((a: any, b: any) => (a.number || a.order || 0) - (b.number || b.order || 0)).slice(0, 4) // Limit to max 4 steps
         : [
-            { number: 1, text: 'Define your specific path forward' },
-            { number: 2, text: 'Prepare and plan your approach' },
-            { number: 3, text: 'Take your first concrete step' },
-            { number: 4, text: 'Complete final milestone' },
+            { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
+            { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
+            { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
+            { number: 4, text: 'Mastery Achievement', name: 'Mastery Achievement', description: 'Complete goal and celebrate success', order: 4 },
           ];
       
       result = {
         goalSummary: parsed.goalSummary || `Achieve your goal: ${goalTitle}`,
+        estimatedDuration: parsed.estimatedDuration || '1 month',
         steps: parsedSteps,
       };
     } catch (parseError) {
       console.error('Error parsing goal steps JSON:', parseError);
-      // Fallback content
+      // Fallback content with proper name and description fields
       result = {
         goalSummary: `Achieve your goal: ${goalTitle}`,
+        estimatedDuration: '1 month',
         steps: [
-          { number: 1, text: 'Define your specific path forward' },
-          { number: 2, text: 'Prepare and plan your approach' },
-          { number: 3, text: 'Take your first concrete step' },
-          { number: 4, text: 'Complete final milestone' },
+          { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
+          { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
+          { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
+          { number: 4, text: 'Mastery Achievement', name: 'Mastery Achievement', description: 'Complete goal and celebrate success', order: 4 },
         ],
       };
     }
@@ -1999,15 +3840,15 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     return result;
   } catch (error) {
     console.error('Error generating goal steps:', error);
-    // Return fallback content
+    // Return fallback content with proper name and description fields
     return {
       goalSummary: `Achieve your goal: ${goalTitle}`,
+      estimatedDuration: '1 month',
       steps: [
-        { number: 5, text: 'Complete final milestone' },
-        { number: 4, text: 'Build momentum with consistent action' },
-        { number: 3, text: 'Take your first concrete step' },
-        { number: 2, text: 'Prepare and plan your approach' },
-        { number: 1, text: 'Define your specific path forward' },
+        { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
+        { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
+        { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
+        { number: 4, text: 'Mastery Achievement', name: 'Mastery Achievement', description: 'Complete goal and celebrate success', order: 4 },
       ],
     };
   }
@@ -2229,7 +4070,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex goal planning with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-20250514', apiMessages, 'You are an expert life coach and goal achievement specialist.', 800);
+    const cachedSystemPrompt = [
+      {
+        type: 'text' as const,
+        text: 'You are an expert life coach and goal achievement specialist.',
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ];
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 800);
 
     let goal: CompleteGoal;
     try {
@@ -2415,8 +4263,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       },
     ];
 
-    // Use Haiku for simple loading messages (cost optimization)
-    const response = await tryModel(apiKey, 'claude-haiku-4-5-20251001', apiMessages, 'You are an expert life coach.');
+    // Use Haiku for simple loading messages
+    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert life coach.', 200);
 
     let loadingItems: string[] = [];
     try {
@@ -2479,6 +4327,116 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       'Building personalized roadmap',
       'Preparing fear strategies',
     ];
+  }
+}
+
+/**
+ * Generate a motivational sentence to inspire users to move forward with their goal
+ * Based on their answers, goal information, and path choice
+ */
+export async function generateGoalMotivationalSentence(
+  goalName: string,
+  goalId?: string,
+  pathName?: string,
+  pathDescription?: string,
+  whatYouLove?: string,
+  whatYouGoodAt?: string,
+  whatWorldNeeds?: string,
+  whatCanBePaidFor?: string,
+  fear?: string,
+  whatExcites?: string
+): Promise<string> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+  }
+
+  const motivationalPrompt = `You are an expert life coach and motivational speaker. Generate a SINGLE, powerful motivational sentence that will inspire someone to continue working toward their goal.
+
+GOAL: ${goalName}
+${pathName ? `PATH: ${pathName}` : ''}
+${pathDescription ? `PATH DESCRIPTION: ${pathDescription}` : ''}
+
+USER'S PERSONAL ANSWERS:
+${whatYouLove ? `- What they love: ${whatYouLove}` : ''}
+${whatYouGoodAt ? `- What they're good at: ${whatYouGoodAt}` : ''}
+${whatWorldNeeds ? `- What the world needs: ${whatWorldNeeds}` : ''}
+${whatCanBePaidFor ? `- What can be paid for: ${whatCanBePaidFor}` : ''}
+${whatExcites ? `- What excites them: ${whatExcites}` : ''}
+${fear ? `- Their fear/concern: ${fear}` : ''}
+
+CRITICAL REQUIREMENTS:
+1. Generate ONLY ONE sentence (maximum 20 words)
+2. Be MOTIVATIONAL and INSPIRATIONAL - focus on forward momentum, not fear
+3. Remind them WHY they're pursuing this goal based on their personal answers
+4. Connect their goal to what they love, what excites them, or what they're good at
+5. Use warm, encouraging language that feels personal and authentic
+6. Avoid generic phrases - make it specific to their situation
+7. Focus on the positive outcome and their potential, not obstacles
+8. Make it feel like a gentle push forward, not pressure
+
+EXAMPLES OF GOOD MOTIVATIONAL SENTENCES:
+- "You're building something that aligns with what you love: ${whatYouLove || 'your passions'}, and that's worth every step forward."
+- "Remember, this goal connects to what excites you most: ${whatExcites || 'your dreams'}. Keep moving toward that vision."
+- "Your unique strengths in ${whatYouGoodAt || 'your talents'} are exactly what will make this goal achievable. Trust yourself."
+
+EXAMPLES OF BAD SENTENCES (avoid these):
+- "Don't give up" (too generic)
+- "You can do it" (too cliché)
+- "Remember your fear of ${fear}" (focuses on fear, not motivation)
+- Long, complex sentences (keep it concise)
+
+Return ONLY the motivational sentence, nothing else. No quotes, no explanations, just the sentence itself.`;
+
+  try {
+    const apiMessages: Array<{ role: string; content: string }> = [
+      {
+        role: 'user',
+        content: motivationalPrompt,
+      },
+    ];
+
+    const response = await tryModel(
+      apiKey,
+      MODEL_HAIKU,
+      apiMessages,
+      'You are an expert life coach and motivational speaker. Generate inspiring, personalized motivational messages.',
+      80
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.content
+      .filter((item: any) => item.type === 'text')
+      .map((item: any) => item.text)
+      .join('\n')
+      .trim();
+
+    // Clean up the response - remove quotes if present
+    let motivationalSentence = text.replace(/^["']|["']$/g, '').trim();
+    
+    // If the response is too long, truncate it
+    const words = motivationalSentence.split(' ');
+    if (words.length > 25) {
+      motivationalSentence = words.slice(0, 25).join(' ') + '...';
+    }
+
+    return motivationalSentence || `Keep moving forward with ${goalName}. You've got this!`;
+  } catch (error) {
+    console.error('Error generating motivational sentence:', error);
+    
+    // Fallback motivational sentence
+    if (whatExcites) {
+      return `Remember why you started: ${whatExcites}. Keep moving forward!`;
+    } else if (whatYouLove) {
+      return `This goal connects to what you love: ${whatYouLove}. Trust the process!`;
+    } else {
+      return `Keep moving forward with ${goalName}. You've got this!`;
+    }
   }
 }
 

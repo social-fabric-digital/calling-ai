@@ -6,6 +6,7 @@ import { initReactI18next } from 'react-i18next';
 const LANGUAGE_STORAGE_KEY = '@selected_language';
 
 // Import translation files
+// Force reload: Updated Ikigai subheadings - 2025
 import en from './translations/en.json';
 import es from './translations/es.json';
 import fr from './translations/fr.json';
@@ -20,8 +21,9 @@ import ar from './translations/ar.json';
 import hi from './translations/hi.json';
 
 // Add more languages as needed - for now, we'll use English as fallback for unsupported languages
+// Cache bust: Force reload translations
 const resources = {
-  en: { translation: en },
+  en: { translation: { ...en } },
   es: { translation: es },
   fr: { translation: fr },
   de: { translation: de },
@@ -35,7 +37,7 @@ const resources = {
   hi: { translation: hi },
 };
 
-// Initialize i18n with default language
+
 i18n
   .use(initReactI18next)
   .init({
@@ -57,11 +59,8 @@ i18n
 export const loadLanguagePreference = async (): Promise<string> => {
   try {
     const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-    console.log('Loading language preference. Saved language:', savedLanguage);
     if (savedLanguage && resources[savedLanguage as keyof typeof resources]) {
-      // Change language immediately and wait for it to complete
       await i18n.changeLanguage(savedLanguage);
-      console.log('Language loaded. Current i18n language:', i18n.language);
       return savedLanguage;
     }
     // Try to detect device language
@@ -84,18 +83,10 @@ export const loadLanguagePreference = async (): Promise<string> => {
 // Change language and save preference
 export const changeLanguage = async (languageCode: string): Promise<void> => {
   try {
-    console.log('Changing language to:', languageCode);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, languageCode);
     await i18n.changeLanguage(languageCode);
-    console.log('Language changed. Current i18n language:', i18n.language);
-    // Ensure language change is fully applied before resolving
-    // This helps ensure screens render with the correct language
     return new Promise((resolve) => {
-      // Small delay to ensure i18n has fully updated
-      setTimeout(() => {
-        console.log('Language change complete. Final i18n language:', i18n.language);
-        resolve();
-      }, 100);
+      setTimeout(() => { resolve(); }, 100);
     });
   } catch (error) {
     console.error('Error changing language:', error);

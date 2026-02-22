@@ -8,6 +8,24 @@ export interface CompletedGoal {
   overallMood: string | null;
 }
 
+const LEVEL_COMPLETION_EVENTS_KEY = 'levelCompletionEvents';
+const STEP_COMPLETION_EVENTS_KEY = 'stepCompletionEvents';
+
+export interface LevelCompletionEvent {
+  goalId: string;
+  goalName: string;
+  levelNumber: number;
+  completedAt: string; // ISO timestamp
+}
+
+export interface StepCompletionEvent {
+  goalId: string;
+  goalName: string;
+  levelNumber: number;
+  stepId: number;
+  completedAt: string; // ISO timestamp
+}
+
 /**
  * Mark a goal as completed
  * @param goalId - Unique identifier for the goal
@@ -100,6 +118,120 @@ export async function getCompletedGoals(): Promise<CompletedGoal[]> {
     return goalsData ? JSON.parse(goalsData) : [];
   } catch (error) {
     console.error('Error getting completed goals:', error);
+    return [];
+  }
+}
+
+/**
+ * Track a level completion event for weekly progress analytics.
+ * Stores one event per goalId + levelNumber (deduplicated).
+ */
+export async function trackLevelCompletionEvent(goalId: string, goalName: string, levelNumber: number): Promise<void> {
+  try {
+    if (!goalId || !levelNumber) return;
+
+    const eventsData = await AsyncStorage.getItem(LEVEL_COMPLETION_EVENTS_KEY);
+    const events: LevelCompletionEvent[] = eventsData ? JSON.parse(eventsData) : [];
+
+    const existingIndex = events.findIndex(
+      (event) => event.goalId === goalId && event.levelNumber === levelNumber
+    );
+
+    const newEvent: LevelCompletionEvent = {
+      goalId,
+      goalName,
+      levelNumber,
+      completedAt: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      events[existingIndex] = newEvent;
+    } else {
+      events.push(newEvent);
+    }
+
+    // Keep only recent history to avoid storage bloat
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const cutoffTs = cutoff.getTime();
+    const recentEvents = events.filter((event) => new Date(event.completedAt).getTime() >= cutoffTs);
+
+    await AsyncStorage.setItem(LEVEL_COMPLETION_EVENTS_KEY, JSON.stringify(recentEvents));
+  } catch (error) {
+    console.error('Error tracking level completion event:', error);
+  }
+}
+
+/**
+ * Get all tracked level completion events.
+ */
+export async function getLevelCompletionEvents(): Promise<LevelCompletionEvent[]> {
+  try {
+    const eventsData = await AsyncStorage.getItem(LEVEL_COMPLETION_EVENTS_KEY);
+    return eventsData ? JSON.parse(eventsData) : [];
+  } catch (error) {
+    console.error('Error getting level completion events:', error);
+    return [];
+  }
+}
+
+/**
+ * Track a step completion event for weekly progress analytics.
+ * Stores one event per goalId + levelNumber + stepId (deduplicated).
+ */
+export async function trackStepCompletionEvent(
+  goalId: string,
+  goalName: string,
+  levelNumber: number,
+  stepId: number
+): Promise<void> {
+  try {
+    if (!goalId || !levelNumber || !stepId) return;
+
+    const eventsData = await AsyncStorage.getItem(STEP_COMPLETION_EVENTS_KEY);
+    const events: StepCompletionEvent[] = eventsData ? JSON.parse(eventsData) : [];
+
+    const existingIndex = events.findIndex(
+      (event) =>
+        event.goalId === goalId &&
+        event.levelNumber === levelNumber &&
+        event.stepId === stepId
+    );
+
+    const newEvent: StepCompletionEvent = {
+      goalId,
+      goalName,
+      levelNumber,
+      stepId,
+      completedAt: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      events[existingIndex] = newEvent;
+    } else {
+      events.push(newEvent);
+    }
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const cutoffTs = cutoff.getTime();
+    const recentEvents = events.filter((event) => new Date(event.completedAt).getTime() >= cutoffTs);
+
+    await AsyncStorage.setItem(STEP_COMPLETION_EVENTS_KEY, JSON.stringify(recentEvents));
+  } catch (error) {
+    console.error('Error tracking step completion event:', error);
+  }
+}
+
+/**
+ * Get all tracked step completion events.
+ */
+export async function getStepCompletionEvents(): Promise<StepCompletionEvent[]> {
+  try {
+    const eventsData = await AsyncStorage.getItem(STEP_COMPLETION_EVENTS_KEY);
+    return eventsData ? JSON.parse(eventsData) : [];
+  } catch (error) {
+    console.error('Error getting step completion events:', error);
     return [];
   }
 }

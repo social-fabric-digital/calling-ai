@@ -1,13 +1,18 @@
 import { HeadingStyle, SubtitleStyle } from '@/constants/theme';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function AccountScreen() {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Account</Text>
-        <Text style={styles.subtitle}>Manage your profile and settings</Text>
+        <Text style={styles.title}>{tr('Account', 'Аккаунт')}</Text>
+        <Text style={styles.subtitle}>{tr('Manage your profile and settings', 'Управляй профилем и настройками')}</Text>
       </View>
     </ScrollView>
   );

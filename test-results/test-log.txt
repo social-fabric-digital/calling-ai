@@ -1,0 +1,33 @@
+[01:38:41] ═ FLOW 1: ONBOARDING ═
+[01:38:41] 
+[01:38:41] Step 1: Load http://localhost:8084
+[01:38:46]   ✓ Page loaded. Content: "WELCOME TO CALLINGCongratulations on taking one extra step t..."
+[01:38:46] 
+[01:38:46] Step 2: Click "Start my journey"
+[01:38:50]   ✓ Clicked
+[01:38:50]   Current screen: "WELCOME TO CALLINGCongratulations on taking one extra step towards your calling...."
+[01:38:50] 
+[01:38:50] Step 3: Handle intro carousel
+[01:38:50]   Found "Skip" button for intro
+[01:38:54]   ✓ Skipped intro screens
+[01:38:54] 
+[01:38:54] Step 4: Navigate onboarding questions
+[01:38:54]   Attempting to answer up to 30 questions...
+[01:38:55]   Question 1:
+[01:38:56]     Selecting: "MEET ATLAS.
+YOUR JOURNEY GUIDE..."
+[01:38:58]     ✗ No Next/Continue button found
+[01:38:58] 
+[01:38:58] ═ FLOW 2: TODAY'S INSIGHT ═
+[01:38:58] 
+[01:38:58] ✗ Cannot test - did not reach home screen
+[01:38:58]   Reason: Stuck in onboarding
+[01:38:58] 
+[01:38:58] ═ FLOW 3: ERRORS ═
+[01:38:58] 
+[01:38:58] Console errors: 0
+[01:38:58] Page errors: 0
+[01:38:58] 
+[01:38:58] ═══════════════════════════════════════════════════════════════════════════
+[01:38:58] TEST COMPLETE - Screenshots in test-results/
+[01:38:58] ═══════════════════════════════════════════════════════════════════════════

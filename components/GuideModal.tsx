@@ -1,8 +1,10 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -24,45 +26,59 @@ const brandColors = {
 
 interface GuideSection {
   id: string;
-  icon: string;
+  icon: string | number; // Can be emoji string or require() image
+  iconType: 'emoji' | 'image';
   title: string;
   whatItDoes: string;
   whenToUse: string;
   howItHelps: string;
 }
 
-const guideSections: GuideSection[] = [
+const getGuideSections = (isRussian: boolean): GuideSection[] => [
   {
     id: 'clarity-map',
-    icon: '🧠',
-    title: 'Clarity Map',
-    whatItDoes: 'Sort your racing thoughts in 3 minutes',
-    whenToUse: 'Use this when your mind feels cluttered or overwhelmed',
-    howItHelps: 'See what deserves your attention, what to explore, and what to let go',
+    icon: require('../assets/images/claritymap.png'),
+    iconType: 'image',
+    title: isRussian ? 'Карта ясности' : 'Clarity map',
+    whatItDoes: isRussian ? 'Разложи мысли по полочкам за 3 минуты' : 'Organize your thoughts in 3 minutes',
+    whenToUse: isRussian ? 'Используй, когда в голове шум, тревога или перегруз' : 'Use when your mind feels noisy, anxious, or overloaded',
+    howItHelps: isRussian ? 'Понимаешь, на чем сфокусироваться, что изучить, а что отпустить' : 'Helps you focus, decide what to learn, and let go of what is not needed',
   },
   {
     id: 'ikigai-compass',
-    icon: '🧭',
-    title: 'Your Ikigai Compass',
-    whatItDoes: 'Your personalized purpose and path',
-    whenToUse: 'Visit when you need direction or feel lost',
-    howItHelps: 'Reminds you of your deeper purpose and keeps you aligned',
+    icon: require('../assets/images/ikigaicompass.png'),
+    iconType: 'image',
+    title: isRussian ? 'Мой путь' : 'My path',
+    whatItDoes: isRussian ? 'Твое персональное направление и смысл' : 'Your personal direction and meaning',
+    whenToUse: isRussian ? 'Открывай, когда потерял ориентир или не знаешь, куда идти' : "Open when you feel lost or don't know where to go",
+    howItHelps: isRussian ? 'Возвращает к тому, что для тебя действительно важно' : 'Reconnects you to what truly matters to you',
   },
   {
     id: 'progress',
-    icon: '📊',
-    title: 'Progress This Week',
-    whatItDoes: 'Track your weekly activity and growth',
-    whenToUse: 'Check in to see how you\'re doing and claim badges',
-    howItHelps: 'Celebrate your wins and build momentum',
+    icon: require('../assets/images/progress.png'),
+    iconType: 'image',
+    title: isRussian ? 'Прогресс за неделю' : 'Weekly progress',
+    whatItDoes: isRussian ? 'Отслеживай активность и рост за неделю' : 'Track your activity and growth each week',
+    whenToUse: isRussian ? 'Заходи, чтобы проверить ритм и забрать награды' : 'Check your rhythm and claim rewards',
+    howItHelps: isRussian ? 'Помогает замечать победы и держать импульс' : 'Helps you notice wins and keep momentum',
   },
   {
     id: 'focus-sanctuary',
-    icon: '🌲',
-    title: 'Focus Sanctuary',
-    whatItDoes: 'Meditate while watching a forest grow',
-    whenToUse: 'Use when you need to calm down or center yourself',
-    howItHelps: 'Find peace without pressure or instructions',
+    icon: require('../assets/images/focussanctuary.png'),
+    iconType: 'image',
+    title: isRussian ? 'Святилище фокуса' : 'Focus sanctuary',
+    whatItDoes: isRussian ? 'Медитируй и наблюдай, как растет твой лес' : 'Meditate and watch your forest grow',
+    whenToUse: isRussian ? 'Используй, когда нужно успокоиться и собраться' : 'Use when you need to calm down and regroup',
+    howItHelps: isRussian ? 'Возвращает внутреннюю тишину без давления' : 'Restores inner calm without pressure',
+  },
+  {
+    id: 'today-insight',
+    icon: require('../assets/images/focus.png'),
+    iconType: 'image',
+    title: isRussian ? 'Инсайт на сегодня' : "Today's insight",
+    whatItDoes: isRussian ? 'Ежедневная подсказка и рефлексия' : 'Daily guidance and reflection',
+    whenToUse: isRussian ? 'Заглядывай утром, чтобы задать настрой на день' : 'Open in the morning to set your intention for the day',
+    howItHelps: isRussian ? 'Получаешь персональные инсайты для ясных решений' : 'Gives personalized insights for clearer decisions',
   },
 ];
 
@@ -70,9 +86,14 @@ interface GuideSectionItemProps {
   section: GuideSection;
   isExpanded: boolean;
   onToggle: () => void;
+  labels: {
+    whatItGives: string;
+    whenToUse: string;
+    howItHelps: string;
+  };
 }
 
-function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemProps) {
+function GuideSectionItem({ section, isExpanded, onToggle, labels }: GuideSectionItemProps) {
   const animatedHeight = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const [contentHeight, setContentHeight] = useState(250); // Higher default fallback
@@ -128,8 +149,20 @@ function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemPro
         onPress={onToggle}
       >
         <View style={styles.sectionHeaderLeft}>
-          <Text style={styles.sectionIcon}>{section.icon}</Text>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.iconContainer}>
+            {section.iconType === 'image' ? (
+              <Image 
+                source={section.icon as number} 
+                style={styles.sectionIconImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.sectionIcon}>{section.icon}</Text>
+            )}
+          </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+          </View>
         </View>
         <Animated.Text style={[styles.chevron, { transform: [{ rotate }] }]}>
           ▼
@@ -147,15 +180,15 @@ function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemPro
         }}
       >
         <View style={styles.bulletPoint}>
-          <Text style={styles.bulletLabel}>What it does:</Text>
+          <Text style={styles.bulletLabel}>{labels.whatItGives}</Text>
           <Text style={styles.bulletText}>{section.whatItDoes}</Text>
         </View>
         <View style={styles.bulletPoint}>
-          <Text style={styles.bulletLabel}>When to use:</Text>
+          <Text style={styles.bulletLabel}>{labels.whenToUse}</Text>
           <Text style={styles.bulletText}>{section.whenToUse}</Text>
         </View>
         <View style={styles.bulletPoint}>
-          <Text style={styles.bulletLabel}>How it helps:</Text>
+          <Text style={styles.bulletLabel}>{labels.howItHelps}</Text>
           <Text style={styles.bulletText}>{section.howItHelps}</Text>
         </View>
       </View>
@@ -163,15 +196,15 @@ function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemPro
       <Animated.View style={[styles.sectionContent, { maxHeight, opacity }]}>
         <View ref={contentRef}>
           <View style={styles.bulletPoint}>
-            <Text style={styles.bulletLabel}>What it does:</Text>
+            <Text style={styles.bulletLabel}>{labels.whatItGives}</Text>
             <Text style={styles.bulletText}>{section.whatItDoes}</Text>
           </View>
           <View style={styles.bulletPoint}>
-            <Text style={styles.bulletLabel}>When to use:</Text>
+            <Text style={styles.bulletLabel}>{labels.whenToUse}</Text>
             <Text style={styles.bulletText}>{section.whenToUse}</Text>
           </View>
           <View style={styles.bulletPoint}>
-            <Text style={styles.bulletLabel}>How it helps:</Text>
+            <Text style={styles.bulletLabel}>{labels.howItHelps}</Text>
             <Text style={styles.bulletText}>{section.howItHelps}</Text>
           </View>
         </View>
@@ -183,9 +216,19 @@ function GuideSectionItem({ section, isExpanded, onToggle }: GuideSectionItemPro
 interface GuideModalProps {
   visible: boolean;
   onClose: () => void;
+  onReplayWalkthrough?: () => void;
 }
 
-export function GuideModal({ visible, onClose }: GuideModalProps) {
+export function GuideModal({ visible, onClose, onReplayWalkthrough }: GuideModalProps) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+  const guideSections = getGuideSections(Boolean(isRussian));
+  const labels = {
+    whatItGives: tr('What it does:', 'Что это дает:'),
+    whenToUse: tr('When to use:', 'Когда использовать:'),
+    howItHelps: tr('How it helps:', 'Как это помогает:'),
+  };
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const slideAnim = useRef(new Animated.Value(300)).current;
@@ -216,7 +259,8 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
     setExpandedSection(expandedSection === sectionId ? null : sectionId);
   };
 
-  const handleClose = async () => {
+  const handleClose = async (afterClose?: unknown) => {
+    const afterCloseFn = typeof afterClose === 'function' ? afterClose : undefined;
     // Animate out
     Animated.parallel([
       Animated.timing(slideAnim, {
@@ -234,11 +278,17 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
         AsyncStorage.setItem(GUIDE_DISMISSED_KEY, 'true');
       }
       onClose();
+      afterCloseFn?.();
     });
   };
 
   const handleDontShowAgain = () => {
     setDontShowAgain(!dontShowAgain);
+  };
+
+  const handleReplayWalkthrough = () => {
+    if (!onReplayWalkthrough) return;
+    handleClose(onReplayWalkthrough);
   };
 
   return (
@@ -263,7 +313,7 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>How to Use Destiny</Text>
+          <Text style={styles.headerTitle}>{tr('How to use Calling', 'Как пользоваться Предназначением')}</Text>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -281,12 +331,19 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
               section={section}
               isExpanded={expandedSection === section.id}
               onToggle={() => handleToggleSection(section.id)}
+              labels={labels}
             />
           ))}
         </ScrollView>
 
         {/* Footer */}
         <View style={styles.footer}>
+          {onReplayWalkthrough && (
+            <TouchableOpacity style={styles.replayWalkthroughButton} onPress={handleReplayWalkthrough}>
+              <Text style={styles.replayWalkthroughButtonText}>{tr('Replay home walkthrough', 'Повторить обучение на главном экране')}</Text>
+            </TouchableOpacity>
+          )}
+
           <Pressable
             style={styles.dontShowContainer}
             onPress={handleDontShowAgain}
@@ -294,11 +351,11 @@ export function GuideModal({ visible, onClose }: GuideModalProps) {
             <View style={[styles.checkbox, dontShowAgain && styles.checkboxChecked]}>
               {dontShowAgain && <Text style={styles.checkmark}>✓</Text>}
             </View>
-            <Text style={styles.dontShowText}>Don't show on startup</Text>
+            <Text style={styles.dontShowText}>{tr("Don't show on launch", 'Не показывать при запуске')}</Text>
           </Pressable>
 
           <TouchableOpacity style={styles.closeButtonFull} onPress={handleClose}>
-            <Text style={styles.closeButtonFullText}>Got it!</Text>
+            <Text style={styles.closeButtonFullText}>{tr('Got it!', 'Понятно!')}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -402,7 +459,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 60,
   },
   sectionHeaderPressed: {
     backgroundColor: 'rgba(52, 40, 70, 0.08)',
@@ -411,15 +470,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'flex-start',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   sectionIcon: {
     fontSize: 24,
-    marginRight: 12,
+    lineHeight: 24,
+  },
+  sectionIconImage: {
+    width: 35,
+    height: 35,
+  },
+  titleContainer: {
+    justifyContent: 'center',
+    flex: 1,
   },
   sectionTitle: {
     ...HeadingStyle,
     fontSize: 16,
     color: brandColors.text,
+    lineHeight: 20,
   },
   chevron: {
     fontSize: 12,
@@ -465,6 +539,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: brandColors.border,
   },
+  replayWalkthroughButton: {
+    borderWidth: 1,
+    borderColor: brandColors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  replayWalkthroughButtonText: {
+    ...BodyStyle,
+    fontSize: 15,
+    color: brandColors.primary,
+    fontWeight: '600',
+  },
   dontShowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -500,9 +588,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonFullText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+    textTransform: 'none',
   },
 });

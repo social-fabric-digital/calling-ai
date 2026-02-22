@@ -1,6 +1,7 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Modal, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -13,37 +14,9 @@ interface LoginBottomSheetProps {
 
 export default function LoginBottomSheet({ visible, onClose }: LoginBottomSheetProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dy) > 5;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Only allow downward swipes
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const shouldClose = gestureState.dy > 100 || gestureState.vy > 0.5;
-        
-        if (shouldClose) {
-          closeSheet();
-        } else {
-          // Snap back to open position
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 8,
-          }).start();
-        }
-      },
-    })
-  ).current;
 
   useEffect(() => {
     if (visible) {
@@ -112,9 +85,8 @@ export default function LoginBottomSheet({ visible, onClose }: LoginBottomSheetP
   };
 
   const handleSignInWithEmail = () => {
-    // TODO: Implement email sign in
-    console.log('Sign in with Email');
     closeSheet();
+    router.push('/email-login');
   };
 
   if (!visible) return null;
@@ -149,7 +121,6 @@ export default function LoginBottomSheet({ visible, onClose }: LoginBottomSheetP
             transform: [{ translateY }],
           },
         ]}
-        {...panResponder.panHandlers}
       >
         <View style={styles.handleContainer}>
           <View style={styles.handle} />

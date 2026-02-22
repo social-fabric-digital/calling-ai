@@ -1,11 +1,15 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const [moodSelected, setMoodSelected] = useState<string | null>(null);
   const [dailyAnswer, setDailyAnswer] = useState('');
   const scaleAnim = useState(new Animated.Value(1))[0];
@@ -34,10 +38,10 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Greeting */}
-      <Text style={styles.greeting}>Hello, ARINA</Text>
+      <Text style={styles.greeting}>{tr('Hi, ARINA', 'Привет, ARINA')}</Text>
 
       {/* Thought-provoking question */}
-      <Text style={styles.question}>What does the day of an ideal version of you looks like?</Text>
+      <Text style={styles.question}>{tr('What does a day as your best self look like?', 'Как выглядит день твоей лучшей версии?')}</Text>
 
       {/* Answer field */}
       <LinearGradient
@@ -50,7 +54,7 @@ export default function HomeScreen() {
           style={styles.answerInput}
           value={dailyAnswer}
           onChangeText={setDailyAnswer}
-          placeholder="Enter your answer"
+          placeholder={tr('Type your answer', 'Введи ответ')}
           placeholderTextColor="#999"
           multiline
         />
@@ -67,7 +71,7 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonTitle}>Cosmic Insight</Text>
+              <Text style={styles.buttonTitle}>{tr("Today's insight", 'Инсайт на сегодня')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -78,7 +82,7 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonTitle}>Today's action</Text>
+              <Text style={styles.buttonTitle}>{tr("Action of the day", 'Действие дня')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -92,7 +96,7 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonTitle}>Progress This Week</Text>
+              <Text style={styles.buttonTitle}>{tr('Weekly progress', 'Прогресс недели')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -103,14 +107,14 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonTitle}>Your Ikigai compass</Text>
+              <Text style={styles.buttonTitle}>{tr('My path', 'Мой путь')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* How is it going question */}
-      <Text style={styles.moodQuestion}>How is it going today?</Text>
+      <Text style={styles.moodQuestion}>{tr('How are you feeling today?', 'Как у тебя сегодня дела?')}</Text>
 
       {/* Mood buttons */}
       <View style={styles.moodContainer}>
@@ -123,7 +127,7 @@ export default function HomeScreen() {
             onPress={() => handleMoodSelect('progress')}
             activeOpacity={0.8}
           >
-            <Text style={styles.moodButtonText}>I'm making progress</Text>
+            <Text style={styles.moodButtonText}>{tr("I'm moving forward", 'Я двигаюсь вперед')}</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -136,7 +140,7 @@ export default function HomeScreen() {
             onPress={() => handleMoodSelect('finding')}
             activeOpacity={0.8}
           >
-            <Text style={styles.moodButtonText}>Finding my way</Text>
+            <Text style={styles.moodButtonText}>{tr("I'm finding my path", 'Ищу свой путь')}</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -149,7 +153,7 @@ export default function HomeScreen() {
             onPress={() => handleMoodSelect('stuck')}
             activeOpacity={0.8}
           >
-            <Text style={styles.moodButtonText}>I'm stuck</Text>
+            <Text style={styles.moodButtonText}>{tr("I'm stuck", 'Я застрял')}</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>

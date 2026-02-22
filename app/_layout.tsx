@@ -1,33 +1,79 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { trackAppSession } from '@/utils/appTracking';
+import { SubscriptionProvider } from '@/components/SubscriptionProvider';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import '@/utils/i18n';
 import { loadLanguagePreference } from '@/utils/i18n';
-import '@/utils/i18n'; // Initialize i18n
+import { syncNotificationScheduleWithPreferences } from '@/utils/notifications';
+import { ensureSuperwallInitialized } from '@/utils/superwall';
 
 // Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
+let splashScreenPrevented = false;
+const preventSplashAutoHide = async () => {
+  if (!splashScreenPrevented) {
+    try {
+      await SplashScreen.preventAutoHideAsync();
+      splashScreenPrevented = true;
+    } catch (error) {
+      // Ignore errors - splash screen might not be available in all environments
+    }
+  }
+};
+preventSplashAutoHide().catch(() => {});
+
+// Move screenOptions outside component to prevent re-renders
+const screenOptions = {
+  headerShown: false,
+  gestureEnabled: false,
+};
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [languageLoaded, setLanguageLoaded] = useState(false);
   const splashHiddenRef = useRef(false);
   
-  // Load saved language preference on app start BEFORE rendering screens
+  // Initialize Superwall
   useEffect(() => {
+    const initSuperwall = async () => {
+      if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+        return;
+      }
+      try {
+        const initialized = await ensureSuperwallInitialized();
+        if (initialized) {
+          console.log('Superwall initialized successfully');
+        } else {
+          console.log('Superwall initialization skipped');
+        }
+      } catch (error) {
+        console.log('Superwall init error (expected in Expo Go):', error);
+      }
+    };
+    initSuperwall();
+  }, []);
+  
+  // Load saved language preference on app start
+  useEffect(() => {
+    trackAppSession().catch(error => {
+      console.error('Error tracking app session:', error);
+    });
+
+    syncNotificationScheduleWithPreferences().catch((error) => {
+      console.error('Error syncing notification schedule:', error);
+    });
+    
     const initLanguage = async () => {
       try {
         await loadLanguagePreference();
         setLanguageLoaded(true);
       } catch (error) {
         console.error('Error loading language preference:', error);
-        setLanguageLoaded(true); // Still allow app to render even if language load fails
+        setLanguageLoaded(true);
       }
     };
     initLanguage();
@@ -54,15 +100,24 @@ export default function RootLayout() {
     const hideSplash = async () => {
       if (fontsLoaded && languageLoaded && !splashHiddenRef.current) {
         splashHiddenRef.current = true;
+        
         try {
+          if (!splashScreenPrevented) {
+            await preventSplashAutoHide();
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
           await SplashScreen.hideAsync();
-        } catch (error) {
-          // Ignore error if splash screen is already hidden
-          console.log('Splash screen already hidden or not available');
+        } catch (error: any) {
+          const errorMessage = error?.message || String(error || '');
+          if (errorMessage.includes('No native splash screen registered')) {
+            return;
+          }
         }
       }
     };
-    hideSplash();
+    
+    hideSplash().catch(() => {});
   }, [fontsLoaded, languageLoaded]);
 
   if (!fontsLoaded || !languageLoaded) {
@@ -70,26 +125,22 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            gestureEnabled: false, // Default off; enable per-screen when needed
-          }}
-        >
-          <Stack.Screen name="language-selection" options={{ headerShown: false }} />
-          <Stack.Screen name="landing" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="onboarding"
-            options={{ headerShown: false, gestureEnabled: true }}
-          />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="account" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <ThemeProvider value={DefaultTheme}>
+      <SubscriptionProvider>
+        <Stack screenOptions={screenOptions}>
+          <Stack.Screen name="landing" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="account" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="edit-profile" />
+          <Stack.Screen name="edit-birth-data" />
+          <Stack.Screen name="privacy-policy" />
+          <Stack.Screen name="ai-goal-picker" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         <StatusBar style="dark" />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+      </SubscriptionProvider>
+    </ThemeProvider>
   );
 }

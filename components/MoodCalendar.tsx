@@ -8,8 +8,9 @@ import {
   MoodEntry,
 } from '@/utils/moodStorage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 // Brand colors
 const brandColors = {
@@ -25,15 +26,22 @@ interface MoodCalendarProps {
 }
 
 export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
+  const { i18n } = useTranslation();
+  const locale = i18n.language === 'ru' || i18n.language?.startsWith('ru') ? 'ru-RU' : 'en-US';
   const [weekStart, setWeekStart] = useState<Date>(getWeekStart());
   const [weekMoods, setWeekMoods] = useState<(MoodEntry | null)[]>(Array(7).fill(null));
-  const [weekLabel, setWeekLabel] = useState<string>('This Week');
+  const [weekLabel, setWeekLabel] = useState<string>('');
   
   const loadWeekMoods = useCallback(async () => {
     const moods = await getMoodsForWeek(weekStart);
     setWeekMoods(moods);
-    setWeekLabel(getWeekLabel(weekStart));
-  }, [weekStart]);
+    setWeekLabel(getWeekLabel(weekStart, locale));
+  }, [weekStart, locale]);
+  
+  // Initial load on mount
+  useEffect(() => {
+    loadWeekMoods();
+  }, []);
   
   // Reload moods when screen comes into focus
   useFocusEffect(
@@ -41,6 +49,11 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
       loadWeekMoods();
     }, [loadWeekMoods])
   );
+  
+  // Also reload when weekStart changes
+  useEffect(() => {
+    loadWeekMoods();
+  }, [weekStart]);
   
   // Navigate to previous week
   const goToPreviousWeek = () => {
@@ -67,7 +80,7 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
     return weekStart.getTime() < thisWeekStart.getTime();
   };
   
-  const dayNames = getDayNames();
+  const dayNames = getDayNames(locale);
   
   // Get dates for the week
   const getWeekDates = (): Date[] => {

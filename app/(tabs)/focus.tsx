@@ -1,10 +1,12 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
+import { trackReflectionEvent } from '@/utils/appTracking';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +16,8 @@ const { width, height } = Dimensions.get('window');
 type TimerDuration = 5 | 15 | 30 | 60;
 
 export default function FocusScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const [selectedDuration, setSelectedDuration] = useState<TimerDuration | null>(null);
   const [preSelectedDuration, setPreSelectedDuration] = useState<TimerDuration | null>(null); // Duration selected but timer not started
   const [timeRemaining, setTimeRemaining] = useState<number>(0); // in seconds
@@ -70,6 +73,14 @@ export default function FocusScreen() {
     phase3Started: false,
     phase4Started: false,
   }).current;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      trackReflectionEvent('focus_sanctuary_opened').catch((error) => {
+        console.error('Error tracking focus sanctuary open:', error);
+      });
+    }, [])
+  );
 
   // Calculate center Y position - trees must be within 20px below heading and 20px above timer
   // Trees are positioned absolutely within treeContainer, which is flex: 1 between heading and timer
@@ -257,7 +268,8 @@ export default function FocusScreen() {
           }
           
           // Phase 2: Continuous circular forest growth (starts at 10 seconds elapsed)
-          if (elapsed >= 10) {
+          // Stop spawning once late stages begin, otherwise duplicate trees keep appearing near completion.
+          if (elapsed >= 10 && progress < 0.7) {
             if (!phaseRefs.phase2Started) {
               phaseRefs.phase2Started = true;
             }
@@ -403,10 +415,10 @@ export default function FocusScreen() {
             });
           }
           
-          // Phase 4: Deer arrival (90-100%) - Disabled
+          // Phase 4: Atlas arrival (90-100%)
           if (progress >= 0.9 && !phaseRefs.phase4Started) {
             phaseRefs.phase4Started = true;
-            setShowDeer(false); // Keep deer hidden
+            setShowDeer(true);
             
             // Deer slides in from left
             deerTranslateX.setValue(-width);
@@ -554,6 +566,19 @@ export default function FocusScreen() {
       const existingHours = existingHoursData ? parseFloat(existingHoursData) : 0;
       const newTotalHours = existingHours + completedHours;
       await AsyncStorage.setItem('focusHours', newTotalHours.toString());
+      
+      // Save focus session to Supabase
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('profiles').update({
+            focus_hours: newTotalHours,
+          }).eq('id', user.id);
+        }
+      } catch (err) {
+        console.error('Supabase focus save error:', err);
+      }
     } catch (error) {
       console.error('Error saving focus hours:', error);
     }
@@ -650,40 +675,32 @@ export default function FocusScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get the current animation image based on timer progress
-  // Animation sequence: seed, seed2, seed3, tree, tree2, tree3, tree4, tree5, tree6, tree7, tree8
-  const getCurrentAnimationImage = (): any => {
+  const animationImageMap = [
+    require('../../assets/images/seed.png'),
+    require('../../assets/images/seed2.png'),
+    require('../../assets/images/seed3.png'),
+    require('../../assets/images/tree.png'),
+    require('../../assets/images/tree2.png'),
+    require('../../assets/images/tree3.png'),
+    require('../../assets/images/tree4.png'),
+    require('../../assets/images/tree5.png'),
+    require('../../assets/images/tree6.png'),
+    require('../../assets/images/tree7.png'),
+    require('../../assets/images/tree8.png'),
+  ];
+
+  // Return a single frame image (original behavior: discrete image switching).
+  const getAnimationFrame = () => {
     if (!selectedDuration || !isRunning) {
-      return require('../../assets/images/seed.png'); // Default
+      return animationImageMap[0];
     }
-    
+
     const totalSeconds = selectedDuration * 60;
     const elapsed = totalSeconds - timeRemaining;
-    const progress = elapsed / totalSeconds;
-    
-    // Divide progress evenly across 11 images (0 to 1.0)
-    // Each image gets approximately 1/11 of the progress (0.0909...)
-    const imageIndex = Math.floor(progress * 11);
-    
-    // Clamp to valid range (0-10)
-    const clampedIndex = Math.min(Math.max(imageIndex, 0), 10);
-    
-    // Map index to image
-    const imageMap = [
-      require('../../assets/images/seed.png'),   // 0
-      require('../../assets/images/seed2.png'), // 1
-      require('../../assets/images/seed3.png'), // 2
-      require('../../assets/images/tree.png'),  // 3
-      require('../../assets/images/tree2.png'), // 4
-      require('../../assets/images/tree3.png'), // 5
-      require('../../assets/images/tree4.png'), // 6
-      require('../../assets/images/tree5.png'), // 7
-      require('../../assets/images/tree6.png'), // 8
-      require('../../assets/images/tree7.png'), // 9
-      require('../../assets/images/tree8.png'), // 10
-    ];
-    
-    return imageMap[clampedIndex];
+    const progress = Math.min(Math.max(elapsed / totalSeconds, 0), 1);
+    const imageIndex = Math.floor(progress * (animationImageMap.length - 1));
+    const clampedIndex = Math.min(Math.max(imageIndex, 0), animationImageMap.length - 1);
+    return animationImageMap[clampedIndex];
   };
 
   // Calculate stage based on progress
@@ -726,6 +743,7 @@ export default function FocusScreen() {
   };
 
   const insets = useSafeAreaInsets();
+  const animationFrame = getAnimationFrame();
 
   return (
     <PaperTextureBackground>
@@ -740,12 +758,19 @@ export default function FocusScreen() {
 
       {/* Focus Heading - Only show when timer is not running and portfolio is shown */}
       {!selectedDuration && !isRunning && (
-        <Text style={styles.focusHeading}>{t('focus.focusSanctuary')}</Text>
+        <Text style={[styles.focusHeading, styles.initialContentShift]}>
+          {t('focus.focusSanctuary')}
+        </Text>
       )}
 
       {/* Tree Animation Container - Hide when timer is running (new design shows tree in circle) */}
       {!isRunning && (
-        <View style={styles.treeContainer}>
+        <View
+          style={[
+            styles.treeContainer,
+            !selectedDuration && !isRunning && styles.initialContentShift,
+          ]}
+        >
           {/* Show tent image on initial screen (before timer starts) */}
           {!selectedDuration && (
           <View style={styles.tentContainer}>
@@ -759,8 +784,8 @@ export default function FocusScreen() {
           </View>
         )}
         
-        {/* Render all trees dynamically - hide when forest appears */}
-        {!showForest && trees.map((tree) => {
+        {/* Render all trees dynamically - hide when forest appears and when completion popup is open */}
+        {!showForest && !showCompletionPopup && trees.map((tree) => {
           // Center tree position - centered horizontally
           const centerTreeX = width / 2;
           const centerTreeY = getCenterTreeY(); // Positioned so lowest tree is 20px above timer
@@ -820,7 +845,7 @@ export default function FocusScreen() {
                   }}
                 >
                   <Image
-                    source={require('../../assets/images/small.tree.png')}
+                    source={require('../../assets/images/seed.png')}
                     style={{ width: treeSize, height: treeSize }}
                     resizeMode="contain"
                   />
@@ -871,8 +896,42 @@ export default function FocusScreen() {
           ]}
         >
           <View style={styles.atlasPopup}>
-            <Text style={styles.atlasPopupText}>Atlas is coming soon</Text>
+            <Image
+              source={require('../../assets/images/full.deer.png')}
+              style={styles.atlasPopupAvatar}
+              resizeMode="contain"
+            />
+            <View style={styles.atlasPopupTextWrap}>
+              <Text style={styles.atlasPopupTitle}>
+                {isRussian ? 'Атлас скоро появится' : 'Atlas will appear soon'}
+              </Text>
+              <Text style={styles.atlasPopupText}>
+                {isRussian ? 'Держи фокус, он уже рядом.' : 'Keep going, he is almost here.'}
+              </Text>
+            </View>
           </View>
+        </Animated.View>
+      )}
+
+      {/* Atlas image pop-in near completion */}
+      {showDeer && selectedDuration && !showCompletionPopup && (
+        <Animated.View
+          style={[
+            styles.deerContainer,
+            {
+              opacity: deerOpacity,
+              transform: [
+                { translateX: deerTranslateX },
+                { scale: deerBreathScale },
+              ],
+            },
+          ]}
+        >
+          <Image
+            source={require('../../assets/images/full.deer.png')}
+            style={styles.deerImage}
+            resizeMode="contain"
+          />
         </Animated.View>
       )}
 
@@ -888,7 +947,7 @@ export default function FocusScreen() {
                 {/* Animation Image - Progresses through seed, seed2, seed3, tree, tree2, tree3, tree4, tree5, tree6, tree7, tree8 */}
                 <View style={styles.timerSeedContainer}>
                   <Image
-                    source={getCurrentAnimationImage()}
+                    source={animationFrame}
                     style={styles.timerSeedImage}
                     resizeMode="contain"
                   />
@@ -911,7 +970,7 @@ export default function FocusScreen() {
                 <Text style={styles.statLabel}>{t('focus.height').toUpperCase()}</Text>
                 <View style={styles.statValueContainer}>
                   <Text style={styles.statValue}>{getHeight()}</Text>
-                  <Text style={styles.statUnit}>cm</Text>
+                  <Text style={styles.statUnit}>{isRussian ? 'см' : 'cm'}</Text>
                 </View>
               </View>
 
@@ -937,20 +996,21 @@ export default function FocusScreen() {
       ) : (
         <>
           {/* Light bulb icon above duration selection */}
-          <View style={styles.lightBulbContainer}>
+          <View style={[styles.lightBulbContainer, styles.initialContentShift]}>
             <Image
               source={require('../../assets/images/light.png')}
               style={styles.lightBulbIcon}
               resizeMode="contain"
             />
           </View>
-          <View style={styles.durationSelectionFrame}>
+          <View style={[styles.durationSelectionFrame, styles.initialContentShift]}>
           {/* Slider with yellow dot indicator */}
           <View style={styles.sliderContainer}>
             <View style={styles.sliderLine} />
             {preSelectedDuration && (
               <View style={[
                 styles.sliderDot,
+                styles.sliderDotSelected,
                 {
                   left: preSelectedDuration === 5 ? 0 : 
                         preSelectedDuration === 15 ? 85.33 :
@@ -958,6 +1018,7 @@ export default function FocusScreen() {
                         preSelectedDuration === 60 ? 236 : 0,
                 }
               ]}>
+                <View style={styles.sliderDotGlow} />
                 <View style={styles.sliderDotInner} />
               </View>
             )}
@@ -1138,7 +1199,7 @@ export default function FocusScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.completionPopup}>
             <Text style={styles.completionPopupText}>
-              Congratulations, you've completed your task!
+              {isRussian ? 'Поздравляем, ты успешно завершил задачу!' : 'Congratulations, you successfully completed the session!'}
             </Text>
             <TouchableOpacity
               style={styles.completionPopupButton}
@@ -1156,7 +1217,7 @@ export default function FocusScreen() {
                 router.replace('/(tabs)');
               }}
             >
-              <Text style={styles.completionPopupButtonText}>{t('common.ok')}</Text>
+              <Text style={styles.completionPopupButtonText}>Yay!</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1173,17 +1234,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 60,
-    paddingBottom: 100, // Space for bottom menu
-    paddingHorizontal: 25,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  initialContentShift: {
+    transform: [{ translateY: -35 }],
   },
   focusHeading: {
     ...HeadingStyle,
     color: '#342846',
-    fontSize: 36,
     textAlign: 'center',
     marginBottom: 0,
     marginTop: 64,
-    letterSpacing: -0.9,
   },
   timerContainer: {
     alignItems: 'center',
@@ -1210,21 +1272,41 @@ const styles = StyleSheet.create({
   },
   atlasPopup: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     marginRight: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.14)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 220,
+  },
+  atlasPopupAvatar: {
+    width: 34,
+    height: 34,
+    marginRight: 10,
+  },
+  atlasPopupTextWrap: {
+    flex: 1,
+  },
+  atlasPopupTitle: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   atlasPopupText: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 12,
+    opacity: 0.75,
   },
   lightBulbContainer: {
     alignItems: 'center',
@@ -1295,6 +1377,24 @@ const styles = StyleSheet.create({
     top: -48, // Moved up 50px to align with line (was 2, now -48)
     marginLeft: -10, // Center the dot on its position
   },
+  sliderDotSelected: {
+    shadowOpacity: 1,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 14,
+  },
+  sliderDotGlow: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(253, 199, 0, 0.35)',
+    shadowColor: '#fdc700',
+    shadowOpacity: 0.9,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
+  },
   sliderDotInner: {
     width: 8,
     height: 8,
@@ -1338,7 +1438,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Bold',
     color: '#7a8a9a',
     fontSize: 10,
-    textTransform: 'uppercase',
+    textTransform: 'none', // Changed from 'uppercase' to keep 'min' lowercase
     textAlign: 'center',
     marginTop: 2,
   },
@@ -1476,8 +1576,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   deerImage: {
-    width: width * 0.4,
-    height: width * 0.4,
+    width: width * 0.32,
+    height: width * 0.32,
   },
   confettiContainer: {
     position: 'absolute',
@@ -1540,7 +1640,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Semi-transparent to show forest animation with Atlas in background
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1556,9 +1656,10 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   completionPopupText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#342846',
-    fontSize: 24,
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -1590,7 +1691,6 @@ const styles = StyleSheet.create({
   timerHeaderTitle: {
     ...HeadingStyle,
     color: '#342846',
-    fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -1635,10 +1735,16 @@ const styles = StyleSheet.create({
     height: 314, // Match inner circle height
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   timerSeedImage: {
     width: 314, // Match inner circle size
     height: 314, // Match inner circle size
+  },
+  timerSeedImageLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   stageBadge: {
     position: 'absolute',

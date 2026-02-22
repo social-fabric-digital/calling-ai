@@ -2,14 +2,19 @@ import { HeadingStyle, SubtitleStyle } from '@/constants/theme';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 export default function FocusScreen() {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.title}>Focus</Text>
-          <Text style={styles.subtitle}>Stay focused on your journey</Text>
+          <Text style={styles.title}>{tr('Focus', 'Фокус')}</Text>
+          <Text style={styles.subtitle}>{tr('Stay focused on your path', 'Сохраняй фокус на своем пути')}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

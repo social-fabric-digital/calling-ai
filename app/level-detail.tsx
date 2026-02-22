@@ -1,30 +1,39 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
-import { generateGoalSteps, generateStepDescription } from '@/utils/claudeApi';
+import { generateGoalSteps, generateStepDescription, generateLevelStepInstructions } from '@/utils/claudeApi';
+import { trackStepCompletionEvent } from '@/utils/goalTracking';
+import { checkSubscriptionStatus } from '@/utils/superwall';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Animated, Dimensions, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LevelDetailScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const levelNumber = params.level ? parseInt(params.level as string) : 1;
-  const goalName = params.goalName as string || 'Get an internship';
+  const goalName = params.goalName as string || tr('Get an internship', 'Получить стажировку');
   const goalId = params.goalId as string || ''; // Goal ID for marking as completed
-  const userName = params.userName as string || 'Arena';
+  const userName = params.userName as string || tr('Friend', 'Друг');
   
   // State for dynamic step data
   const [stepName, setStepName] = useState<string>('');
   const [stepDescription, setStepDescription] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [fear, setFear] = useState<string>('being rejected');
+  const [fear, setFear] = useState<string>(tr('fear of rejection', 'страх отказа'));
   const [totalLevels, setTotalLevels] = useState<number>(4); // Default to 4 levels
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set()); // Track completed step indices
+  const [stepInstructions, setStepInstructions] = useState<Array<{ text: string; icon?: string }>>([]); // AI-generated step instructions
   
   // Get fallback level data from translations
   const fallbackLevelData = t('levelDetail.fallbackLevels', { returnObjects: true }) as any;
@@ -38,11 +47,201 @@ export default function LevelDetailScreen() {
   const [chatInput, setChatInput] = useState('');
   const [showNeedTimeModal, setShowNeedTimeModal] = useState(false);
 
+  // Floating circles animation refs
+  const bubble1Anim = useRef(new Animated.Value(0)).current;
+  const bubble2Anim = useRef(new Animated.Value(0)).current;
+  const bubble3Anim = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble1Opacity = useRef(new Animated.Value(0.15)).current;
+  const bubble2Opacity = useRef(new Animated.Value(0.15)).current;
+  const bubble3Opacity = useRef(new Animated.Value(0.15)).current;
+
+  // Initialize floating bubbles animation
+  useEffect(() => {
+    // Floating animation for each bubble
+    const createFloatAnimation = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 3000 + Math.random() * 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 3000 + Math.random() * 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    // Horizontal drift animation
+    const createDriftAnimation = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 4000 + Math.random() * 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 4000 + Math.random() * 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    // Opacity pulse animation - very subtle
+    const createOpacityAnimation = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 0.25,
+            duration: 2000 + Math.random() * 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.1,
+            duration: 2000 + Math.random() * 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    // Start animations
+    createFloatAnimation(bubble1Anim, 0).start();
+    createFloatAnimation(bubble2Anim, 1000).start();
+    createFloatAnimation(bubble3Anim, 2000).start();
+
+    createDriftAnimation(bubble1X, 0).start();
+    createDriftAnimation(bubble2X, 1500).start();
+    createDriftAnimation(bubble3X, 3000).start();
+
+    createOpacityAnimation(bubble1Opacity, 0).start();
+    createOpacityAnimation(bubble2Opacity, 1000).start();
+    createOpacityAnimation(bubble3Opacity, 2000).start();
+
+    return () => {
+      bubble1Anim.stopAnimation();
+      bubble2Anim.stopAnimation();
+      bubble3Anim.stopAnimation();
+      bubble1X.stopAnimation();
+      bubble2X.stopAnimation();
+      bubble3X.stopAnimation();
+      bubble1Opacity.stopAnimation();
+      bubble2Opacity.stopAnimation();
+      bubble3Opacity.stopAnimation();
+    };
+  }, []);
+
+  const loadStepCompletion = async (): Promise<Set<number>> => {
+    try {
+      if (!goalId || !levelNumber) return new Set<number>();
+      const storageKey = `stepCompletion_${goalId}_${levelNumber}`;
+      const savedData = await AsyncStorage.getItem(storageKey);
+      if (!savedData) return new Set<number>();
+      const savedIndices = JSON.parse(savedData) as number[];
+      return new Set(savedIndices);
+    } catch (error) {
+      console.error('Error loading step completion:', error);
+      return new Set<number>();
+    }
+  };
+
+  // Save step completion state to AsyncStorage
+  const saveStepCompletion = async (completedIndices: number[]) => {
+    try {
+      if (!goalId || !levelNumber) return;
+      
+      const storageKey = `stepCompletion_${goalId}_${levelNumber}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(completedIndices));
+    } catch (error) {
+      console.error('Error saving step completion:', error);
+    }
+  };
+
+  // Toggle step completion
+  const toggleStepCompletion = (stepId: number) => {
+    setCompletedSteps(prev => {
+      const newSet = new Set(prev);
+      const wasCompleted = newSet.has(stepId);
+      if (newSet.has(stepId)) {
+        newSet.delete(stepId);
+      } else {
+        newSet.add(stepId);
+      }
+      // Save to AsyncStorage
+      saveStepCompletion(Array.from(newSet));
+      if (!wasCompleted) {
+        trackStepCompletionEvent(goalId, goalName, levelNumber, stepId).catch((error) => {
+          console.error('Error tracking step completion:', error);
+        });
+      }
+      return newSet;
+    });
+  };
+
+  // Reset completion state when level or goal changes
+  useEffect(() => {
+    // Reset completion state when level/goal changes
+    // This ensures fresh start for each level
+    setCompletedSteps(new Set());
+  }, [levelNumber, goalId]);
+
   // Load user data and generate step content
   useEffect(() => {
     const loadStepData = async () => {
       try {
         setIsLoading(true);
+        const savedCompletion = await loadStepCompletion();
+        setCompletedSteps(savedCompletion);
+
+        const userIsPremium = await checkSubscriptionStatus();
+        if (!userIsPremium) {
+          const userGoalsData = await AsyncStorage.getItem('userGoals');
+          const userGoals = userGoalsData ? JSON.parse(userGoalsData) : [];
+          const goal = userGoals.find((g: any) => g.id === goalId);
+
+          if (goal && Array.isArray(goal.steps) && goal.steps.length > 0) {
+            const sortedSteps = goal.steps
+              .slice()
+              .sort((a: any, b: any) => {
+                const orderA = a.order || a.number || 0;
+                const orderB = b.order || b.number || 0;
+                return orderA - orderB;
+              });
+
+            setTotalLevels(sortedSteps.length);
+            const currentStep = sortedSteps.find((step: any) => {
+              const stepNumber = step.order || step.number;
+              return stepNumber === levelNumber;
+            }) || sortedSteps[levelNumber - 1];
+
+            if (currentStep) {
+              const levelName = currentStep.name || currentStep.text || `${tr('Level', 'Уровень')} ${levelNumber}`;
+              const description = currentStep.description || levelName;
+              setStepName(levelName);
+              setStepDescription(description);
+              setStepInstructions([{ text: description }]);
+            } else {
+              setStepInstructions([]);
+            }
+          } else {
+            setStepInstructions([]);
+          }
+
+          setIsLoading(false);
+          return;
+        }
         
         // Load user data from AsyncStorage
         const [
@@ -129,23 +328,62 @@ export default function LevelDetailScreen() {
           );
           
           setStepDescription(description);
+          
+          // Generate AI step instructions for this level
+          // These are fresh instructions generated specifically for this level
+          const instructions = await generateLevelStepInstructions(
+            goalName,
+            levelNumber,
+            currentStep.text,
+            totalSteps,
+            birthMonth || '1',
+            birthDate || '1',
+            birthYear || '2000',
+            birthCity || undefined,
+            birthHour || undefined,
+            birthMinute || undefined,
+            birthPeriod || undefined,
+            whatYouLove || undefined,
+            whatYouGoodAt || undefined,
+            whatWorldNeeds || undefined,
+            whatCanBePaidFor || undefined,
+            fearData || undefined,
+            whatExcites || undefined
+          );
+          
+          setStepInstructions(instructions);
+          
+          // Save step instructions for future use
+          if (goalId && levelNumber) {
+            try {
+              const storageKey = `stepInstructions_${goalId}_${levelNumber}`;
+              await AsyncStorage.setItem(storageKey, JSON.stringify(instructions));
+            } catch (error) {
+              console.error('Error saving step instructions:', error);
+            }
+          }
+          
+          console.log(`Generated ${instructions.length} step instructions for level ${levelNumber}`);
         } else {
           // Fallback if step not found
           setStepName(fallbackLevel.name);
           setStepDescription(fallbackLevel.description);
+          setStepInstructions([]);
+          setCompletedSteps(savedCompletion);
         }
       } catch (error) {
         console.error('Error loading step data:', error);
         // Use fallback data on error
         setStepName(fallbackLevel.name);
         setStepDescription(fallbackLevel.description);
+        setStepInstructions([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadStepData();
-  }, [levelNumber, goalName]);
+  }, [levelNumber, goalName, goalId]);
 
   // Get level badge image based on level number
   const getLevelBadgeImage = () => {
@@ -174,11 +412,127 @@ export default function LevelDetailScreen() {
   const handleOpenFearChat = () => {
     setShowFearChat(true);
     // Initialize with Atlas's message about the fear
-    const initialMessage = `I understand you're dealing with "${currentFear}". Let's talk about how to overcome this fear and move forward with confidence. What specific concerns do you have?`;
+    const initialMessage = tr(
+      `I understand this feels difficult because of "${currentFear}". Let's break down how to move through this fear and keep going with confidence. What worries you the most right now?`,
+      `Я понимаю, что тебе непросто из-за "${currentFear}". Давай разберем, как пройти через этот страх и двигаться дальше увереннее. Что именно тебя больше всего тревожит?`
+    );
     setChatMessages([{ type: 'atlas', text: initialMessage }]);
   };
 
-  // Parse description into sections with headings
+  // Parse description into step items for the new design
+  const parseSteps = (description: string): Array<{ icon: string; text: string }> => {
+    if (!description) return [];
+    
+    // Remove stars
+    let text = description.replace(/⭐/g, '').trim();
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    const steps: Array<{ icon: string; text: string }> = [];
+    const iconMap: { [key: string]: string } = {
+      'research': 'search',
+      'search': 'search',
+      'find': 'search',
+      'look': 'search',
+      'write': 'description',
+      'note': 'description',
+      'list': 'description',
+      'document': 'description',
+      'people': 'people',
+      'team': 'people',
+      'leadership': 'people',
+      'contact': 'people',
+      'network': 'people',
+      'board': 'people',
+      'analyze': 'bar-chart',
+      'track': 'bar-chart',
+      'measure': 'bar-chart',
+      'data': 'bar-chart',
+      'progress': 'bar-chart',
+      'key': 'bar-chart',
+      'decision': 'bar-chart',
+      'create': 'create',
+      'build': 'build',
+      'develop': 'code',
+      'practice': 'fitness-center',
+      'prepare': 'event-note',
+    };
+    
+    // Find bullet points or numbered items
+    for (const line of lines) {
+      // Match bullet points (various formats)
+      const bulletMatch = line.match(/^[-•*]\s*(.+)$/);
+      const numberMatch = line.match(/^\d+[.)]\s*(.+)$/);
+      
+      if (bulletMatch || numberMatch) {
+        const stepText = (bulletMatch?.[1] || numberMatch?.[1] || '').trim();
+        if (stepText && stepText.length > 5) { // Only add if meaningful text
+          // Determine icon based on keywords
+          const lowerText = stepText.toLowerCase();
+          let icon = 'check-circle'; // default icon
+          
+          for (const [keyword, iconName] of Object.entries(iconMap)) {
+            if (lowerText.includes(keyword)) {
+              icon = iconName;
+              break;
+            }
+          }
+          
+          steps.push({ icon, text: stepText });
+        }
+      }
+    }
+    
+    // If no bullets found, try to split by common patterns or sentences
+    if (steps.length === 0) {
+      // Look for "How to Complete" section and extract steps
+      let inStepsSection = false;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.match(/^(How to Complete|What You'll Do|Steps|Instructions)/i)) {
+          inStepsSection = true;
+          continue;
+        }
+        if (inStepsSection && line.length > 10 && !line.match(/^(Why|Time|Estimated|Note)/i)) {
+          const lowerText = line.toLowerCase();
+          let icon = 'check-circle';
+          for (const [keyword, iconName] of Object.entries(iconMap)) {
+            if (lowerText.includes(keyword)) {
+              icon = iconName;
+              break;
+            }
+          }
+          steps.push({ icon, text: line });
+        }
+      }
+      
+      // If still no steps, try to split long sentences
+      if (steps.length === 0) {
+        const fullText = lines.join(' ');
+        // Try to find action items in the text
+        const sentences = fullText.split(/[.!?]/).filter(s => s.trim().length > 15);
+        sentences.slice(0, 4).forEach(sentence => {
+          const trimmed = sentence.trim();
+          if (trimmed.length > 10) {
+            const lowerText = trimmed.toLowerCase();
+            let icon = 'check-circle';
+            for (const [keyword, iconName] of Object.entries(iconMap)) {
+              if (lowerText.includes(keyword)) {
+                icon = iconName;
+                break;
+              }
+            }
+            steps.push({ icon, text: trimmed });
+          }
+        });
+      }
+    }
+    
+    // Limit to 4 steps max and ensure we have at least one
+    const finalSteps = steps.slice(0, 4);
+    return finalSteps.length > 0 ? finalSteps : [{ icon: 'check-circle', text: currentStepName }];
+  };
+
+  // Parse description into sections with headings (keeping for fallback)
   const parseDescription = (description: string): Array<{ type: 'heading' | 'text' | 'bullet'; content: string }> => {
     if (!description) return [];
     
@@ -288,13 +642,91 @@ export default function LevelDetailScreen() {
 
   return (
     <PaperTextureBackground>
+      {/* Floating Purple Circles */}
+      <View style={styles.bubblesContainer} pointerEvents="none">
+        <Animated.View
+          style={[
+            styles.floatingCircle,
+            {
+              left: width * 0.1,
+              top: height * 0.2,
+              transform: [
+                {
+                  translateY: bubble1Anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -30],
+                  }),
+                },
+                {
+                  translateX: bubble1X.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 20],
+                  }),
+                },
+              ],
+              opacity: bubble1Opacity,
+            },
+          ]}
+        />
+
+        <Animated.View
+          style={[
+            styles.floatingCircle,
+            {
+              right: width * 0.15,
+              top: height * 0.4,
+              transform: [
+                {
+                  translateY: bubble2Anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -25],
+                  }),
+                },
+                {
+                  translateX: bubble2X.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -15],
+                  }),
+                },
+              ],
+              opacity: bubble2Opacity,
+            },
+          ]}
+        />
+
+        <Animated.View
+          style={[
+            styles.floatingCircle,
+            {
+              left: width * 0.2,
+              bottom: height * 0.3,
+              transform: [
+                {
+                  translateY: bubble3Anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -35],
+                  }),
+                },
+                {
+                  translateX: bubble3X.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 25],
+                  }),
+                },
+              ],
+              opacity: bubble3Opacity,
+            },
+          ]}
+        />
+      </View>
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Top Bar */}
@@ -317,75 +749,225 @@ export default function LevelDetailScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.backButtonText}>←</Text>
+            <View style={styles.backButtonCircle}>
+              <MaterialIcons name="arrow-back" size={20} color="#342846" />
+            </View>
           </TouchableOpacity>
 
-          {/* Level Badge */}
-          <Image
-            source={getLevelBadgeImage()}
-            style={styles.levelBadgeTop}
-            resizeMode="contain"
-          />
+          {/* Progress Badge */}
+          <View style={styles.progressBadge}>
+            <View style={styles.progressBadgeCircle}>
+              <Text style={styles.progressBadgeNumber}>{levelNumber}</Text>
+            </View>
+            <Text style={styles.progressBadgeText}>{tr('of', 'из')} {totalLevels}</Text>
+          </View>
+
+          {/* Exit Button */}
+          <TouchableOpacity
+            style={styles.exitButton}
+            onPress={() => router.push('/(tabs)/goals')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.exitButtonCircle}>
+              <MaterialIcons name="close" size={20} color="#342846" />
+            </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Step Name Heading */}
+        {/* Goal Card */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#342846" />
-            <Text style={styles.loadingText}>Loading step...</Text>
+            <Text style={styles.loadingText}>{tr('Loading step...', 'Загрузка шага...')}</Text>
           </View>
         ) : (
           <>
-            <Text style={styles.levelName}>{currentStepName.replace(/⭐/g, '').trim()}</Text>
+            <View style={styles.goalCard}>
+              {/* Decorative circles */}
+              <View style={styles.goalCardCircle1} />
+              <View style={styles.goalCardCircle2} />
+              
+              <View style={styles.goalCardContent}>
+                {/* Today's Goal Badge */}
+                <View style={styles.goalBadge}>
+                  <IconSymbol name="target" size={14} color="#CDBFAD" />
+                  <Text style={styles.goalBadgeText}>{tr('Today\'s goal', 'Цель на сегодня')}</Text>
+                </View>
+                
+                {/* Goal Title */}
+                <Text style={styles.goalTitle}>{currentStepName.replace(/⭐/g, '').trim()}</Text>
+                
+                {/* Goal Description */}
+                {currentDescription && (
+                  <Text style={styles.goalDescription}>
+                    {parseDescription(currentDescription)
+                      .filter(s => s.type === 'text')
+                      .map(s => s.content)
+                      .join(' ')
+                      .substring(0, 100)}
+                    {parseDescription(currentDescription)
+                      .filter(s => s.type === 'text')
+                      .map(s => s.content)
+                      .join(' ').length > 100 ? '...' : ''}
+                  </Text>
+                )}
+              </View>
+            </View>
 
-            {/* Step Description in Purple Card */}
-            <View style={styles.instructionsFrame}>
-              {parseDescription(currentDescription).map((section, index) => {
-                if (section.type === 'heading') {
+            {/* Steps Section */}
+            <View style={styles.stepsSection}>
+              <Text style={styles.stepsHeading}>{tr('How to complete', 'Как выполнить')}</Text>
+              
+              {stepInstructions.length > 0 ? (
+                // Use AI-generated step instructions
+                stepInstructions.map((step, index) => {
+                  // Map step keywords to MaterialIcons names based on text content
+                  const getIconName = (text: string): any => {
+                    const lowerText = text.toLowerCase();
+                    if (lowerText.includes('research') || lowerText.includes('search') || lowerText.includes('find') || lowerText.includes('look')) {
+                      return 'search';
+                    } else if (lowerText.includes('write') || lowerText.includes('note') || lowerText.includes('list') || lowerText.includes('document')) {
+                      return 'description';
+                    } else if (lowerText.includes('people') || lowerText.includes('team') || lowerText.includes('contact') || lowerText.includes('network') || lowerText.includes('interview') || lowerText.includes('meet')) {
+                      return 'people';
+                    } else if (lowerText.includes('analyze') || lowerText.includes('track') || lowerText.includes('measure') || lowerText.includes('data') || lowerText.includes('progress')) {
+                      return 'bar-chart';
+                    } else if (lowerText.includes('create') || lowerText.includes('build') || lowerText.includes('develop') || lowerText.includes('make')) {
+                      return 'create';
+                    } else if (lowerText.includes('practice') || lowerText.includes('exercise')) {
+                      return 'fitness-center';
+                    } else if (lowerText.includes('schedule') || lowerText.includes('plan') || lowerText.includes('prepare')) {
+                      return 'event-note';
+                    }
+                    return 'check-circle';
+                  };
+                  
+                  const stepId = index + 1;
+                  const isCompleted = completedSteps.has(stepId);
+                  
                   return (
-                    <Text 
-                      key={index} 
-                      style={[
-                        styles.instructionHeading,
-                        index === 0 && { marginTop: 0 }
-                      ]}
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => toggleStepCompletion(stepId)}
+                      activeOpacity={0.7}
                     >
-                      {section.content}
-                    </Text>
+                      <Animated.View 
+                        style={[
+                          styles.stepCard,
+                          isCompleted && styles.stepCardCompleted,
+                          { opacity: isLoading ? 0 : 1 }
+                        ]}
+                      >
+                        {/* Checkbox */}
+                        <View style={[
+                          styles.stepCheckbox,
+                          isCompleted && styles.stepCheckboxCompleted
+                        ]}>
+                          {isCompleted && (
+                            <MaterialIcons name="check" size={16} color="#342846" />
+                          )}
+                        </View>
+                        
+                        <View style={styles.stepIconContainer}>
+                          <MaterialIcons 
+                            name={getIconName(step.text)} 
+                            size={20} 
+                            color={isCompleted ? "#8B8178" : "#342846"} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.stepText,
+                          isCompleted && styles.stepTextCompleted
+                        ]}>{step.text}</Text>
+                      </Animated.View>
+                    </TouchableOpacity>
                   );
-                } else if (section.type === 'bullet') {
+                })
+              ) : (
+                // Fallback to parsed steps if AI generation failed
+                parseSteps(currentDescription).map((step, index) => {
+                  const getIconName = (iconKey: string): any => {
+                    const iconMap: { [key: string]: any } = {
+                      'search': 'search',
+                      'description': 'description',
+                      'people': 'people',
+                      'bar-chart': 'bar-chart',
+                      'create': 'create',
+                      'build': 'build',
+                      'code': 'code',
+                      'fitness-center': 'fitness-center',
+                      'event-note': 'event-note',
+                      'check-circle': 'check-circle',
+                    };
+                    return iconMap[iconKey] || 'check-circle';
+                  };
+                  
+                  const stepId = index + 1;
+                  const isCompleted = completedSteps.has(stepId);
+                  
                   return (
-                    <Text key={index} style={styles.instructionBullet}>
-                      • {section.content}
-                    </Text>
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => toggleStepCompletion(stepId)}
+                      activeOpacity={0.7}
+                    >
+                      <Animated.View 
+                        style={[
+                          styles.stepCard,
+                          isCompleted && styles.stepCardCompleted,
+                          { opacity: isLoading ? 0 : 1 }
+                        ]}
+                      >
+                        {/* Checkbox */}
+                        <View style={[
+                          styles.stepCheckbox,
+                          isCompleted && styles.stepCheckboxCompleted
+                        ]}>
+                          {isCompleted && (
+                            <MaterialIcons name="check" size={16} color="#342846" />
+                          )}
+                        </View>
+                        
+                        <View style={styles.stepIconContainer}>
+                          <MaterialIcons 
+                            name={getIconName(step.icon)} 
+                            size={20} 
+                            color={isCompleted ? "#8B8178" : "#342846"} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.stepText,
+                          isCompleted && styles.stepTextCompleted
+                        ]}>{step.text}</Text>
+                      </Animated.View>
+                    </TouchableOpacity>
                   );
-                } else {
-                  return (
-                    <Text key={index} style={styles.instructionText}>
-                      {section.content}
-                    </Text>
-                  );
-                }
-              })}
+                })
+              )}
             </View>
           </>
         )}
 
-        {/* Dear Face Image */}
-        <View style={styles.dearFaceContainer}>
-          <Image
-            source={require('../assets/images/deer.face.png')}
-            style={styles.dearFaceImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Chat About My Fear Button */}
+        {/* Chat with Atlas Section */}
         <TouchableOpacity
-          style={styles.chatFearButton}
+          style={styles.chatAtlasCard}
           onPress={handleOpenFearChat}
+          activeOpacity={0.8}
         >
-          <Text style={styles.chatFearButtonText}>chat about my fear</Text>
+          <View style={styles.chatAtlasAvatar}>
+            <Image
+              source={require('../assets/images/deer.face.png')}
+              style={styles.chatAtlasImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.chatAtlasContent}>
+            <Text style={styles.chatAtlasTitle}>{tr('Chat with Atlas', 'Чат с Атласом')}</Text>
+            <Text style={styles.chatAtlasSubtitle}>{tr('Stuck? I am here to help!', 'Застрял? Я рядом, чтобы помочь!')}</Text>
+          </View>
+          <View style={styles.chatAtlasChevron}>
+            <MaterialIcons name="chevron-right" size={18} color="#342846" />
+          </View>
         </TouchableOpacity>
 
         {/* Action Buttons */}
@@ -405,25 +987,22 @@ export default function LevelDetailScreen() {
                 },
               });
             }}
+            activeOpacity={0.9}
           >
+            <MaterialIcons name="check" size={18} color="#fff" />
             <Text style={styles.didItButtonText}>{t('levelDetail.iDidIt')}</Text>
           </TouchableOpacity>
 
-          {/* I need time Button */}
+          {/* Later Button */}
           <TouchableOpacity
-            style={styles.needTimeButton}
+            style={styles.laterButton}
             onPress={() => {
               setShowNeedTimeModal(true);
             }}
+            activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#ffffff', '#e0e0e0']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.needTimeButtonGradient}
-            >
-              <Text style={styles.needTimeButtonText}>I need time</Text>
-            </LinearGradient>
+            <MaterialIcons name="schedule" size={16} color="#8B8178" />
+            <Text style={styles.laterButtonText}>{tr('Later', 'Позже')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -439,13 +1018,17 @@ export default function LevelDetailScreen() {
           <View style={styles.chatContainer}>
             {/* Chat Header */}
             <View style={styles.chatHeader}>
-              <Text style={styles.chatHeaderText}>{t('levelDetail.atlasIsHere')}</Text>
-              <TouchableOpacity
-                onPress={() => setShowFearChat(false)}
-                style={styles.closeChatButton}
-              >
-                <Text style={styles.closeChatButtonText}>✕</Text>
-              </TouchableOpacity>
+              {/* Handle */}
+              <View style={styles.chatHandle} />
+              <View style={styles.chatHeaderContent}>
+                <Text style={styles.chatHeaderText}>{tr('Chat with Atlas', 'Чат с Атласом')}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowFearChat(false)}
+                  style={styles.closeChatButton}
+                >
+                  <MaterialIcons name="close" size={18} color="#342846" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Chat Content */}
@@ -457,14 +1040,16 @@ export default function LevelDetailScreen() {
                 message.type === 'atlas' ? (
                   <View key={index} style={styles.atlasMessageContainer}>
                     <View style={styles.atlasBubbleAndAvatar}>
+                      <View style={styles.atlasAvatarContainer}>
+                        <Image
+                          source={require('../assets/images/deer.face.png')}
+                          style={styles.atlasAvatar}
+                          resizeMode="contain"
+                        />
+                      </View>
                       <View style={styles.atlasMessageBubble}>
                         <Text style={styles.atlasMessageText}>{message.text}</Text>
                       </View>
-                      <Image
-                        source={require('../assets/images/deer.face.png')}
-                        style={styles.atlasAvatar}
-                        resizeMode="contain"
-                      />
                     </View>
                   </View>
                 ) : (
@@ -481,8 +1066,8 @@ export default function LevelDetailScreen() {
             <View style={styles.chatInputContainer}>
               <TextInput
                 style={styles.chatInput}
-                placeholder={t('levelDetail.askForHelp')}
-                placeholderTextColor="#999"
+                placeholder={tr('Type a message...', 'Напиши сообщение...')}
+                placeholderTextColor="#8B8178"
                 value={chatInput}
                 onChangeText={setChatInput}
                 onSubmitEditing={handleSendMessage}
@@ -492,7 +1077,7 @@ export default function LevelDetailScreen() {
                 style={styles.sendButton}
                 onPress={handleSendMessage}
               >
-                <Text style={styles.sendButtonText}>Send</Text>
+                <MaterialIcons name="send" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
@@ -555,34 +1140,100 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  bubblesContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+  },
+  floatingCircle: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#342846',
+    opacity: 0.15,
+  },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 25,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
     width: '100%',
   },
   backButton: {
     alignSelf: 'flex-start',
-    padding: 10,
-    minWidth: 44,
-    minHeight: 44,
+    zIndex: 10,
+  },
+  backButtonCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  exitButton: {
+    alignSelf: 'flex-start',
     zIndex: 10,
+  },
+  exitButtonCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backButtonText: {
     fontSize: 28,
     color: '#342846',
     fontWeight: 'bold',
+  },
+  progressBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'white',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+  },
+  progressBadgeCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressBadgeNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'white',
+  },
+  progressBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#342846',
+    letterSpacing: -0.2,
   },
   levelBadgeTop: {
     width: 60,
@@ -599,6 +1250,126 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#342846',
     fontSize: 16,
+  },
+  goalCard: {
+    backgroundColor: '#342846',
+    borderRadius: 24,
+    padding: 28,
+    marginBottom: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  goalCardCircle1: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(205, 191, 173, 0.1)',
+    borderRadius: 60,
+  },
+  goalCardCircle2: {
+    position: 'absolute',
+    bottom: -60,
+    left: -20,
+    width: 140,
+    height: 140,
+    backgroundColor: 'rgba(205, 191, 173, 0.05)',
+    borderRadius: 70,
+  },
+  goalCardContent: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  goalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(205, 191, 173, 0.2)',
+    borderRadius: 20,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  goalBadgeText: {
+    ...HeadingStyle,
+    fontSize: 11,
+    color: '#CDBFAD',
+    letterSpacing: 0.8,
+  },
+  goalTitle: {
+    ...HeadingStyle,
+    fontSize: 28,
+    color: 'white',
+    marginBottom: 8,
+    lineHeight: 32,
+    letterSpacing: -0.5,
+  },
+  goalDescription: {
+    fontSize: 14,
+    color: 'rgba(205, 191, 173, 0.8)',
+    lineHeight: 21,
+  },
+  stepsSection: {
+    marginBottom: 24,
+  },
+  stepsHeading: {
+    ...HeadingStyle,
+    fontSize: 12,
+    color: '#342846',
+    letterSpacing: 1.2,
+    marginBottom: 16,
+    opacity: 0.5,
+  },
+  stepCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+  },
+  stepCardCompleted: {
+    opacity: 0.7,
+  },
+  stepCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CDBFAD',
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  stepCheckboxCompleted: {
+    backgroundColor: '#CDBFAD',
+    borderColor: '#CDBFAD',
+  },
+  stepIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F8F6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  stepText: {
+    ...BodyStyle,
+    color: '#342846',
+    paddingTop: 8,
+    flex: 1,
+  },
+  stepTextCompleted: {
+    color: '#8B8178',
+    textDecorationLine: 'line-through',
   },
   levelName: {
     ...HeadingStyle,
@@ -627,24 +1398,67 @@ const styles = StyleSheet.create({
   instructionText: {
     ...BodyStyle,
     color: '#FFFFFF',
-    fontSize: 16,
-    textAlign: 'left',
-    lineHeight: 24,
+    textAlign: 'center',
     marginBottom: 12,
   },
   instructionBullet: {
     ...BodyStyle,
     color: '#FFFFFF',
-    fontSize: 16,
-    textAlign: 'left',
-    lineHeight: 24,
+    textAlign: 'center',
     marginBottom: 8,
     marginLeft: 0,
-    paddingLeft: 20, // Minimum 20px padding (was 0)
+    paddingLeft: 0, // Remove left padding since text is centered
+  },
+  chatAtlasCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    backgroundColor: 'white',
+    borderRadius: 18,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+  },
+  chatAtlasAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F8F6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#CDBFAD',
+  },
+  chatAtlasImage: {
+    width: 40,
+    height: 40,
+  },
+  chatAtlasContent: {
+    flex: 1,
+  },
+  chatAtlasTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#342846',
+    marginBottom: 2,
+  },
+  chatAtlasSubtitle: {
+    fontSize: 13,
+    color: '#8B8178',
+  },
+  chatAtlasChevron: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8F6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dearFaceContainer: {
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 65, // Moved down 65px total (30px + 20px + 15px)
   },
   dearFaceImage: {
     width: width * 0.3, // Made smaller (reduced from 0.39)
@@ -660,6 +1474,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
+    marginTop: 30, // Moved down 30px
     alignSelf: 'center',
     minHeight: 44,
   },
@@ -671,24 +1486,49 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     flexDirection: 'row',
-    gap: 16,
-    justifyContent: 'space-between',
-    marginTop: 100,
+    gap: 12,
+    marginTop: 'auto',
+    paddingTop: 16,
   },
   didItButton: {
     backgroundColor: '#342846',
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 30,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 0.63, // Reduced by 37% (from 1.0 to 0.63)
-    minHeight: 44,
+    flex: 2,
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
   didItButtonText: {
     ...BodyStyle,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  laterButton: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+  },
+  laterButtonText: {
+    ...BodyStyle,
+    color: '#8B8178',
+    fontSize: 15,
     fontWeight: '600',
   },
   needTimeButton: {
@@ -717,24 +1557,34 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '70%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    height: '55%',
     maxHeight: 600,
+    padding: 24,
   },
   chatHeader: {
+    marginBottom: 20,
+  },
+  chatHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#CDBFAD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  chatHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   chatHeaderText: {
     ...HeadingStyle,
     color: '#342846',
     fontSize: 20,
+    fontWeight: '700',
+    textTransform: 'none',
   },
   closeChatButton: {
     width: 30,
@@ -751,29 +1601,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chatContentContainer: {
-    padding: 16,
+    paddingBottom: 16,
   },
   atlasMessageContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
     alignItems: 'flex-start',
   },
   atlasBubbleAndAvatar: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 12,
   },
-  atlasMessageBubble: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-    padding: 12,
-    borderTopLeftRadius: 4,
-    maxWidth: '85%',
+  atlasAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+    flexShrink: 0,
   },
   atlasAvatar: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    marginLeft: 0,
+    width: 32,
+    height: 32,
+  },
+  atlasMessageBubble: {
+    backgroundColor: '#F8F6F3',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderTopLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: '#CDBFAD',
+    maxWidth: '85%',
   },
   atlasMessageText: {
     ...BodyStyle,
@@ -788,8 +1650,9 @@ const styles = StyleSheet.create({
   },
   userMessageBubble: {
     backgroundColor: '#342846',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderTopRightRadius: 4,
     maxWidth: '85%',
   },
@@ -802,37 +1665,33 @@ const styles = StyleSheet.create({
   },
   chatInputContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
+    marginTop: 'auto',
+    gap: 10,
   },
   chatInput: {
     flex: 1,
     ...BodyStyle,
-    borderWidth: 1,
-    borderColor: '#342846',
-    borderRadius: 8,
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
-    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: '#CDBFAD',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     color: '#342846',
     fontSize: 14,
-    height: 44,
+    backgroundColor: '#FEFDFB',
   },
   sendButton: {
     backgroundColor: '#342846',
-    borderRadius: 999,
-    paddingHorizontal: 20, // Minimum 20px padding (was 16)
-    paddingVertical: 12,
+    borderRadius: 26,
+    width: 52,
+    height: 52,
     justifyContent: 'center',
-    minWidth: 60,
-    maxWidth: 80,
+    alignItems: 'center',
   },
   sendButtonText: {
     ...BodyStyle,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   needTimeModalOverlay: {

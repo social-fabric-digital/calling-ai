@@ -1,0 +1,119 @@
+
+══════════════════════════════════════════════════════════════════════════════════════════
+PRECISE TODAY'S INSIGHT TEST - EXACT STEPS
+══════════════════════════════════════════════════════════════════════════════════════════
+
+══════════════════════════════════════════════════════════════════════════════════════════
+STEP 1: NAVIGATE TO HOME
+══════════════════════════════════════════════════════════════════════════════════════════
+
+  [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+  [LOG] Running application "main" with appParams:
+ {rootTag: #root, hydrate: undefined} 
+Development-level warnings: ON.
+Performance optimizations: OFF.
+  [LOG] Translation loaded - whatDoYouLoveSubtext: This is about joy, not just hobbies. We're looking
+  [INFO] 🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+  [WARNING] "shadow*" style props are deprecated. Use "boxShadow".
+  [LOG] === Supabase Config Debug ===
+  [LOG] supabaseUrlFromExtra: https://unyrkyvyngafjubjhkkf.supabase.co
+  [LOG] supabaseUrlFromEnv: https://unyrkyvyngafjubjhkkf.supabase.co
+  [LOG] Using hardcoded fallback: false
+  [LOG] Final supabaseUrl: https://unyrkyvyngafjubjhkkf.s...
+  [LOG] supabaseAnonKeyFromExtra: found
+  [LOG] supabaseAnonKeyFromEnv: found
+  [LOG] Final supabaseAnonKey: found
+  [LOG] ============================
+  [LOG] Loading language preference. Saved language: null
+  [WARNING] props.pointerEvents is deprecated. Use style.pointerEvents
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  [WARNING] Image: style.resizeMode is deprecated. Please use props.resizeMode.
+  [LOG] HomeScreen - Current language: en
+  [LOG] astrologyReport state changed: {hasReport: false, reportLength: 0, isLoading: false, showModal: false}
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  [WARNING] Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+✓ Home loaded
+
+══════════════════════════════════════════════════════════════════════════════════════════
+STEP 2: CHECK FOR TUTORIAL/HELP MODAL
+══════════════════════════════════════════════════════════════════════════════════════════
+
+✓ Modal detected (contains "How to use Calling")
+
+Attempting to close modal with X button...
+  Found close button: text="✕"
+  Clicking close button (match 1)...
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  ✓ Modal closed
+
+══════════════════════════════════════════════════════════════════════════════════════════
+STEP 3: CLICK TODAY'S INSIGHT
+══════════════════════════════════════════════════════════════════════════════════════════
+
+✓ "Today's Insight" found on screen
+
+Searching for Today's Insight card...
+  Found exact match: "Today's Insight"
+    Position: (15, 453), Size: 158.7890625x109.34375
+
+✓ Clicking Today's Insight card...
+  [LOG] 🌟 Cosmic Insight clicked
+  [LOG] 📅 Today's date: 2026-02-18
+  [LOG] 🔑 Cache key: daily-report-2026-02-18
+  [LOG] 📊 Birth data loaded: {month: , date: , year: , city: , hour: }
+  [LOG] 📏 Report length: 963
+  [LOG] 📄 Report preview (first 300 chars): Your Cosmic Shield for Today
+Today works best when you move gently and focus on one clear priority at a time. You do not need to solve everything at once for this day to be meaningful. Small steady actions are enough and they count.
+
+What the Universe Wants You to Know
+If anxiety or irritability ris
+  [LOG] ⏳ Waiting 29997ms to complete 30 second queue...
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  [ERROR] Unexpected text node: . A text node cannot be a child of a <View>.
+  [LOG] astrologyReport state changed: {hasReport: false, reportLength: 0, isLoading: true, showModal: true}
+✓ Click executed
+
+══════════════════════════════════════════════════════════════════════════════════════════
+STEP 4: WAIT AND POLL FOR CONTENT
+══════════════════════════════════════════════════════════════════════════════════════════
+
+
+--- Poll 1 (waiting 3 seconds) ---
+Content preview: "Tuesday, February 17, 2026Hello, UserQuestion of the dayWhat brings me joy and peace?ExploreToday's InsightClear My MindMy
+ProgressMy
+PathHow are you feeling today?😐OkayFeeling anxious?Click on me i..."
+Indicators:
+  ✓ queue: YES
+  ✓ skip queue: YES
+  ✓ skip: YES
+  ✓ wait: YES
+  ✓ insight: YES
+
+❌ UNEXPECTED ERROR: locator.count: SyntaxError: Invalid flags supplied to RegExp constructor 'i, button:has-text("Skip")'
+    at new RegExp (<anonymous>)
+    at createTextMatcher (<anonymous>:7998:16)
+    at Object.queryAll (<anonymous>:6874:33)
+    at InjectedScript._queryEngineAll (<anonymous>:6847:49)
+    at InjectedScript.querySelectorAll (<anonymous>:6834:30)
+    at eval (eval at evaluate (:290:30), <anonymous>:2:33)
+    at UtilityScript.evaluate (<anonymous>:292:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+locator.count: SyntaxError: Invalid flags supplied to RegExp constructor 'i, button:has-text("Skip")'
+    at new RegExp (<anonymous>)
+    at createTextMatcher (<anonymous>:7998:16)
+    at Object.queryAll (<anonymous>:6874:33)
+    at InjectedScript._queryEngineAll (<anonymous>:6847:49)
+    at InjectedScript.querySelectorAll (<anonymous>:6834:30)
+    at eval (eval at evaluate (:290:30), <anonymous>:2:33)
+    at UtilityScript.evaluate (<anonymous>:292:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at testTodaysInsightPrecise (/Users/robert/Desktop/calling folder/calling/test-precise-insight.mjs:251:43)
+
+══════════════════════════════════════════════════════════════════════════════════════════
+TEST COMPLETE
+══════════════════════════════════════════════════════════════════════════════════════════
+
+Screenshots saved: test-results/precise-*.png
+
+Browser staying open for 15 seconds...

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from 'react-i18next';
+import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -48,17 +48,18 @@ const getMoodEmoji = (value: number): string => {
   return '😊';                       // Very happy
 };
 
-const getMoodText = (value: number): string => {
-  if (value < 20) return 'Not Great';
-  if (value < 40) return 'Not Good';
-  if (value < 60) return 'Okay';
-  if (value < 80) return 'Good';
-  return 'Great!';
+const getMoodText = (value: number, isRussian: boolean): string => {
+  if (value < 20) return isRussian ? 'Тяжело' : 'Very hard';
+  if (value < 40) return isRussian ? 'Не очень' : 'Not great';
+  if (value < 60) return isRussian ? 'Нормально' : 'Okay';
+  if (value < 80) return isRussian ? 'Хорошо' : 'Good';
+  return isRussian ? 'Отлично!' : 'Great!';
 };
 
 interface MoodSliderProps {
   onMoodChange?: (emoji: string, text: string, value: number) => void;
   onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
   initialValue?: number;
   showBalloon?: boolean; // Control balloon visibility externally
 }
@@ -66,9 +67,12 @@ interface MoodSliderProps {
 export function MoodSlider({ 
   onMoodChange, 
   onInteractionStart,
+  onInteractionEnd,
   initialValue = 50,
   showBalloon = false,
 }: MoodSliderProps) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const [sliderWidth, setSliderWidth] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [currentEmoji, setCurrentEmoji] = useState('😐');
@@ -79,18 +83,18 @@ export function MoodSlider({
   const isPanActive = useSharedValue(false);
   const hasUserInteracted = useSharedValue(false);
 
-  // Initialize after mount with delay for navigation safety
+  // Initialize as soon as mounted so first drag is responsive.
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsReady(true);
-    }, 500);
+    }, 0);
     return () => clearTimeout(timer);
   }, []);
 
   // Update emoji when progress changes
   const updateEmoji = (value: number) => {
     const emoji = getMoodEmoji(value);
-    const text = getMoodText(value);
+    const text = getMoodText(value, Boolean(isRussian));
     setCurrentEmoji(emoji);
     if (onMoodChange) {
       onMoodChange(emoji, text, value);
@@ -110,7 +114,12 @@ export function MoodSlider({
   // Update x position when slider width is known and component is ready
   useEffect(() => {
     if (sliderWidth > 0 && isReady) {
-      x.value = (initialValue / 100) * sliderWidth;
+      const knobHalf = layout.knobSize / 2;
+      const effectiveWidth = sliderWidth - layout.knobSize;
+      // Map initialValue (0-100) to x position accounting for knob size
+      const xPosition = knobHalf + (initialValue / 100) * effectiveWidth;
+      x.value = xPosition;
+      progress.value = initialValue;
     }
   }, [sliderWidth, isReady, initialValue]);
 
@@ -128,24 +137,104 @@ export function MoodSlider({
     runOnJS(updateEmoji)(progress.value);
   });
 
-  const panGesture = Gesture.Pan()
-    .averageTouches(true)
-    .onBegin(() => {
-      if (!isReady) return;
-      isPanActive.value = true;
-      hasUserInteracted.value = true;
-      runOnJS(notifyInteractionStart)();
+  // Create PanResponder for better gesture handling
+  // Use refs to access current values in PanResponder callbacks
+  const isReadyRef = useRef(isReady);
+  const sliderWidthRef = useRef(sliderWidth);
+  const sliderPageXRef = useRef(0);
+  const gestureGrantedRef = useRef(false);
+  
+  useEffect(() => {
+    isReadyRef.current = isReady;
+  }, [isReady]);
+  
+  useEffect(() => {
+    sliderWidthRef.current = sliderWidth;
+  }, [sliderWidth]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Once gesture is granted, always capture movement for smooth sliding
+        if (gestureGrantedRef.current) {
+          return true;
+        }
+        // Capture if horizontal movement is detected or if movement is small (for taps)
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 3;
+      },
+      onStartShouldSetPanResponderCapture: () => true, // Capture gesture before ScrollView can handle it
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        // Once gesture is granted, always capture movement
+        if (gestureGrantedRef.current) {
+          return true;
+        }
+        // Capture if horizontal movement is detected (slider interaction)
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 3;
+      },
+      onPanResponderGrant: (evt) => {
+        if (!isReadyRef.current || sliderWidthRef.current === 0) return;
+        gestureGrantedRef.current = true;
+        isPanActive.value = true;
+        hasUserInteracted.value = true;
+        notifyInteractionStart();
+        
+        // Use absolute coordinates to avoid localX drift near edges.
+        const touchX = evt.nativeEvent.pageX - sliderPageXRef.current;
+        const currentWidth = sliderWidthRef.current;
+        const knobHalf = layout.knobSize / 2;
+        
+        // Clamp touch position to keep knob fully visible
+        const minX = knobHalf;
+        const maxX = currentWidth - knobHalf;
+        const clampedX = Math.max(minX, Math.min(maxX, touchX));
+        
+        x.value = clampedX;
+        
+        // Calculate progress: map from [minX, maxX] to [0, 100]
+        const effectiveWidth = maxX - minX;
+        const progressValue = effectiveWidth > 0 ? ((clampedX - minX) / effectiveWidth) * 100 : 50;
+        progress.value = Math.max(0, Math.min(100, progressValue));
+      },
+      onPanResponderMove: (evt) => {
+        if (!isReadyRef.current || sliderWidthRef.current === 0) return;
+        
+        // Use absolute coordinates to keep full-range dragging stable.
+        const touchX = evt.nativeEvent.pageX - sliderPageXRef.current;
+        const currentWidth = sliderWidthRef.current;
+        const knobHalf = layout.knobSize / 2;
+        
+        // Clamp touch position to keep knob fully visible
+        const minX = knobHalf;
+        const maxX = currentWidth - knobHalf;
+        const clampedX = Math.max(minX, Math.min(maxX, touchX));
+        
+        x.value = clampedX;
+        
+        // Calculate progress: map from [minX, maxX] to [0, 100]
+        const effectiveWidth = maxX - minX;
+        const progressValue = effectiveWidth > 0 ? ((clampedX - minX) / effectiveWidth) * 100 : 50;
+        progress.value = Math.max(0, Math.min(100, progressValue));
+      },
+      onPanResponderRelease: () => {
+        gestureGrantedRef.current = false;
+        isPanActive.value = false;
+        // Keep hasUserInteracted true so balloon stays visible
+        if (onInteractionEnd) {
+          onInteractionEnd();
+        }
+      },
+      onPanResponderTerminate: () => {
+        gestureGrantedRef.current = false;
+        isPanActive.value = false;
+        if (onInteractionEnd) {
+          onInteractionEnd();
+        }
+      },
     })
-    .onChange((ev) => {
-      if (!isReady || sliderWidth === 0) return;
-      const newX = clamp(x.value + ev.changeX, 0, sliderWidth);
-      x.value = newX;
-      progress.value = 100 * (newX / sliderWidth);
-    })
-    .onEnd(() => {
-      isPanActive.value = false;
-      // Keep hasUserInteracted true so balloon stays visible
-    });
+  ).current;
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -200,26 +289,42 @@ export function MoodSlider({
   });
 
   const progressStyle = useAnimatedStyle(() => {
+    // Progress bar should extend to the center of the knob
+    // Since knob is centered on x, progress width is x.value
     return {
       width: x.value,
     };
   });
 
+  const sliderRef = useRef<View>(null);
+  
   const handleLayout = (event: any) => {
     const { width } = event.nativeEvent.layout;
-    setSliderWidth(width);
+    if (width > 0) {
+      setSliderWidth(width);
+    }
+    requestAnimationFrame(() => {
+      sliderRef.current?.measureInWindow?.((pageX: number) => {
+        sliderPageXRef.current = pageX;
+      });
+    });
   };
 
   if (!isReady) {
-    return <View style={styles.slider} />;
+    return <View style={styles.sliderWrapper} />;
   }
 
   return (
-    <GestureDetector gesture={panGesture}>
+    <View 
+      ref={sliderRef}
+      style={styles.sliderWrapper}
+      onLayout={handleLayout}
+      hitSlop={hitSlop}
+      {...panResponder.panHandlers}
+      collapsable={false}
+    >
       <View 
-        style={styles.slider} 
-        hitSlop={hitSlop}
-        onLayout={handleLayout}
+        style={styles.slider}
       >
         <Animated.View style={[styles.ballon, ballonStyle]}>
           <View style={styles.textContainer}>
@@ -229,11 +334,17 @@ export function MoodSlider({
         <Animated.View style={[styles.progress, progressStyle]} />
         <Animated.View style={[styles.knob, animatedStyle]} />
       </View>
-    </GestureDetector>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  sliderWrapper: {
+    width: "100%",
+    height: 56, // Larger touch target improves drag reliability
+    justifyContent: "center",
+    alignItems: "center",
+  },
   knob: {
     width: layout.knobSize,
     height: layout.knobSize,
@@ -245,7 +356,7 @@ const styles = StyleSheet.create({
     left: -layout.knobSize / 2,
   },
   slider: {
-    width: "90%",
+    width: "100%",
     backgroundColor: brandColors.light,
     height: 5,
     justifyContent: "center",

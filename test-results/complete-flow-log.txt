@@ -1,0 +1,139 @@
+🌐 Loading http://localhost:8084...
+  ✓ Loaded
+
+🚀 Clicking "Start my journey"...
+  ✓ Started
+
+⏭️  Skipping intro carousel...
+  ✓ Skipped
+
+📝 ONBOARDING FLOW BEGINS
+
+══════════════════════════════════════════════════════════════════════════════════════════
+
+1. MEET ATLAS screen
+  ⚠ Could not click Next: locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waitin
+
+2. ABOUT YOU - Personal Info Form
+  ✓ Entered name: "Test User"
+
+3. PLEDGE - I Vow Statement
+
+4. IKIGAI QUESTIONS - Four Core Questions
+  ✓ Filled answer 1
+  ✓ Filled answer 2
+  ✓ Filled answer 3
+  ✓ Filled answer 4
+
+5. CURRENT LIFE CONTEXT - Situation Questions
+
+6. CREATING PROFILE - Loading/Processing
+  ⏳ Waiting for profile creation...
+
+7. WHICH DIRECTION CALLS YOU - Choose Path
+  ✓ Clicked "Explore" on first direction
+
+8. CREATE YOUR GOAL - Goal Setting
+  ✓ Filled goal field 1
+  ✓ Filled goal field 2
+
+══════════════════════════════════════════════════════════════════════════════════════════
+CHECKING FINAL STATE...
+
+Final Screen Detection:
+  Paywall: NO ✓
+  Account Creation: NO ✓
+  CallingAwaits: NO
+  Today's Insight: NO
+  Home Screen: NO
+
+══════════════════════════════════════════════════════════════════════════════════════════
+ERROR SUMMARY:
+══════════════════════════════════════════════════════════════════════════════════════════
+Console errors: 75
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Error generating path content: Error: Network request failed. Please check your internet connection and try again.
+    a
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Access to fetch at 'https://api.anthropic.com/v1/messages' from origin 'http://localhost:8084' has been blocked by CORS 
+  - Failed to load resource: net::ERR_FAILED
+  - Error generating path content: Error: Network request failed. Please check your internet connection and try again.
+    a
+  - Unexpected text node: . A text node cannot be a child of a <View>.
+Page errors: 0
+
+══════════════════════════════════════════════════════════════════════════════════════════
+✓ TEST COMPLETE
+══════════════════════════════════════════════════════════════════════════════════════════
+
+Screenshots: test-results/flow-*.png
