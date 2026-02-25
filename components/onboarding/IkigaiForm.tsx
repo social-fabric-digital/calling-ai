@@ -799,6 +799,7 @@ function IkigaiForm({
           ]} 
           onPress={handleNext}
           activeOpacity={0.8}
+          disabled={!hasCurrentAnswer}
         >
           <View style={styles.ikigaiNextButtonContent}>
             <Text style={styles.ikigaiNextButtonText} numberOfLines={1} ellipsizeMode="tail">

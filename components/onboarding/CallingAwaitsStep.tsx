@@ -846,7 +846,7 @@ export default function CallingAwaitsStep({
             <View style={styles.avatarImageWrapper}>
               <View style={styles.avatarImageInner}>
                 <Image
-                  source={require('../../assets/images/deerface.png')}
+                  source={require('../../assets/images/applogo.png')}
                   style={styles.avatarImage}
                   resizeMode="contain"
                 />

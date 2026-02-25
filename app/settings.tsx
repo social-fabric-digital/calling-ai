@@ -467,6 +467,12 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>
           <View style={styles.divider} />
+          <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/terms-of-service')}>
+            <Ionicons name="document-text-outline" size={20} color="#342846" />
+            <Text style={styles.linkText}>{t('settings.termsOfService')}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#999" />
+          </TouchableOpacity>
+          <View style={styles.divider} />
           <TouchableOpacity
             style={styles.linkRow}
             onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}

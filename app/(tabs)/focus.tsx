@@ -1,6 +1,7 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { trackReflectionEvent } from '@/utils/appTracking';
+import { maybePromptForLongFocusSessionReview } from '@/utils/storeReview';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -552,48 +553,31 @@ export default function FocusScreen() {
     atlasPopupTranslateX.setValue(width);
   };
 
-  const handleDone = async () => {
-    // Capture completed time
+  const handleDone = () => {
     const completedSeconds = elapsedTimeRef.current;
-    setCompletedTime(completedSeconds);
-    
-    // Calculate hours (convert seconds to hours)
     const completedHours = completedSeconds / 3600;
-    
-    // Save focus hours to AsyncStorage
-    try {
-      const existingHoursData = await AsyncStorage.getItem('focusHours');
-      const existingHours = existingHoursData ? parseFloat(existingHoursData) : 0;
-      const newTotalHours = existingHours + completedHours;
-      await AsyncStorage.setItem('focusHours', newTotalHours.toString());
-      
-      // Save focus session to Supabase
+
+    // Fire-and-forget: save in background, don't block navigation
+    void maybePromptForLongFocusSessionReview(completedSeconds);
+    void (async () => {
       try {
+        const existingHoursData = await AsyncStorage.getItem('focusHours');
+        const existingHours = existingHoursData ? parseFloat(existingHoursData) : 0;
+        const newTotalHours = existingHours + completedHours;
+        await AsyncStorage.setItem('focusHours', newTotalHours.toString());
+
         const { supabase } = await import('@/lib/supabase');
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('profiles').update({
-            focus_hours: newTotalHours,
-          }).eq('id', user.id);
+          await supabase.from('profiles').update({ focus_hours: newTotalHours }).eq('id', user.id);
         }
       } catch (err) {
-        console.error('Supabase focus save error:', err);
+        console.error('Error saving focus hours:', err);
       }
-    } catch (error) {
-      console.error('Error saving focus hours:', error);
-    }
-    
-    setIsRunning(false);
-    setIsPaused(false);
-    
-    // Trigger confetti celebration
-    setShowConfetti(true);
-    triggerConfetti();
-    
-    // Navigate to home screen after confetti animation
-    setTimeout(() => {
-      router.replace('/(tabs)');
-    }, 2000);
+    })();
+
+    // Navigate immediately — no delay, no confetti
+    router.replace('/(tabs)');
   };
 
   // Confetti pieces for celebration

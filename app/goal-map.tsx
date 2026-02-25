@@ -1811,7 +1811,7 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
             >
               <View style={styles.chatAtlasAvatar}>
                 <Image
-                  source={require('../assets/images/deer.face.png')}
+                  source={require('../assets/images/applogo.png')}
                   style={styles.chatAtlasImage}
                   resizeMode="contain"
                 />

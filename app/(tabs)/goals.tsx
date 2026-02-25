@@ -1,6 +1,7 @@
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { gatePremiumFeature } from '@/utils/premiumGate';
+import { maybePromptForGoalCompletionReview } from '@/utils/storeReview';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -811,6 +812,7 @@ export default function GoalsScreen() {
     }
 
     lastHandledCompletedGoalId.current = completedGoalId;
+    void maybePromptForGoalCompletionReview();
 
     if (!showGoalCompletedPopup) {
       // Find the goal in active goals

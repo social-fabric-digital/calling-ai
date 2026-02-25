@@ -480,7 +480,7 @@ const WelcomeScreen = () => {
               <View style={styles.mascotGlow} />
               <View style={styles.deerImageWrapper}>
                 <Image 
-                  source={require('../assets/images/deer.face.png')}
+                  source={require('../assets/images/applogo.png')}
                   style={styles.deerImage}
                   resizeMode="contain"
                 />

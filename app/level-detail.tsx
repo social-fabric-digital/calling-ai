@@ -956,7 +956,7 @@ export default function LevelDetailScreen() {
         >
           <View style={styles.chatAtlasAvatar}>
             <Image
-              source={require('../assets/images/deer.face.png')}
+              source={require('../assets/images/applogo.png')}
               style={styles.chatAtlasImage}
               resizeMode="contain"
             />
@@ -1042,7 +1042,7 @@ export default function LevelDetailScreen() {
                     <View style={styles.atlasBubbleAndAvatar}>
                       <View style={styles.atlasAvatarContainer}>
                         <Image
-                          source={require('../assets/images/deer.face.png')}
+                          source={require('../assets/images/applogo.png')}
                           style={styles.atlasAvatar}
                           resizeMode="contain"
                         />

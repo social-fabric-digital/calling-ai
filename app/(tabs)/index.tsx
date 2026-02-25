@@ -9,6 +9,7 @@ import { trackReflectionEvent } from '@/utils/appTracking';
 import { ChatMessage } from '@/utils/claudeApi';
 import { getCachedAstrologyReport, getSunSign, getPersonalizedDailyInsight } from '@/utils/astrologyCache';
 import { getTodaysMood, MoodEntry } from '@/utils/moodStorage';
+import { trackDailyInsightViewAndMaybePromptReview } from '@/utils/storeReview';
 import { isPremium as hasSubscriptionAccess } from '@/utils/subscription';
 import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1192,6 +1193,7 @@ export default function HomeScreen() {
   // Handle Cosmic Insight click
   const handleCosmicInsightClick = async () => {
     try {
+      void trackDailyInsightViewAndMaybePromptReview();
       const requestId = ++insightRequestIdRef.current;
       // Get today's date for cache key
       const today = new Date();
@@ -2337,7 +2339,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <Image
-                  source={require('../../assets/images/deer.face.png')}
+                  source={require('../../assets/images/applogo.png')}
                   style={styles.feelingAnxiousImage}
                   resizeMode="contain"
                 />
@@ -2528,18 +2530,31 @@ export default function HomeScreen() {
           >
             {isLoadingReport ? (
               <View style={styles.fullScreenLoadingContainer}>
-                <Text style={styles.queueHeading}>{t('home.cosmicInsightQueue')}</Text>
-                <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
-                <Text style={styles.fullScreenLoadingText}>
-                  {t('home.cosmicInsightQueueText')}
-                </Text>
-                <TouchableOpacity
-                  style={styles.skipQueueButton}
-                  onPress={handleSkipQueue}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.skipQueueButtonText}>{t('home.skipQueue')}</Text>
-                </TouchableOpacity>
+                {queueSkipped ? (
+                  // Premium / trial users: simple spinner, no queue language
+                  <>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={styles.fullScreenLoadingText}>
+                      {t('home.generatingInsight')}
+                    </Text>
+                  </>
+                ) : (
+                  // Free users: full queue UI with 30-second wait and skip button
+                  <>
+                    <Text style={styles.queueHeading}>{t('home.cosmicInsightQueue')}</Text>
+                    <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
+                    <Text style={styles.fullScreenLoadingText}>
+                      {t('home.cosmicInsightQueueText')}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.skipQueueButton}
+                      onPress={handleSkipQueue}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.skipQueueButtonText}>{t('home.skipQueue')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             ) : astrologyReport && astrologyReport.trim().length > 0 ? (
               <View style={styles.fullScreenTextContainer}>

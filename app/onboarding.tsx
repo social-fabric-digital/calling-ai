@@ -28,7 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, Keyboard, Modal, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Animated, Image, Keyboard, Modal, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 export default function OnboardingScreen() {
@@ -660,32 +660,76 @@ export default function OnboardingScreen() {
   currentStepRef.current = currentStep;
 
   const goToNext = async () => {
-    try {
-      const step = currentStepRef.current;
-      
-      // EXPLICITLY DISABLE ALL VALIDATION - Users can proceed from any step without filling required fields
-      // This ensures no validation can block navigation, especially for About You and Pledge steps
-      // NO VALIDATION CHECKS ALLOWED - proceed directly to next step
-      
-      // Validation for About You step (step.id === 2, index 1) - DISABLED: Users can continue without filling fields
-      // No validation required - users can proceed with empty or partially filled fields
-      if (step === 1) {
-      // Save any available data to AsyncStorage (but don't require any fields)
-      try {
-        if (name && name.trim()) {
-          await AsyncStorage.setItem('userName', name.trim());
+    const step = currentStepRef.current;
+    console.log('goToNext called - step:', step);
+
+    // ── Validation (outside try-catch so errors can never bypass a return) ──
+
+    if (step === 1) {
+      const missingCore =
+        !name.trim() ||
+        !birthMonth.trim() ||
+        !birthDate.trim() ||
+        !birthYear.trim() ||
+        !birthCity.trim();
+      if (missingCore) {
+        Alert.alert('', t('onboarding.fillRequiredFields'));
+        return;
+      }
+
+      // Age gate: must be 16 or older
+      const yearNum = parseInt(birthYear.trim(), 10);
+      if (!isNaN(yearNum) && birthYear.trim().length === 4) {
+        const today = new Date();
+        const monthNum = parseInt(birthMonth.trim(), 10) || 1;
+        const dayNum = parseInt(birthDate.trim(), 10) || 1;
+        const birthDateObj = new Date(yearNum, monthNum - 1, dayNum);
+        const age = today.getFullYear() - birthDateObj.getFullYear()
+          - (today < new Date(today.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) ? 1 : 0);
+        if (age < 16) {
+          Alert.alert(
+            isRussian ? 'Возрастное ограничение' : 'Age Restriction',
+            isRussian
+              ? 'Calling доступен только пользователям от 16 лет и старше.'
+              : 'Calling is only available for users aged 16 and above.',
+          );
+          return;
         }
-        // Save birth date components if available (not required)
-        if (birthMonth && birthMonth.trim()) await AsyncStorage.setItem('birthMonth', birthMonth.trim());
-        if (birthDate && birthDate.trim()) await AsyncStorage.setItem('birthDate', birthDate.trim());
-        if (birthYear && birthYear.trim()) await AsyncStorage.setItem('birthYear', birthYear.trim());
-        if (birthCity && birthCity.trim()) await AsyncStorage.setItem('birthCity', birthCity.trim());
+      }
+
+      if (!hideBirthTimeFields && (!birthHour.trim() || !birthMinute.trim())) {
+        Alert.alert('', t('onboarding.fillBirthTime'));
+        return;
+      }
+    }
+
+    if (step === 2) {
+      if (!signature || signature.trim() === '') {
+        Alert.alert(
+          '',
+          isRussian
+            ? 'Пожалуйста, поставьте подпись, чтобы продолжить.'
+            : 'Please sign to continue.',
+        );
+        return;
+      }
+    }
+
+    // ── Saves & navigation (in try-catch for error safety) ──
+    try {
+      if (step === 1) {
+      // Fields validated above — save to AsyncStorage
+      try {
+        await AsyncStorage.setItem('userName', name.trim());
+        await AsyncStorage.setItem('birthMonth', birthMonth.trim());
+        await AsyncStorage.setItem('birthDate', birthDate.trim());
+        await AsyncStorage.setItem('birthYear', birthYear.trim());
+        await AsyncStorage.setItem('birthCity', birthCity.trim());
         if (birthLatitude && birthLatitude.trim()) await AsyncStorage.setItem('birthLatitude', birthLatitude.trim());
         if (birthLongitude && birthLongitude.trim()) await AsyncStorage.setItem('birthLongitude', birthLongitude.trim());
         if (birthTimezone && birthTimezone.trim()) await AsyncStorage.setItem('birthTimezone', birthTimezone.trim());
         if (currentTimezone && currentTimezone.trim()) await AsyncStorage.setItem('currentTimezone', currentTimezone.trim());
-        // Save birth time if available
-        if (birthHour && birthMinute && birthHour.trim() && birthMinute.trim() && !hideBirthTimeFields) {
+        if (!hideBirthTimeFields && birthHour.trim() && birthMinute.trim()) {
           await AsyncStorage.setItem('birthHour', birthHour.trim());
           await AsyncStorage.setItem('birthMinute', birthMinute.trim());
           await AsyncStorage.setItem('birthPeriod', birthAmPm.trim());
@@ -716,18 +760,13 @@ export default function OnboardingScreen() {
       // Always proceed to next step regardless of field values - no validation required
     }
     
-    // Pledge step (step.id === 3, index 2) - DISABLED: Users can continue without signature or any fields
-    // No validation required - users can proceed without signing the pledge
     if (step === 2) {
-      // Save signature if available (but not required)
+      // Signature validated above — save to AsyncStorage
       try {
-        if (signature && signature.trim()) {
-          await AsyncStorage.setItem('pledgeSignature', signature);
-        }
+        await AsyncStorage.setItem('pledgeSignature', signature);
       } catch (error) {
         console.error('Error saving signature:', error);
       }
-      // Always proceed to next step regardless of signature - no validation required
     }
     
     // Save Ikigai answers when completing Ikigai step (step index 3, which is step.id === 4)
@@ -857,19 +896,7 @@ export default function OnboardingScreen() {
       router.replace('/(tabs)');
     }
     } catch (error) {
-      // Silently handle any errors - don't show alerts or block navigation
-      console.error('Error in goToNext (non-blocking):', error);
-      // Still proceed with navigation even if there's an error
-      const step = currentStepRef.current;
-      if (step < ONBOARDING_STEPS.length - 1) {
-        const nextStep = step + 1;
-        Animated.timing(slideAnim, {
-          toValue: -nextStep * width,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-        setCurrentStep(nextStep);
-      }
+      console.error('Error in goToNext:', error);
     }
   };
 

@@ -162,7 +162,7 @@ function AtlasAvatar({ size = 'medium', showStatus = false }: AtlasAvatarProps) 
   return (
     <View style={[styles.avatarContainer, { width: avatarSize, height: avatarSize }]}>
       <Image
-        source={require('../../assets/images/deer.face.png')}
+        source={require('../../assets/images/applogo.png')}
         style={[styles.avatarImage, { width: avatarSize, height: avatarSize }]}
         resizeMode="contain"
       />
