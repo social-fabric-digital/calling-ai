@@ -11,7 +11,7 @@ import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Dimensions, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Path, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 
@@ -707,20 +707,13 @@ export default function GoalMapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Animated Starfield Background */}
-      <ExpoLinearGradient
-        colors={['#1a1a2e', '#342846', '#1a1a2e']}
-        locations={[0, 0.5, 1]}
+      {/* Goal map background image */}
+      <Image
+        source={require('../assets/images/goalmap.png')}
+        pointerEvents="none"
         style={styles.backgroundGradient}
-      >
-        {/* Star Layers */}
-        <Animated.View style={[styles.starLayer, { opacity: starAnim1 }]} />
-        <Animated.View style={[styles.starLayer2, { opacity: starAnim2 }]} />
-        <Animated.View style={[styles.starLayer3, { opacity: starAnim3 }]} />
-        
-        {/* Cosmic Glow */}
-        <View style={styles.cosmicGlow} />
-      </ExpoLinearGradient>
+        resizeMode="cover"
+      />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
@@ -1618,7 +1611,11 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
       onRequestClose={onClose}
     >
       <View style={styles.levelModalOverlay}>
-        <View style={styles.levelModal}>
+        <ImageBackground
+          source={require('../assets/images/level.png')}
+          style={styles.levelModal}
+          resizeMode="cover"
+        >
           {/* Floating Purple Circles */}
           <View style={styles.bubblesContainer} pointerEvents="none">
             <Animated.View
@@ -1811,7 +1808,7 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
             >
               <View style={styles.chatAtlasAvatar}>
                 <Image
-                  source={require('../assets/images/applogo.png')}
+                  source={require('../assets/images/anxious.png')}
                   style={styles.chatAtlasImage}
                   resizeMode="contain"
                 />
@@ -1881,7 +1878,7 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
               </Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </ImageBackground>
       </View>
 
       {/* Atlas Chat Modal */}
@@ -1914,6 +1911,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   starLayer: {
     position: 'absolute',
@@ -2006,19 +2005,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12, // Original margin restored
+    marginBottom: 12,
+    backgroundColor: 'rgba(44, 82, 67, 0.85)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   progressLabel: {
     ...HeadingStyle,
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: '#FFFFFF',
     letterSpacing: 1.5,
   },
   progressCount: {
     ...BodyStyle,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#FFFFFF',
     fontFamily: 'AnonymousPro-Regular',
   },
   progressTrack: {
@@ -2383,18 +2388,18 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     // Note: React Native doesn't support dashed borders, using solid with opacity for distinction
   },
   lockedCalloutBox: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 9,
@@ -2679,7 +2684,7 @@ const styles = StyleSheet.create({
   },
   levelModalOverlay: {
     flex: 1,
-    backgroundColor: '#F5F3F0',
+    backgroundColor: '#1f1a2a',
   },
   helperModal: {
     backgroundColor: '#FFFFFF',
@@ -2853,7 +2858,7 @@ const styles = StyleSheet.create({
   },
   // Level Detail Modal
   levelModal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 0,
     width: '100%',
     maxWidth: '100%',
@@ -3041,7 +3046,7 @@ const styles = StyleSheet.create({
   levelModalProgressText: {
     ...BodyStyle,
     fontSize: 12,
-    color: '#7A8A9A',
+    color: '#342846',
     fontFamily: 'AnonymousPro-Regular',
     textAlign: 'center',
   },

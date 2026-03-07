@@ -1,9 +1,11 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 import {
     ActivityIndicator,
     Animated,
@@ -74,6 +76,21 @@ interface GiftCardData {
   description: string;
   gradientColors: string[];
 }
+
+const withOpacity = (hexColor: string, alpha = 0.8): string => {
+  const normalized = hexColor.replace('#', '');
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : normalized;
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 // ============================================
 // Animated Gift Card Component
@@ -243,11 +260,12 @@ function AnimatedGiftCard({
 
         <Animated.View style={[styles.revealedCard, { minHeight: cardMinHeight }]}>
           <LinearGradient
-            colors={data.gradientColors as [string, string, ...string[]]}
+            colors={data.gradientColors.map((color) => withOpacity(color, 0.8)) as [string, string, ...string[]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.cardGradient}
           >
+            <FrostedCardLayer intensity={30} tint="dark" fallbackColor="rgba(52, 40, 70, 0.2)" />
             {/* Shimmer overlay */}
             <Animated.View
               style={[
@@ -846,7 +864,7 @@ export default function CallingAwaitsStep({
             <View style={styles.avatarImageWrapper}>
               <View style={styles.avatarImageInner}>
                 <Image
-                  source={require('../../assets/images/applogo.png')}
+                  source={require('../../assets/images/anxious.png')}
                   style={styles.avatarImage}
                   resizeMode="contain"
                 />
@@ -881,9 +899,15 @@ export default function CallingAwaitsStep({
               data={gift}
               index={index}
               isRevealed={revealedCards.has(index)}
-              onReveal={() => handleRevealCard(index)}
+              onReveal={() => {
+                void hapticLight();
+                handleRevealCard(index);
+              }}
               isExpanded={expandedCard === index}
-              onToggleExpand={() => handleToggleExpand(index)}
+              onToggleExpand={() => {
+                void hapticLight();
+                handleToggleExpand(index);
+              }}
             />
           ))}
         </View>
@@ -904,7 +928,10 @@ export default function CallingAwaitsStep({
       <View style={styles.continueButtonContainer}>
         <TouchableOpacity
           style={styles.continueButton}
-          onPress={onContinue}
+          onPress={() => {
+            void hapticMedium();
+            onContinue?.();
+          }}
           activeOpacity={0.9}
         >
           <Text style={styles.continueButtonText}>{labels.continue}</Text>
@@ -987,7 +1014,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#342846',
     marginHorizontal: 16,
-    opacity: 0.6,
+    opacity: 1,
   },
 
   // Cards Section

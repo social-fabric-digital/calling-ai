@@ -1,6 +1,7 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,16 +9,19 @@ import {
     Animated,
     Dimensions,
     FlatList,
+    Image,
     NativeScrollEvent,
     NativeSyntheticEvent,
     StyleSheet,
     Text,
     TouchableOpacity,
+    UIManager,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const supportsBlurView = Boolean(UIManager.getViewManagerConfig?.('ExpoBlurView'));
 
 // Create Animated FlatList for native scroll events
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
@@ -502,6 +506,16 @@ const FeatureCard = ({
           }
         ]}
       >
+        {supportsBlurView ? (
+          <BlurView
+            intensity={90}
+            tint="light"
+            style={styles.cardBlur}
+            experimentalBlurMethod="dimezisBlurView"
+          />
+        ) : (
+          <View style={styles.cardBlurFallback} />
+        )}
         <View style={styles.cardContent}>
           <View style={styles.iconContainer}>
             <MaterialIcons 
@@ -517,7 +531,6 @@ const FeatureCard = ({
         </View>
         {item.why && (
           <View style={styles.tooltip}>
-            <MaterialIcons name="auto-fix-high" size={16} color="#342846" />
             <Text style={styles.tooltipText}>{item.why}</Text>
           </View>
         )}
@@ -700,6 +713,12 @@ export default function FeaturesIntroScreen() {
   return (
     <PaperTextureBackground>
       <View style={styles.container}>
+        <Image
+          source={require('../assets/images/own.png')}
+          pointerEvents="none"
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
         {/* Skip Button */}
         <TouchableOpacity 
           style={[styles.skipButton, { top: Math.max(insets.top, 20) + 10 }]} 
@@ -861,6 +880,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   skipButton: {
     position: 'absolute',
     right: 20,
@@ -870,7 +898,7 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     ...BodyStyle,
-    color: '#666',
+    color: '#FFFFFF',
     fontSize: 12, // Reduced by 20% from 15 (15 * 0.8 = 12)
   },
   headerSection: {
@@ -879,13 +907,13 @@ const styles = StyleSheet.create({
   },
   mainHeading: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 16,
   },
   subheading: {
     ...BodyStyle,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     fontSize: 16,
     lineHeight: 19,
@@ -1110,14 +1138,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 20,
     padding: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+  },
+  cardBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cardBlurFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
   },
   cardContent: {
     flexDirection: 'row',
@@ -1153,7 +1189,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
     borderRadius: 10,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 5,
     marginTop: 14,
     gap: 8,
   },
@@ -1164,6 +1201,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#666',
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   pagination: {
     flexDirection: 'row',

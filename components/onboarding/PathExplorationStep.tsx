@@ -1,5 +1,7 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { generatePathContent } from '@/utils/claudeApi';
+import { hapticMedium } from '@/utils/haptics';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -294,9 +296,10 @@ function WhyItFitsCard({ userName, whatYouLove, whatYouGoodAt, pathName, whyItFi
       ]}
     >
       <LinearGradient
-        colors={[COLORS.primary, '#3d3050']}
+        colors={['rgba(52, 40, 70, 0.8)', 'rgba(61, 48, 80, 0.8)']}
         style={styles.whyItFitsGradient}
       >
+        <FrostedCardLayer />
         <View style={styles.whyItFitsHeader}>
           <MaterialIcons name="lightbulb" size={20} color={COLORS.white} />
           <Text style={styles.whyItFitsLabel}>{t('clarityMap.whyThisFitsYou')}</Text>
@@ -402,6 +405,7 @@ function GoalCard({ goal, index, onSelect }: GoalCardProps) {
       )}
 
       <Animated.View style={[styles.goalCard, { minHeight: goal.isRecommended ? 280 : 250 }]}>
+          <FrostedCardLayer />
           {/* Recommended badge */}
           {goal.isRecommended && (
             <View style={styles.recommendedBadge}>
@@ -411,12 +415,30 @@ function GoalCard({ goal, index, onSelect }: GoalCardProps) {
           )}
 
           {/* Header row */}
-          <View style={styles.goalHeader}>
-            <View style={[styles.goalIconContainer, { backgroundColor: goal.tagColor + '20' }]}>
-              <MaterialIcons name={goal.icon as any} size={24} color={goalIconColor} />
+          <View style={[styles.goalHeader, goal.isRecommended && { marginTop: 34 }]}>
+            <View
+              style={[
+                styles.goalIconContainer,
+                {
+                  backgroundColor: goal.tagColor + '40',
+                  borderWidth: 1,
+                  borderColor: 'rgba(52, 40, 70, 0.2)',
+                },
+              ]}
+            >
+              <MaterialIcons name={goal.icon as any} size={24} color={COLORS.primary} />
             </View>
-            <View style={[styles.goalTag, { backgroundColor: goal.tagColor + '20' }]}>
-              <Text style={[styles.goalTagText, { color: goalIconColor }]}>{goal.tag}</Text>
+            <View
+              style={[
+                styles.goalTag,
+                {
+                  backgroundColor: goal.tagColor + '40',
+                  borderWidth: 1,
+                  borderColor: 'rgba(52, 40, 70, 0.2)',
+                },
+              ]}
+            >
+              <Text style={[styles.goalTagText, { color: COLORS.primary }]}>{goal.tag}</Text>
             </View>
           </View>
 
@@ -428,11 +450,14 @@ function GoalCard({ goal, index, onSelect }: GoalCardProps) {
           {/* Action button */}
           <TouchableOpacity
             style={styles.startButton}
-            onPress={onSelect}
+            onPress={() => {
+              void hapticMedium();
+              onSelect();
+            }}
             activeOpacity={0.9}
           >
             <Text style={styles.startButtonText}>{isRussian ? 'Начать цель' : 'Start goal'}</Text>
-            <MaterialIcons name="arrow-forward" size={18} color={COLORS.white} />
+            <MaterialIcons name="arrow-forward" size={18} color={COLORS.primary} />
           </TouchableOpacity>
 
       </Animated.View>
@@ -687,7 +712,10 @@ export default function PathExplorationStep({
             <View style={styles.customBottomActionContainer}>
               <TouchableOpacity
                 style={[styles.customBottomActionButton, customBottomActionDisabled && styles.customBottomActionDisabled]}
-                onPress={onCustomBottomActionPress}
+                onPress={() => {
+                  void hapticMedium();
+                  onCustomBottomActionPress();
+                }}
                 activeOpacity={0.8}
                 disabled={customBottomActionDisabled}
               >
@@ -706,7 +734,10 @@ export default function PathExplorationStep({
           <View style={{ marginTop: 24 }}>
             <CustomPathCard
               isVisible={true}
-              onPress={() => onWorkOnDreamGoal?.()}
+              onPress={() => {
+                void hapticMedium();
+                onWorkOnDreamGoal?.();
+              }}
             />
           </View>
         )}
@@ -766,6 +797,7 @@ function CustomPathCard({ isVisible, onPress }: CustomPathCardProps) {
         activeOpacity={0.9}
       >
         <View style={styles.customCardEmpty}>
+          <FrostedCardLayer />
           <Animated.View style={[styles.customIconContainer, { transform: [{ rotate: rotation }] }]}>
             <View style={styles.customIconCircle}>
               <MaterialIcons name="auto-fix-high" size={28} color="#342846" />
@@ -855,7 +887,7 @@ const styles = StyleSheet.create({
   pathName: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 26,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 4,
   },
@@ -869,8 +901,8 @@ const styles = StyleSheet.create({
   pathDescription: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
-    color: COLORS.primary,
-    opacity: 0.7,
+    color: '#FFFFFF',
+    opacity: 1,
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
@@ -962,12 +994,12 @@ const styles = StyleSheet.create({
   sectionDivider: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(52, 40, 70, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   sectionTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 14,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginHorizontal: 16,
     letterSpacing: 0.5,
@@ -989,9 +1021,10 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   goalCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 20,
     padding: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.08)',
     shadowColor: COLORS.primary,
@@ -1002,7 +1035,7 @@ const styles = StyleSheet.create({
   },
   recommendedBadge: {
     position: 'absolute',
-    top: -10,
+    top: 12,
     left: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1081,18 +1114,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   startButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 999,
-    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.22)',
   },
   startButtonText: {
-    fontFamily: 'AnonymousPro-Regular',
-    fontSize: 18,
-    color: COLORS.white,
+    ...BodyStyle,
+    fontSize: 14,
+    color: COLORS.primary,
   },
   customBottomActionContainer: {
     marginTop: 14,
@@ -1125,7 +1166,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 10,
     lineHeight: 12,
-    color: '#6e6480',
+    color: '#FFFFFF',
     maxWidth: 230,
   },
   expandIndicator: {
@@ -1151,9 +1192,10 @@ const styles = StyleSheet.create({
     borderColor: '#342846',
     borderStyle: 'solid',
     minHeight: 100,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     padding: 20,
     position: 'relative',
+    overflow: 'hidden',
   },
   customIconContainer: {
     position: 'absolute',

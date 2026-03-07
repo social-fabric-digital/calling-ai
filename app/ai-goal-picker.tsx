@@ -3,12 +3,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import PathExplorationStep from '@/components/onboarding/PathExplorationStep';
 import PathsAlignedStep from '@/components/onboarding/PathsAlignedStep';
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { GeneratedPath, generateGoalSteps, generateUnifiedDestinyProfile } from '@/utils/claudeApi';
+import {
+  hapticError,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticWarning,
+} from '@/utils/haptics';
 
 type ProfileContext = {
   birthMonth: string;
@@ -166,6 +173,7 @@ export default function AIGoalPickerScreen() {
 
   const generateAndPersistPaths = async (ctx: ProfileContext, mode: 'initial' | 'regenerate') => {
     if (mode === 'regenerate' && regenerationsThisMonth >= MONTHLY_REGEN_LIMIT) {
+      void hapticWarning();
       Alert.alert(
         tr('Monthly limit reached', 'Достигнут лимит месяца'),
         tr(
@@ -211,6 +219,7 @@ export default function AIGoalPickerScreen() {
       setPathsVersion((prev) => prev + 1);
     } catch (error) {
       console.error('Failed to generate AI paths:', error);
+      void hapticError();
       setErrorMessage(
         tr(
           'Could not generate your personalized paths right now. Please try again.',
@@ -239,6 +248,7 @@ export default function AIGoalPickerScreen() {
 
   const handleRegenerateGoalsOnly = async () => {
     if (goalRegenerationsThisMonth >= MONTHLY_REGEN_LIMIT) {
+      void hapticWarning();
       Alert.alert(
         tr('Monthly limit reached', 'Достигнут лимит месяца'),
         tr(
@@ -248,12 +258,14 @@ export default function AIGoalPickerScreen() {
       );
       return;
     }
+    void hapticMedium();
     await incrementGoalRegenerationCount();
     setGoalRegenTrigger((prev) => prev + 1);
   };
 
   const handleStartJourney = async (goalTitle?: string) => {
     if (!profile || !selectedPath || isSavingGoal) return;
+    void hapticMedium();
     const safeGoalTitle = (goalTitle || '').trim() || selectedPath.title;
 
     setIsSavingGoal(true);
@@ -338,9 +350,11 @@ export default function AIGoalPickerScreen() {
               'Твоя новая цель активна и готова к старту.'
             )
       );
+      void hapticSuccess();
       router.back();
     } catch (error) {
       console.error('Failed to save AI goal:', error);
+      void hapticError();
       Alert.alert(
         tr('Could not save goal', 'Не удалось сохранить цель'),
         tr('Please try again in a moment.', 'Попробуй снова через минуту.')
@@ -363,11 +377,18 @@ export default function AIGoalPickerScreen() {
 
   return (
     <PaperTextureBackground>
+      <Image
+        source={require('../assets/images/direction.png')}
+        pointerEvents="none"
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       <View style={styles.container}>
         <View style={styles.topRow}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
+              void hapticMedium();
               if (selectedPath) {
                 setSelectedPath(null);
                 return;
@@ -383,7 +404,13 @@ export default function AIGoalPickerScreen() {
         {!!errorMessage && !selectedPath ? (
           <View style={styles.centerState}>
             <Text style={styles.stateText}>{errorMessage}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => generateAndPersistPaths(profile, 'initial')}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                void hapticMedium();
+                void generateAndPersistPaths(profile, 'initial');
+              }}
+            >
               <Text style={styles.retryButtonText}>{tr('Try again', 'Попробовать снова')}</Text>
             </TouchableOpacity>
           </View>
@@ -441,7 +468,10 @@ export default function AIGoalPickerScreen() {
                     regenerationsThisMonth >= MONTHLY_REGEN_LIMIT && styles.regenerateButtonDisabled,
                   ]}
                   disabled={regenerationsThisMonth >= MONTHLY_REGEN_LIMIT}
-                  onPress={() => generateAndPersistPaths(profile, 'regenerate')}
+                  onPress={() => {
+                    void hapticMedium();
+                    void generateAndPersistPaths(profile, 'regenerate');
+                  }}
                   activeOpacity={0.8}
                 >
                   <MaterialIcons name="refresh" size={16} color="#342846" />
@@ -461,6 +491,7 @@ export default function AIGoalPickerScreen() {
               generatedPathsRef.current = paths || [];
             }}
             onExplorePath={(pathId) => {
+              void hapticLight();
               const found = generatedPathsRef.current.find((path) => path.id === pathId);
               if (found) {
                 setGoalRegenTrigger(0);
@@ -486,6 +517,15 @@ export default function AIGoalPickerScreen() {
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   container: {
     flex: 1,
     paddingTop: 56,
@@ -558,7 +598,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 10,
     lineHeight: 12,
-    color: '#6e6480',
+    color: '#FFFFFF',
     maxWidth: 230,
     alignSelf: 'center',
   },

@@ -1,13 +1,15 @@
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { trackReflectionEvent } from '@/utils/appTracking';
+import { hapticLight } from '@/utils/haptics';
 import { maybePromptForLongFocusSessionReview } from '@/utils/storeReview';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -481,6 +483,7 @@ export default function FocusScreen() {
   }, [isRunning, isPaused, timeRemaining, selectedDuration, trees, showAtlasPopup]);
 
   const selectDuration = (duration: TimerDuration) => {
+    void hapticLight();
     setPreSelectedDuration(duration);
   };
 
@@ -692,18 +695,12 @@ export default function FocusScreen() {
     if (!selectedDuration) return { number: 1, name: t('focus.stages.1') };
     const totalSeconds = selectedDuration * 60;
     const elapsed = totalSeconds - timeRemaining;
-    const progress = elapsed / totalSeconds;
-    
-    // Map progress to stages based on animation sequence
-    const imageIndex = Math.floor(progress * 11);
-    const clampedIndex = Math.min(Math.max(imageIndex, 0), 10);
-    
-    if (clampedIndex < 3) return { number: 1, name: t('focus.stages.1') }; // seed, seed2, seed3
-    if (clampedIndex < 5) return { number: 1, name: t('focus.stages.1') }; // tree, tree2
-    if (clampedIndex < 7) return { number: 2, name: t('focus.stages.2') }; // tree3, tree4
-    if (clampedIndex < 9) return { number: 3, name: t('focus.stages.3') }; // tree5, tree6
-    if (clampedIndex < 10) return { number: 4, name: t('focus.stages.4') }; // tree7
-    return { number: 5, name: t('focus.stages.5') }; // tree8
+    const progress = Math.min(Math.max(elapsed / totalSeconds, 0), 1);
+
+    // Split the session into 5 equal stage bands:
+    // 0-20% => Stage 1 ... 80-100% => Stage 5
+    const stageNumber = Math.min(5, Math.max(1, Math.floor(progress * 5) + 1));
+    return { number: stageNumber, name: t(`focus.stages.${stageNumber}`) };
   };
 
   // Calculate height based on progress (in cm)
@@ -730,8 +727,19 @@ export default function FocusScreen() {
   const animationFrame = getAnimationFrame();
 
   return (
-    <PaperTextureBackground>
+    <PaperTextureBackground baseColor="#1f1a2a">
       <View style={styles.container}>
+        <Image
+          source={
+            selectedDuration && isRunning
+              ? require('../../assets/images/noise.background.png')
+              : require('../../assets/images/sanctuary.png')
+          }
+          pointerEvents="none"
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+      <View style={styles.contentContainer}>
       {/* Header - Only show when timer is running */}
       {selectedDuration && isRunning && (
         <View style={[styles.timerHeader, { paddingTop: insets.top + 20 }]}>
@@ -926,6 +934,7 @@ export default function FocusScreen() {
           <View style={styles.timerCircleContainer}>
             {/* Outer circle with blur effect */}
             <View style={styles.timerCircleOuter}>
+              <FrostedCardLayer intensity={100} tint="light" fallbackColor="rgba(255, 255, 255, 0.08)" />
               {/* Inner circle border */}
               <View style={styles.timerCircleInner}>
                 {/* Animation Image - Progresses through seed, seed2, seed3, tree, tree2, tree3, tree4, tree5, tree6, tree7, tree8 */}
@@ -988,26 +997,7 @@ export default function FocusScreen() {
             />
           </View>
           <View style={[styles.durationSelectionFrame, styles.initialContentShift]}>
-          {/* Slider with yellow dot indicator */}
-          <View style={styles.sliderContainer}>
-            <View style={styles.sliderLine} />
-            {preSelectedDuration && (
-              <View style={[
-                styles.sliderDot,
-                styles.sliderDotSelected,
-                {
-                  left: preSelectedDuration === 5 ? 0 : 
-                        preSelectedDuration === 15 ? 85.33 :
-                        preSelectedDuration === 30 ? 170.66 :
-                        preSelectedDuration === 60 ? 236 : 0,
-                }
-              ]}>
-                <View style={styles.sliderDotGlow} />
-                <View style={styles.sliderDotInner} />
-              </View>
-            )}
-          </View>
-          
+          <FrostedCardLayer />
           <Text style={styles.selectDurationText}>{t('focus.selectDuration')}</Text>
           
           <View style={styles.timerOptionsContainer}>
@@ -1160,6 +1150,7 @@ export default function FocusScreen() {
           </TouchableOpacity>
         </View>
       ) : null}
+      </View>
 
       {/* Completion Popup */}
       <Modal
@@ -1214,12 +1205,24 @@ export default function FocusScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#1f1a2a',
+  },
+  contentContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   initialContentShift: {
     transform: [{ translateY: -35 }],
@@ -1229,7 +1232,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     textAlign: 'center',
     marginBottom: 0,
-    marginTop: 64,
+    marginTop: 89,
   },
   timerContainer: {
     alignItems: 'center',
@@ -1305,19 +1308,20 @@ const styles = StyleSheet.create({
   durationSelectionFrame: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#baccd7',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     borderRadius: 40,
     padding: 32,
-    paddingVertical: 42, // Increased by 30% (32 * 1.3 = 41.6, rounded to 42)
-    backgroundColor: '#fff',
+    paddingVertical: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     marginTop: 120, // Moved down 70 more pixels (was 50, now 120)
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    minHeight: 212 * 1.3, // Increased base height by 30% (212 * 1.3 = 275.6)
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    minHeight: 220,
+    overflow: 'hidden',
   },
   selectDurationText: {
     fontFamily: 'AnonymousPro-Regular',
@@ -1325,7 +1329,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: 'center',
     marginBottom: 0,
-    marginTop: -24, // Moved up 40px (was 16, now -24)
+    marginTop: 0,
     letterSpacing: 0.5,
   },
   sliderContainer: {
@@ -1390,22 +1394,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     paddingHorizontal: 0,
-    marginTop: 48, // Moved down 48px inside the card
+    marginTop: 20,
   },
   timerOptionCircle: {
     width: 70,
     height: 70,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#baccd7',
+    borderWidth: 0,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 6,
   },
   timerOptionCircleSelected: {
-    borderWidth: 2,
-    borderColor: '#342846',
     backgroundColor: '#fff',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
   },
   timerOptionNumber: {
     ...HeadingStyle,
@@ -1413,7 +1424,10 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: 'bold',
     marginBottom: 0,
+    lineHeight: 30,
     textAlign: 'center',
+    includeFontPadding: false,
+    width: '100%',
   },
   timerOptionNumberSelected: {
     color: '#342846',
@@ -1422,9 +1436,12 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Bold',
     color: '#7a8a9a',
     fontSize: 10,
+    lineHeight: 10,
     textTransform: 'none', // Changed from 'uppercase' to keep 'min' lowercase
     textAlign: 'center',
-    marginTop: 2,
+    includeFontPadding: false,
+    width: '100%',
+    marginTop: 0,
   },
   timerOptionLabelSelected: {
     color: '#7a8a9a',
@@ -1456,14 +1473,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     height: '100%',
-    top: 150, // Moved down 30px more (was 120, now 150)
+    top: 190, // Moved down 40px more
   },
   tentBlur: {
     position: 'absolute',
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: 'rgba(52, 40, 70, 0.05)',
+    width: 255,
+    height: 255,
+    borderRadius: 128,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
     // Note: React Native doesn't support CSS blur directly, 
     // but we can use a semi-transparent background to simulate the effect
   },
@@ -1685,18 +1702,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   timerCircleOuter: {
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: 'rgba(91, 58, 143, 0.05)',
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    overflow: 'hidden',
   },
   timerCircleInner: {
-    width: 314,
-    height: 314,
-    borderRadius: 157,
+    width: 352,
+    height: 352,
+    borderRadius: 176,
     borderWidth: 1,
     borderColor: 'rgba(186, 204, 215, 0.4)',
     alignItems: 'center',
@@ -1715,15 +1733,17 @@ const styles = StyleSheet.create({
     height: 288,
   },
   timerSeedContainer: {
-    width: 314, // Match inner circle width
-    height: 314, // Match inner circle height
+    width: 352, // Match inner circle width
+    height: 352, // Match inner circle height
+    borderRadius: 176,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   timerSeedImage: {
-    width: 314, // Match inner circle size
-    height: 314, // Match inner circle size
+    width: 352, // Match inner circle size
+    height: 352, // Match inner circle size
   },
   timerSeedImageLayer: {
     position: 'absolute',
@@ -1732,7 +1752,7 @@ const styles = StyleSheet.create({
   },
   stageBadge: {
     position: 'absolute',
-    bottom: -8,
+    bottom: 22,
     backgroundColor: '#342846',
     borderRadius: 15,
     paddingHorizontal: 20, // Minimum 20px padding (was 16)
@@ -1833,7 +1853,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#342846',
     borderRadius: 24,
-    paddingVertical: 23.5,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -1857,7 +1877,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 2,
     borderColor: '#342846',
-    paddingVertical: 21.5,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

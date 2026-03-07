@@ -55,7 +55,7 @@ const getGuideSections = (isRussian: boolean): GuideSection[] => [
   },
   {
     id: 'progress',
-    icon: require('../assets/images/progress.png'),
+    icon: require('../assets/images/good.png'),
     iconType: 'image',
     title: isRussian ? 'Прогресс за неделю' : 'Weekly progress',
     whatItDoes: isRussian ? 'Отслеживай активность и рост за неделю' : 'Track your activity and growth each week',
@@ -519,9 +519,9 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   bulletLabel: {
-    ...BodyStyle,
+    ...HeadingStyle,
     fontSize: 12,
-    color: '#666',
+    color: '#342846',
     marginBottom: 4,
     fontWeight: '600',
   },

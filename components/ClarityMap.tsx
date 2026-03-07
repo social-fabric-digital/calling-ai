@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { checkSubscriptionStatus } from '@/utils/superwall';
 import { isPremium as hasSubscriptionOrTrialAccess } from '@/utils/subscription';
 import { getRandomReflectionPrompt, getRandomEncouragement } from '@/utils/contentBanks';
+import { hapticLight } from '@/utils/haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -1032,7 +1033,7 @@ const styles = StyleSheet.create({
   categoryLegendText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 12,
-    color: '#342846',
+    color: '#FFFFFF',
   },
   categorizeThoughtItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -1099,7 +1100,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   categorizeSummary: {
-    backgroundColor: 'rgba(186, 204, 215, 0.18)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginTop: 8,
@@ -1132,7 +1133,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 11,
     color: '#666',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.5,
   },
   // Path Created Modal Styles
@@ -1383,8 +1384,8 @@ function BrainDumpStage({
         >
           {/* Title */}
           <View style={styles.titleContainer}>
-            <Text style={styles.mainTitle}>{t('clarityMap.clearYourMind')}</Text>
-            <Text style={styles.mainSubtitle}>
+            <Text style={[styles.mainTitle, { color: '#FFFFFF' }]}>{t('clarityMap.clearYourMind')}</Text>
+            <Text style={[styles.mainSubtitle, { color: '#FFFFFF', opacity: 1 }]}>
               {t('clarityMap.writeEverything')}
             </Text>
           </View>
@@ -1644,7 +1645,10 @@ function CategorizeStage({
                       { borderColor: getCategoryColor('unclear') },
                       thought.category === 'unclear' && { backgroundColor: getCategoryBackgroundColor('unclear') }
                     ]}
-                    onPress={() => handleCategorySelect(thought.id, 'unclear')}
+                    onPress={() => {
+                      void hapticLight();
+                      handleCategorySelect(thought.id, 'unclear');
+                    }}
                   >
                     <Text style={styles.categoryButtonEmoji}>🔍</Text>
                     <Text style={[

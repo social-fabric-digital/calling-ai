@@ -1,8 +1,9 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const brandColors = {
   primary: '#342846',
@@ -55,11 +56,8 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress }: Mo
   };
 
   return (
-    <ImageBackground
-      source={require('../assets/images/goal.background.png')}
-      style={styles.container}
-      imageStyle={styles.containerImage}
-    >
+    <View style={styles.container}>
+      <FrostedCardLayer />
       <View style={styles.content}>
         <View style={styles.emojiContainer}>
           <Text style={styles.emoji}>{emoji}</Text>
@@ -78,29 +76,28 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress }: Mo
           <Text style={styles.updateButtonText}>{tr('Update', 'Изменить')}</Text>
         </Pressable>
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     marginBottom: 24,
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
     overflow: 'hidden',
-  },
-  containerImage: {
-    borderRadius: 12,
-    resizeMode: 'cover',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    backgroundColor: 'transparent',
     padding: 16,
   },
   emojiContainer: {

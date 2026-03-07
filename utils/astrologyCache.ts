@@ -12,6 +12,14 @@ const ASTROLOGY_CACHE_TABLE = 'astrology_cache';
 
 const INSIGHT_CACHE_VERSION = 'v5';
 
+const normalizeProtectedWindowsLabels = (text: string): string => {
+  if (!text) return text;
+  return text
+    .replace(/-\s*Morning\s*\([^)]*\)\s*:/gi, '- Morning:')
+    .replace(/-\s*Midday\s*\([^)]*\)\s*:/gi, '- Midday:')
+    .replace(/-\s*Evening\s*\([^)]*\)\s*:/gi, '- Evening:');
+};
+
 const getLocalizedTodayKey = (timezone?: string): string => {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone || 'UTC',
@@ -37,9 +45,9 @@ const buildGenericSupportiveInsight = (): string => {
       'Если почувствуешь тревогу или раздражение, не принимай быстрых решений на пике эмоций. Сделай паузу, подыши, вернись к самому важному. Избегай сравнения себя с другими - твой ритм достаточно хорош.',
       '',
       'Твои Защищённые Окна',
-      '- Morning (before 11am): Начни с одной посильной задачи и не перегружай утро.',
-      '- Midday (11am-3pm): Держи границы и делай короткие паузы перед ответами и решениями.',
-      '- Evening (after 6pm): Сбавь темп и выбери спокойное восстановление вместо самокритики.',
+      '- Morning: Начни с одной посильной задачи и не перегружай утро.',
+      '- Midday: Держи границы и делай короткие паузы перед ответами и решениями.',
+      '- Evening: Сбавь темп и выбери спокойное восстановление вместо самокритики.',
       '',
       'Мягкое Завершение Вечера',
       'Перед сном спроси себя: что сегодня было достаточно хорошо? Разреши себе отпустить незавершенное и вернуться к этому завтра.',
@@ -57,9 +65,9 @@ const buildGenericSupportiveInsight = (): string => {
     'If anxiety or irritability rises, pause before making fast decisions. Keep communication simple and avoid overexplaining yourself when you are overwhelmed. Protect your energy from comparison and noise.',
     '',
     'Your Protected Windows',
-    '- Morning (before 11am): Start with one practical task and avoid multitasking.',
-    '- Midday (11am-3pm): Use short pauses before important replies or decisions.',
-    '- Evening (after 6pm): Choose recovery over pressure and close the day with kindness.',
+    '- Morning: Start with one practical task and avoid multitasking.',
+    '- Midday: Use short pauses before important replies or decisions.',
+    '- Evening: Choose recovery over pressure and close the day with kindness.',
     '',
     "Tonight's Gentle Landing",
     'Before sleep, ask yourself what was enough for today. Let unfinished things rest and give yourself permission to continue tomorrow.',
@@ -139,7 +147,7 @@ export async function getCachedAstrologyReport(
       .single();
 
     if (data?.report && !error) {
-      return data.report;
+      return normalizeProtectedWindowsLabels(data.report);
     }
   } catch {
     // Cache miss — that's fine, we'll generate
@@ -191,7 +199,7 @@ export async function getCachedAstrologyReport(
     console.warn('Failed to cache astrology report:', err);
   }
 
-  return report;
+  return normalizeProtectedWindowsLabels(report);
 }
 
 /**
@@ -218,7 +226,7 @@ export async function getPersonalizedDailyInsight(
     const cachedReport = await AsyncStorage.getItem(cacheKey);
     if (cachedReport) {
       console.log('✅ Found cached personalized insight for today!');
-      return cachedReport;
+      return normalizeProtectedWindowsLabels(cachedReport);
     }
   } catch (error) {
     console.warn('Error checking cache:', error);
@@ -281,19 +289,20 @@ export async function getPersonalizedDailyInsight(
       birthTimezone: resolvedBirthTimezone,
       currentTimezone,
     });
+    report = normalizeProtectedWindowsLabels(report);
   } catch (error) {
     console.warn('Using generic fallback after personalized generation failure:', error);
     report = buildGenericSupportiveInsight();
   }
 
   try {
-    await AsyncStorage.setItem(cacheKey, report);
+    await AsyncStorage.setItem(cacheKey, normalizeProtectedWindowsLabels(report));
     console.log('💾 Personalized insight saved to cache');
   } catch (err) {
     console.warn('Failed to cache personalized insight:', err);
   }
 
-  return report;
+  return normalizeProtectedWindowsLabels(report);
 }
 
 /**

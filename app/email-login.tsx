@@ -2,11 +2,13 @@ import { supabase } from '@/lib/supabase';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { trackLoginEvent } from '@/utils/appTracking';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   ActivityIndicator, 
+  Image,
   Platform, 
   StyleSheet, 
   Text, 
@@ -27,7 +29,7 @@ export default function EmailLoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showExistingUserLoginButton, setShowExistingUserLoginButton] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -35,57 +37,6 @@ export default function EmailLoginScreen() {
       setEmail(params.email.trim());
     }
   }, [params.email]);
-
-  const isExistingUserError = (message: string) =>
-    /already registered|already been registered|already exists|user already/i.test(message);
-
-  const handleSignUp = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError(tr('Please enter email and password', 'Пожалуйста, введи email и пароль'));
-      return;
-    }
-
-    if (password.length < 6) {
-      setError(tr('Password must contain at least 6 characters', 'Пароль должен содержать минимум 6 символов'));
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setShowExistingUserLoginButton(false);
-
-    try {
-      // Try to access supabase - this will trigger initialization
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-      });
-
-      if (signUpError) {
-        throw signUpError;
-      }
-
-      await trackLoginEvent();
-
-      // Success - navigate to onboarding
-      router.replace('/onboarding');
-    } catch (err: any) {
-      console.error('Sign up error:', err);
-      let errorMessage = tr('Could not create account. Please try again.', 'Не удалось создать аккаунт. Попробуй еще раз.');
-      
-      if (err?.message?.includes('Missing EXPO_PUBLIC_SUPABASE_URL') || 
-          err?.message?.includes('Missing EXPO_PUBLIC_SUPABASE_ANON_KEY')) {
-        errorMessage = tr('Authentication service is not configured. Contact support.', 'Сервис авторизации не настроен. Обратись в поддержку.');
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      setShowExistingUserLoginButton(isExistingUserError(errorMessage));
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -95,7 +46,7 @@ export default function EmailLoginScreen() {
 
     setLoading(true);
     setError(null);
-    setShowExistingUserLoginButton(false);
+    setInfo(null);
 
     try {
       const normalizedEmail = email.trim();
@@ -114,38 +65,7 @@ export default function EmailLoginScreen() {
         return;
       }
 
-      // 2) If credentials are invalid, try to create a new account automatically.
-      // This covers the "user not found" flow from the login prompt.
-      if (!signInError.message?.includes('Invalid login credentials')) {
-        throw signInError;
-      }
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: normalizedPassword,
-      });
-
-      if (signUpError) {
-        // If email already exists, it's likely a wrong password for an existing account.
-        if (
-          /already registered|already been registered|already exists|user already/i.test(
-            signUpError.message || ''
-          )
-        ) {
-          setError(tr('Invalid email or password', 'Неверный email или пароль'));
-          return;
-        }
-        throw signUpError;
-      }
-
-      if (signUpData.user) {
-        await trackLoginEvent();
-        // New account created -> continue onboarding flow.
-        router.replace('/onboarding');
-        return;
-      }
-
-      throw new Error(tr('Could not sign in. Please try again.', 'Не удалось войти. Попробуй еще раз.'));
+      throw signInError;
     } catch (err: any) {
       console.error('Sign in error:', err);
       let errorMessage = tr('Could not sign in. Please try again.', 'Не удалось войти. Попробуй еще раз.');
@@ -167,6 +87,46 @@ export default function EmailLoginScreen() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setError(tr('Please enter your email first', 'Сначала введи email'));
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      const resetRedirectUrl = Linking.createURL('/reset-password', { scheme: 'calling' });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: resetRedirectUrl,
+      });
+      if (resetError) {
+        throw resetError;
+      }
+      setInfo(
+        tr(
+          'Password reset email sent. Please check your inbox.',
+          'Письмо для сброса пароля отправлено. Проверь почту.'
+        )
+      );
+    } catch (err: any) {
+      console.error('Reset password error:', err);
+      setError(
+        err?.message ||
+          tr('Could not send reset email. Please try again.', 'Не удалось отправить письмо для сброса. Попробуй еще раз.')
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAccount = () => {
+    router.replace('/landing');
+  };
+
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -177,9 +137,15 @@ export default function EmailLoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
+      <Image
+        source={require('../assets/images/account.png')}
+        pointerEvents="none"
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       {/* Header with back button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={handleBack}
@@ -200,19 +166,6 @@ export default function EmailLoginScreen() {
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            {showExistingUserLoginButton && (
-              <TouchableOpacity
-                style={styles.existingUserLoginButton}
-                onPress={() => {
-                  setError(null);
-                  setShowExistingUserLoginButton(false);
-                  passwordInputRef.current?.focus();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.existingUserLoginButtonText}>{tr('Log In', 'Войти')}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -227,7 +180,7 @@ export default function EmailLoginScreen() {
             onChangeText={(text) => {
               setEmail(text);
               setError(null);
-              setShowExistingUserLoginButton(false);
+              setInfo(null);
             }}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -248,7 +201,7 @@ export default function EmailLoginScreen() {
             onChangeText={(text) => {
               setPassword(text);
               setError(null);
-              setShowExistingUserLoginButton(false);
+              setInfo(null);
             }}
             secureTextEntry
             autoCapitalize="none"
@@ -256,6 +209,21 @@ export default function EmailLoginScreen() {
             editable={!loading}
           />
         </View>
+
+        {!!info && (
+          <View style={styles.infoContainer}>
+            <Text style={styles.infoText}>{info}</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.forgotPasswordButton}
+          onPress={handleForgotPassword}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.forgotPasswordText}>{tr('Forgot password?', 'Забыли пароль?')}</Text>
+        </TouchableOpacity>
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -282,7 +250,7 @@ export default function EmailLoginScreen() {
               styles.signUpButton, 
               loading ? styles.buttonDisabled : null
             ]}
-            onPress={handleSignUp}
+            onPress={handleCreateAccount}
             disabled={loading}
             activeOpacity={0.8}
           >
@@ -301,11 +269,20 @@ export default function EmailLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingBottom: 16,
   },
   backButton: {
     width: 40,
@@ -350,19 +327,28 @@ const styles = StyleSheet.create({
     color: '#D32F2F',
     fontSize: 14,
   },
-  existingUserLoginButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    backgroundColor: '#342846',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+  infoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.2)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
   },
-  existingUserLoginButtonText: {
+  infoText: {
     ...BodyStyle,
-    color: '#FFFFFF',
+    color: '#342846',
     fontSize: 14,
-    fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+  },
+  forgotPasswordText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   inputContainer: {
     marginBottom: 20,

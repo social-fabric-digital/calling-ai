@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { PledgeStepProps } from './types';
 import { styles } from './styles';
 
@@ -156,6 +157,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
           <TouchableOpacity
             style={localStyles.clearButton}
             onPress={() => {
+              void hapticLight();
               setPaths([]);
               setCurrentPath('');
               currentPathRef.current = '';
@@ -169,7 +171,15 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
 
       {/* Step-local CTA avoids z-index/footer overlay conflicts on iOS. */}
       <View style={{ paddingHorizontal: 40, paddingBottom: 40, paddingTop: 24 }}>
-        <TouchableOpacity style={styles.continueButton} onPress={onNext}>
+        <TouchableOpacity
+          style={styles.continueButton}
+          onPressIn={() => {
+            void hapticMedium();
+          }}
+          onPress={() => {
+            onNext();
+          }}
+        >
           <Text style={styles.continueButtonText}>{t('common.iVow')}</Text>
         </TouchableOpacity>
       </View>

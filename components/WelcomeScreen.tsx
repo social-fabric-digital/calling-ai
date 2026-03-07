@@ -393,6 +393,12 @@ const WelcomeScreen = () => {
   return (
     <PaperTextureBackground>
       <View style={styles.container}>
+        <Image
+          source={require('../assets/images/welcome.png')}
+          pointerEvents="none"
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -480,7 +486,7 @@ const WelcomeScreen = () => {
               <View style={styles.mascotGlow} />
               <View style={styles.deerImageWrapper}>
                 <Image 
-                  source={require('../assets/images/applogo.png')}
+                  source={require('../assets/images/anxious.png')}
                   style={styles.deerImage}
                   resizeMode="contain"
                 />
@@ -609,6 +615,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   scrollContent: {
     flexGrow: 1,

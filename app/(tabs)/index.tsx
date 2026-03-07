@@ -2,6 +2,7 @@ import { GuideModal, shouldShowGuideOnStartup } from '@/components/GuideModal';
 import HomeWalkthrough, { WalkthroughTargetRect } from '@/components/HomeWalkthrough';
 import { MoodLoggedCard } from '@/components/MoodLoggedCard';
 import { MoodSelector } from '@/components/MoodSelector';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import AtlasChat from '@/components/screens/ChatScreen';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -83,6 +84,7 @@ export default function HomeScreen() {
   const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
   const [questionDay, setQuestionDay] = useState<number>(1);
   const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
+  const ignorePersistedDailyAnswerInDev = __DEV__;
   
   // Debug: Log current language and force re-render on language change
   useEffect(() => {
@@ -378,7 +380,7 @@ export default function HomeScreen() {
         
         // Check if answer was already captured today and persist hidden state.
         const lastAnswerDate = await AsyncStorage.getItem('lastAnswerDate');
-        if (lastAnswerDate === today) {
+        if (!ignorePersistedDailyAnswerInDev && lastAnswerDate === today) {
           setAnswerCapturedToday(true);
           setAnswerCaptured(true);
           setShowEnvelope(false);
@@ -1159,7 +1161,12 @@ export default function HomeScreen() {
                       normalizedHeading.includes('protected windows') ||
                       normalizedHeading.includes('защищ');
                     const finalParagraph = isProtectedWindowsSection
-                      ? cleanedParagraph.replace(/[()]/g, '').replace(/\s{2,}/g, ' ').trim()
+                      ? cleanedParagraph
+                          .replace(/[()]/g, '')
+                          .replace(/\b(before|after)\b/gi, '')
+                          .replace(/\s{2,}/g, ' ')
+                          .replace(/\s+([:;,.!?])/g, '$1')
+                          .trim()
                       : cleanedParagraph;
                     return (
                       <View key={`p-${sectionIndex}-${paragraphIndex}`} style={styles.reportParagraphBlock}>
@@ -2036,6 +2043,7 @@ export default function HomeScreen() {
             <>
               <Text style={styles.sectionHeading}>{t('home.questionOfTheDay')}</Text>
               <View style={styles.questionCard}>
+                <FrostedCardLayer />
                 <Text style={styles.questionCardText}>{currentQuestion}</Text>
                 <View style={styles.answerFieldCard}>
                   <TextInput
@@ -2067,7 +2075,8 @@ export default function HomeScreen() {
 
           {/* Envelope animation - shown during transformation */}
           {showEnvelope && (
-            <View style={styles.questionCard}>
+            <View style={[styles.questionCard, styles.questionCardEnvelope]}>
+              <FrostedCardLayer />
               <Animated.View
                 style={[
                   styles.envelopeContainer,
@@ -2234,6 +2243,8 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            <Text style={styles.sectionHeading}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
+
             {/* Mood Card - Show logged state or selector based on state */}
             {todaysMood && !showMoodSelector ? (
               <MoodLoggedCard 
@@ -2243,12 +2254,8 @@ export default function HomeScreen() {
                 onUpdatePress={handleUpdateMood}
               />
             ) : (
-              <ImageBackground
-                source={require('../../assets/images/goal.background.png')}
-                style={styles.moodCard}
-                imageStyle={styles.moodCardImage}
-              >
-                <Text style={styles.moodCardTitle}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
+              <View style={styles.moodCard}>
+                <FrostedCardLayer />
                 <View pointerEvents="auto">
                   <MoodSelector 
                     showQuestion={false} 
@@ -2257,7 +2264,7 @@ export default function HomeScreen() {
                     onInteractionEnd={() => setIsSliderInteracting(false)}
                   />
                 </View>
-              </ImageBackground>
+              </View>
             )}
               
               {/* Radiating light effect - centered on selected button */}
@@ -2326,6 +2333,7 @@ export default function HomeScreen() {
 
           {/* Feeling Anxious Section */}
           <View ref={atlasRef} collapsable={false}>
+            <Text style={styles.sectionHeading}>{t('home.feelingAnxious')}</Text>
             <TouchableOpacity 
               style={styles.feelingAnxiousCard}
               onPress={handleOpenAtlasChat}
@@ -2333,13 +2341,12 @@ export default function HomeScreen() {
             >
               <View style={styles.feelingAnxiousContent}>
                 <View style={styles.feelingAnxiousTextContainer}>
-                  <Text style={styles.feelingAnxiousHeading}>{t('home.feelingAnxious')}</Text>
                   <Text style={styles.feelingAnxiousBody}>
                     {t('home.feelingAnxiousBody')}
                   </Text>
                 </View>
                 <Image
-                  source={require('../../assets/images/applogo.png')}
+                  source={require('../../assets/images/anxious.png')}
                   style={styles.feelingAnxiousImage}
                   resizeMode="contain"
                 />
@@ -2372,24 +2379,13 @@ export default function HomeScreen() {
         <View style={styles.fullScreenModal}>
           {/* Animated Space Background - Full Screen */}
           <View style={styles.spaceBackground}>
-            {/* Queue background image - only show during loading/queue screen */}
-            {isLoadingReport && (
-              <ImageBackground
-                source={require('../../assets/images/queue.png')}
-                style={styles.queueBackground}
-                imageStyle={styles.queueBackgroundImage}
-                resizeMode="cover"
-              />
-            )}
-            {/* Cosmic Insight background image - only show when report is displayed */}
-            {astrologyReport && astrologyReport.trim().length > 0 && !isLoadingReport && (
-              <ImageBackground
-                source={require('../../assets/images/cosmic.insight.png')}
-                style={styles.cosmicInsightBackground}
-                imageStyle={styles.cosmicInsightBackgroundImage}
-                resizeMode="cover"
-              />
-            )}
+            {/* Always-on background to prevent white flash during state transitions */}
+            <ImageBackground
+              source={require('../../assets/images/astrology.png')}
+              style={styles.astrologyBackground}
+              imageStyle={styles.astrologyBackgroundImage}
+              resizeMode="cover"
+            />
             {/* Galaxy gradient background - hide during queue, show during initial load, fade when report appears */}
             {!isLoadingReport && (
               <LinearGradient
@@ -2535,23 +2531,36 @@ export default function HomeScreen() {
                   <>
                     <ActivityIndicator size="large" color="#fff" />
                     <Text style={styles.fullScreenLoadingText}>
-                      {t('home.generatingInsight')}
+                      {t('home.generatingInsight', {
+                        defaultValue: tr('Generating your insight...', 'Генерируем Ваш инсайт...'),
+                      })}
                     </Text>
                   </>
                 ) : (
                   // Free users: full queue UI with 30-second wait and skip button
                   <>
-                    <Text style={styles.queueHeading}>{t('home.cosmicInsightQueue')}</Text>
+                    <Text style={styles.queueHeading}>
+                      {t('home.cosmicInsightQueue', {
+                        defaultValue: tr('Insight queue', 'Очередь инсайта'),
+                      })}
+                    </Text>
                     <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
                     <Text style={styles.fullScreenLoadingText}>
-                      {t('home.cosmicInsightQueueText')}
+                      {t('home.cosmicInsightQueueText', {
+                        defaultValue: tr(
+                          'We are preparing your personalized insight. Please wait a moment.',
+                          'Мы готовим Ваш персональный инсайт. Пожалуйста, подождите немного.'
+                        ),
+                      })}
                     </Text>
                     <TouchableOpacity
                       style={styles.skipQueueButton}
                       onPress={handleSkipQueue}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.skipQueueButtonText}>{t('home.skipQueue')}</Text>
+                      <Text style={styles.skipQueueButtonText}>
+                        {t('home.skipQueue', { defaultValue: tr('Skip queue', 'Пропустить очередь') })}
+                      </Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -2639,6 +2648,7 @@ const styles = StyleSheet.create({
   },
   homeBackground: {
     flex: 1,
+    backgroundColor: '#1f1a2a',
     width: '100%',
     height: '100%',
   },
@@ -2679,6 +2689,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1100,
     elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   guideButton: {
     position: 'absolute',
@@ -2694,6 +2708,10 @@ const styles = StyleSheet.create({
     zIndex: 1100,
     opacity: 1,
     elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   guideButtonText: {
     ...HeadingStyle,
@@ -2715,43 +2733,50 @@ const styles = StyleSheet.create({
   },
   dateText: {
     ...BodyStyle,
-    color: '#FFFFFF',
+    color: '#342846',
     fontSize: 14,
     marginBottom: 8,
     textAlign: 'left',
   },
   greeting: {
     ...HeadingStyle,
-    color: '#FFFFFF',
+    color: '#342846',
     textAlign: 'left',
     marginBottom: 16,
   },
   dividingBar: {
     height: 1,
     backgroundColor: '#FFFFFF',
-    opacity: 0.3,
+    opacity: 0.55,
     marginBottom: 0,
   },
   sectionHeading: {
     ...HeadingStyle,
     color: '#342846',
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: 16,
     textAlign: 'left',
   },
   questionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     padding: 20,
     marginBottom: 24,
+    overflow: 'hidden',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
   },
   dailyQuestionSection: {
-    overflow: 'hidden',
+    overflow: 'visible',
+    marginTop: 20,
+  },
+  questionCardEnvelope: {
+    overflow: 'visible',
   },
   questionCardText: {
     ...BodyStyle,
@@ -2764,8 +2789,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   answerFieldCard: {
-    borderWidth: 1,
-    borderColor: '#342846',
+    borderWidth: 0,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     marginBottom: 16,
@@ -2827,13 +2851,16 @@ const styles = StyleSheet.create({
   },
   moodCard: {
     borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     padding: 20,
     marginBottom: 24,
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
     overflow: 'hidden',
   },
   moodCardImage: {
@@ -3171,6 +3198,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
+    backgroundColor: '#1f1a2a',
   },
   spaceBackground: {
     position: 'absolute',
@@ -3180,6 +3208,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+  },
+  astrologyBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
+  },
+  astrologyBackgroundImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   queueBackground: {
     position: 'absolute',

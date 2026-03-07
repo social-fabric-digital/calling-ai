@@ -1,5 +1,7 @@
 import { BodyStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hapticMedium } from '@/utils/haptics';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -208,10 +210,6 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
 
   // Dynamic height - cards will size purely based on content
   const iconName = path.icon as keyof typeof MaterialIcons.glyphMap;
-  const isThirdCard = index === 2;
-  const textColor = isThirdCard ? '#342846' : undefined; // Used for button text and other elements
-  const headingColor = isThirdCard ? '#FFFFFF' : undefined; // Third card uses white for heading/subheading
-
   return (
     <Animated.View
       style={[
@@ -240,11 +238,12 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
 
       <Animated.View style={styles.card}>
         <LinearGradient
-          colors={path.gradientColors as [string, string, ...string[]]}
+          colors={['rgba(255,255,255,0.6)', 'rgba(255,255,255,0.6)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.cardGradient}
         >
+          <FrostedCardLayer />
           {/* Shimmer overlay */}
           <Animated.View
             style={[
@@ -253,14 +252,14 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
             ]}
           >
             <LinearGradient
-              colors={['transparent', 'rgba(255,255,255,0.08)', 'transparent']}
+              colors={['transparent', 'rgba(52,40,70,0.08)', 'transparent']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.shimmerGradient}
             />
           </Animated.View>
           <LinearGradient
-            colors={['rgba(255,255,255,0.20)', 'rgba(255,255,255,0.06)', 'transparent']}
+            colors={['rgba(52,40,70,0.14)', 'rgba(52,40,70,0.05)', 'transparent']}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={styles.cardTopGlow}
@@ -286,18 +285,18 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
             >
               <View style={styles.cardHeader}>
                 <View style={styles.iconCircle}>
-                  <MaterialIcons name={iconName} size={28} color="#FFFFFF" />
+                  <MaterialIcons name={iconName} size={28} color="#342846" />
                 </View>
                 <View style={styles.headerText}>
-                  <Text style={[styles.pathTitle, headingColor && { color: headingColor }]}>{path.title}</Text>
-                  <Text style={[styles.pathSubtitle, headingColor && { color: headingColor }]}>{path.subtitle}</Text>
+                  <Text style={styles.pathTitle}>{path.title}</Text>
+                  <Text style={styles.pathSubtitle}>{path.subtitle}</Text>
                 </View>
               </View>
             </View>
 
             {/* Why it fits - always visible but subtle */}
             <View style={styles.whyItFitsContainer}>
-              <MaterialIcons name="favorite" size={14} color="#FFFFFF" />
+              <MaterialIcons name="favorite" size={14} color="#342846" />
               <Text style={styles.whyItFitsText}>{path.whyItFits}</Text>
             </View>
           </View>
@@ -309,6 +308,7 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
               style={[styles.exploreButton, { backgroundColor: 'rgba(255,255,255,0.7)' }]}
               onPress={(e) => {
                 e.stopPropagation();
+                void hapticMedium();
                 onSelect();
               }}
               activeOpacity={0.8}
@@ -385,10 +385,14 @@ function CustomPathCard({ isVisible, onPress }: CustomPathCardProps) {
     >
       <TouchableOpacity
         style={styles.customCard}
-        onPress={onPress}
+        onPress={() => {
+          void hapticMedium();
+          onPress();
+        }}
         activeOpacity={0.9}
       >
         <View style={styles.customCardEmpty}>
+          <FrostedCardLayer />
           <Animated.View style={[styles.customIconContainer, { transform: [{ rotate: rotation }] }]}>
             <View style={styles.customIconCircle}>
               <MaterialIcons name="auto-fix-high" size={28} color="#342846" />
@@ -590,7 +594,7 @@ export default function PathsAlignedStep({
   if (isLoadingPaths) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#342846" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
         <Text style={[styles.loadingText, { marginTop: 20 }]}>{t('clarityMap.generatingPersonalizedPaths')}</Text>
       </View>
     );
@@ -670,7 +674,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 24,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 30,
@@ -678,9 +682,9 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
-    opacity: 0.7,
+    opacity: 1,
     lineHeight: 17.6,
     paddingHorizontal: 10,
   },
@@ -715,7 +719,7 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.24)',
+    borderColor: 'rgba(255,255,255,0.65)',
   },
   cardGradient: {
     paddingTop: 24, // Increased padding for better spacing
@@ -793,14 +797,15 @@ const styles = StyleSheet.create({
   pathTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 20,
-    color: '#FFFFFF',
+    color: '#342846',
     marginBottom: 2,
     lineHeight: 28, // Increased line spacing
   },
   pathSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: '#342846',
+    opacity: 0.9,
     lineHeight: 20, // Increased line spacing
   },
 
@@ -818,7 +823,7 @@ const styles = StyleSheet.create({
   whyItFitsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)', // Increased opacity to match third card
+    backgroundColor: 'rgba(255,255,255,0.6)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -893,6 +898,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.22)',
   },
   exploreButtonText: {
     ...BodyStyle,
@@ -914,9 +926,10 @@ const styles = StyleSheet.create({
     borderColor: '#342846',
     borderStyle: 'solid',
     minHeight: 100,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     padding: 20,
     position: 'relative',
+    overflow: 'hidden',
   },
   customIconContainer: {
     position: 'absolute',
@@ -953,7 +966,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...BodyStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     fontSize: 16,
   },
 });

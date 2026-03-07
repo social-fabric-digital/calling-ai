@@ -1,4 +1,3 @@
-import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { generateGoalSteps, generateStepDescription, generateLevelStepInstructions } from '@/utils/claudeApi';
@@ -9,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Dimensions, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
@@ -641,7 +640,11 @@ export default function LevelDetailScreen() {
   };
 
   return (
-    <PaperTextureBackground>
+    <ImageBackground
+      source={require('../assets/images/level.png')}
+      style={styles.screen}
+      resizeMode="cover"
+    >
       {/* Floating Purple Circles */}
       <View style={styles.bubblesContainer} pointerEvents="none">
         <Animated.View
@@ -1131,11 +1134,15 @@ export default function LevelDetailScreen() {
         </View>
       </Modal>
       </KeyboardAvoidingView>
-    </PaperTextureBackground>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',

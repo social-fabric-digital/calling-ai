@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { fetchTimezoneByCoordinates } from '@/utils/astrologyApi';
 import { AboutYouFormProps, CityData } from './types';
 import { styles } from './styles';
@@ -158,6 +158,9 @@ function AboutYouForm({
     const selectedLabel = city.displayName || `${city.name}, ${city.country}`;
     setCityQuery(selectedLabel);
     setBirthCity(selectedLabel);
+    // Close suggestions immediately on selection for smoother UX.
+    setShowCityDropdown(false);
+    setCitySuggestions([]);
     const latString =
       typeof city.lat === 'number' && Number.isFinite(city.lat) ? String(city.lat) : '';
     const lonString =
@@ -186,8 +189,6 @@ function AboutYouForm({
     ]).catch((error) => {
       console.error('Error saving selected city coordinates:', error);
     });
-    setShowCityDropdown(false);
-    setCitySuggestions([]);
   };
 
   const handleCityFieldLayout = (event: any) => {
@@ -372,26 +373,25 @@ function AboutYouForm({
 
   return (
     <>
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
         <ScrollView 
           ref={scrollViewRef}
           style={styles.formContainer}
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           scrollEventThrottle={16}
-          nestedScrollEnabled={true}
+          onScrollBeginDrag={Keyboard.dismiss}
         >
-      <Text style={styles.aboutYouTitle}>{t('onboarding.aboutYouTitle')}</Text>
-      <Text style={styles.formBodyText}>
+      <Text style={[styles.aboutYouTitle, { color: '#FFFFFF' }]}>{t('onboarding.aboutYouTitle')}</Text>
+      <Text style={[styles.formBodyText, { color: '#FFFFFF' }]}>
         {t('onboarding.helpPersonalize')}
       </Text>
 
       {/* Name Field */}
       <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>{t('onboarding.myNameIs')}</Text>
+        <Text style={[styles.fieldLabel, { color: '#FFFFFF' }]}>{t('onboarding.myNameIs')}</Text>
         <View
           style={[styles.textFieldWrapper, styles.nameFieldWrapper]}
         >
@@ -408,12 +408,12 @@ function AboutYouForm({
       {/* Birth Date Fields */}
       <View style={styles.fieldContainer}>
         <View style={styles.fieldLabelContainer}>
-          <Text style={styles.fieldLabel}>{t('onboarding.dateOfBirth')}</Text>
+          <Text style={[styles.fieldLabel, { color: '#FFFFFF' }]}>{t('onboarding.dateOfBirth')}</Text>
           <Pressable
             onPress={() => setShowDateOfBirthTooltip(true)}
             style={styles.helperIcon}
           >
-            <MaterialIcons name="help-outline" size={20} color="#342846" />
+            <MaterialIcons name="help-outline" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
         <View style={styles.dateRow}>
@@ -476,12 +476,12 @@ function AboutYouForm({
       {!hideBirthTimeFields && (
         <View style={styles.fieldContainer}>
           <View style={styles.fieldLabelContainer}>
-            <Text style={styles.fieldLabel}>{t('onboarding.birthTime')}</Text>
+            <Text style={[styles.fieldLabel, { color: '#FFFFFF' }]}>{t('onboarding.birthTime')}</Text>
             <Pressable
               onPress={() => setShowBirthTimeTooltip(true)}
               style={styles.helperIcon}
             >
-              <MaterialIcons name="help-outline" size={20} color="#342846" />
+              <MaterialIcons name="help-outline" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
           <View style={[
@@ -581,7 +581,7 @@ function AboutYouForm({
             <View style={[styles.checkboxBox, dontKnowTime && styles.checkboxChecked]}>
               {dontKnowTime && <Text style={styles.checkmark}>✓</Text>}
             </View>
-            <Text style={styles.checkboxLabel}>{t('onboarding.dontKnowBirthTime')}</Text>
+            <Text style={[styles.checkboxLabel, { color: '#FFFFFF' }]}>{t('onboarding.dontKnowBirthTime')}</Text>
           </Pressable>
         </View>
       )}
@@ -593,12 +593,12 @@ function AboutYouForm({
         onLayout={handleCityFieldLayout}
       >
         <View style={styles.fieldLabelContainer}>
-          <Text style={styles.fieldLabel}>{t('onboarding.cityOfBirth')}</Text>
+          <Text style={[styles.fieldLabel, { color: '#FFFFFF' }]}>{t('onboarding.cityOfBirth')}</Text>
           <Pressable
             onPress={() => setShowCityOfBirthTooltip(true)}
             style={styles.helperIcon}
           >
-            <MaterialIcons name="help-outline" size={20} color="#342846" />
+            <MaterialIcons name="help-outline" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
         <View style={styles.cityFieldWrapper}>
@@ -616,8 +616,8 @@ function AboutYouForm({
           </View>
           {isSearchingCities && (
             <View style={styles.citySearchingRow}>
-              <ActivityIndicator size="small" color="#342846" />
-              <Text style={styles.citySearchingText}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={[styles.citySearchingText, { color: '#FFFFFF' }]}>
                 {isRussian ? 'Поиск городов...' : 'Searching cities...'}
               </Text>
             </View>
@@ -658,7 +658,6 @@ function AboutYouForm({
       </View>
         </ScrollView>
       </View>
-    </TouchableWithoutFeedback>
 
     {/* Tooltip Modals */}
     <Modal

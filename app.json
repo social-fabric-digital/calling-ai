@@ -4,11 +4,12 @@
     "slug": "calling-app",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/applogo.png",
+    "icon": "./assets/images/calling.logo.png",
     "scheme": "calling",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
  "ios": {
+  "icon": "./assets/images/calling.logo.png",
   "supportsTablet": false,
   "bundleIdentifier": "com.socialfactorydigital.calling",
   "buildNumber": "8",
@@ -19,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/calling.logo.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },

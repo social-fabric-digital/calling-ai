@@ -22,6 +22,14 @@ import PaywallStep from '@/components/onboarding/PaywallStep';
 import { checkSubscriptionStatus } from '@/utils/superwall';
 import { generateUnifiedDestinyProfile } from '@/utils/claudeApi';
 import { trackLoginEvent } from '@/utils/appTracking';
+import {
+  hapticError,
+  hapticHeavy,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticWarning,
+} from '@/utils/haptics';
 import { BodyStyle } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -186,6 +194,37 @@ export default function OnboardingScreen() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState('');
   const [showExistingUserLoginButton, setShowExistingUserLoginButton] = useState(false);
+
+  const isTransientNetworkError = (error: unknown): boolean => {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    return (
+      message.includes('network request failed') ||
+      message.includes('failed to fetch') ||
+      message.includes('fetch failed') ||
+      message.includes('timeout') ||
+      message.includes('aborted')
+    );
+  };
+
+  const runWithNetworkRetry = async <T,>(
+    operation: () => Promise<T>,
+    retries = 2,
+    baseDelayMs = 450
+  ): Promise<T> => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        if (!isTransientNetworkError(error) || attempt === retries) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, baseDelayMs * (attempt + 1)));
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  };
   
   // Check premium status on mount
   useEffect(() => {
@@ -461,6 +500,7 @@ export default function OnboardingScreen() {
       // Add new goal to the beginning of the list
       const updatedGoals = [goalToSave, ...existingGoals];
       await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
+      void hapticSuccess();
       
       // Save to Supabase
       // Map timeline to valid database values
@@ -480,7 +520,7 @@ export default function OnboardingScreen() {
       };
       
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await runWithNetworkRetry(() => supabase.auth.getUser());
         if (user) {
           const goalInsertPayload: Record<string, unknown> = {
             user_id: user.id,
@@ -494,11 +534,13 @@ export default function OnboardingScreen() {
           // Safety guard: never send milestones to `goals` table (column does not exist).
           delete goalInsertPayload.milestones;
 
-          const { data: newGoal, error: goalError } = await supabase
-            .from('goals')
-            .insert(goalInsertPayload)
-            .select()
-            .single();
+          const { data: newGoal, error: goalError } = await runWithNetworkRetry(() =>
+            supabase
+              .from('goals')
+              .insert(goalInsertPayload)
+              .select()
+              .single()
+          );
           
           if (goalError) console.error('Goal insert error:', goalError.message);
 
@@ -509,26 +551,33 @@ export default function OnboardingScreen() {
               completed: false,
               order_index: index,
             }));
-            await supabase.from('goal_steps').insert(stepsToInsert);
+            await runWithNetworkRetry(() => supabase.from('goal_steps').insert(stepsToInsert));
           }
 
           // Save selected path if it exists
           if (goalToSave.pathName) {
-            await supabase.from('paths').upsert({
-              user_id: user.id,
-              name: goalToSave.pathName,
-              description: goalToSave.pathDescription || '',
-              is_selected: true,
-              is_ai_generated: !isCustomGoal,
-            }, { onConflict: 'user_id,name' }).select();
+            await runWithNetworkRetry(() =>
+              supabase.from('paths').upsert({
+                user_id: user.id,
+                name: goalToSave.pathName,
+                description: goalToSave.pathDescription || '',
+                is_selected: true,
+                is_ai_generated: !isCustomGoal,
+              }, { onConflict: 'user_id,name' }).select()
+            );
           }
         }
       } catch (error) {
-        console.error('Error saving goal to Supabase:', JSON.stringify(error));
+        if (isTransientNetworkError(error)) {
+          console.warn('Supabase temporarily unavailable while saving goal. Local goal is preserved.');
+        } else {
+          console.error('Error saving goal to Supabase:', JSON.stringify(error));
+        }
       }
       
     } catch (error) {
       console.error('Error creating goal:', error);
+      void hapticError();
       // Fallback to placeholder loading items
       setJourneyLoadingItems([
         localeText('Analyzing your strengths', 'Анализируем твои сильные стороны'),
@@ -541,13 +590,16 @@ export default function OnboardingScreen() {
   };
   
   const handleCreateAccount = async () => {
+    void hapticMedium();
     const route = pendingRoute; // Capture before any async operations
     
     if (!signupEmail.trim() || !signupPassword.trim()) {
+      void hapticWarning();
       setSignupError(localeText('Please enter email and password.', 'Пожалуйста, введи email и пароль.'));
       return;
     }
     if (signupPassword.length < 6) {
+      void hapticWarning();
       setSignupError(localeText('Password must be at least 6 characters.', 'Пароль должен быть не меньше 6 символов.'));
       return;
     }
@@ -563,6 +615,7 @@ export default function OnboardingScreen() {
       });
       
       if (error) {
+        void hapticError();
         setSignupError(error.message);
         setShowExistingUserLoginButton(
           /already registered|already been registered|already exists|user already/i.test(error.message)
@@ -578,11 +631,13 @@ export default function OnboardingScreen() {
           // Wait for the profile trigger to create the row
           let profileExists = false;
           for (let attempt = 0; attempt < 5; attempt++) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('id', data.user.id)
-              .maybeSingle();
+            const { data: profile } = await runWithNetworkRetry(() =>
+              supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', data.user.id)
+                .maybeSingle()
+            );
             if (profile) {
               profileExists = true;
               break;
@@ -592,47 +647,58 @@ export default function OnboardingScreen() {
           }
 
           if (profileExists) {
-            const { error: profileError } = await supabase.from('profiles').update({
-              name: name.trim() || null,
-              birth_date: (birthYear?.trim() && birthMonth?.trim() && birthDate?.trim())
-                ? `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}`
-                : null,
-              birth_time: (birthHour && birthMinute && !hideBirthTimeFields)
-                ? `${birthHour.trim()}:${birthMinute.trim()} ${birthAmPm}`
-                : null,
-              birth_place: birthCity.trim() || null,
-              tier: route === 'premium' ? 'premium' : 'free',
-            }).eq('id', data.user.id);
+            const { error: profileError } = await runWithNetworkRetry(() =>
+              supabase.from('profiles').update({
+                name: name.trim() || null,
+                birth_date: (birthYear?.trim() && birthMonth?.trim() && birthDate?.trim())
+                  ? `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}`
+                  : null,
+                birth_time: (birthHour && birthMinute && !hideBirthTimeFields)
+                  ? `${birthHour.trim()}:${birthMinute.trim()} ${birthAmPm}`
+                  : null,
+                birth_place: birthCity.trim() || null,
+                tier: route === 'premium' ? 'premium' : 'free',
+              }).eq('id', data.user.id)
+            );
             if (profileError) console.error('Profile update error:', profileError.message);
           } else {
             console.error('Profile row not created after 5 attempts');
           }
           
           // Save Ikigai answers
-          const { error: ikigaiError } = await supabase.from('ikigai_answers').insert({
-            user_id: data.user.id,
-            what_you_love: whatYouLove || null,
-            what_youre_good_at: whatYouGoodAt || null,
-            what_world_needs: whatWorldNeeds || null,
-            what_you_can_be_paid_for: whatCanBePaidFor || null,
-          });
+          const { error: ikigaiError } = await runWithNetworkRetry(() =>
+            supabase.from('ikigai_answers').insert({
+              user_id: data.user.id,
+              what_you_love: whatYouLove || null,
+              what_youre_good_at: whatYouGoodAt || null,
+              what_world_needs: whatWorldNeeds || null,
+              what_you_can_be_paid_for: whatCanBePaidFor || null,
+            })
+          );
           if (ikigaiError) console.error('Ikigai save error:', ikigaiError.message);
           
           // Save onboarding data (life context)
-          const { error: onboardingError } = await supabase.from('onboarding_data').insert({
-            user_id: data.user.id,
-            current_situation: currentSituation || null,
-            biggest_constraint: biggestConstraint || null,
-            selected_values: whatMattersMost || [],
-          });
+          const { error: onboardingError } = await runWithNetworkRetry(() =>
+            supabase.from('onboarding_data').insert({
+              user_id: data.user.id,
+              current_situation: currentSituation || null,
+              biggest_constraint: biggestConstraint || null,
+              selected_values: whatMattersMost || [],
+            })
+          );
           if (onboardingError) console.error('Onboarding data save error:', onboardingError.message);
         } catch (saveError) {
-          console.error('Error saving onboarding data to Supabase:', saveError);
+          if (isTransientNetworkError(saveError)) {
+            console.warn('Onboarding data sync temporarily unavailable. Account is created and local state is preserved.');
+          } else {
+            console.error('Error saving onboarding data to Supabase:', saveError);
+          }
         }
         
         // Continue to the appropriate route
         setShowAccountCreation(false);
         setSignupLoading(false);
+        void hapticSuccess();
         
         if (route === 'premium') {
           setUserIsPremium(true);
@@ -650,6 +716,7 @@ export default function OnboardingScreen() {
       }
     } catch (err) {
       console.error('Signup error:', err);
+      void hapticError();
       setSignupError(localeText('Something went wrong. Please try again.', 'Что-то пошло не так. Попробуй еще раз.'));
       setShowExistingUserLoginButton(false);
       setSignupLoading(false);
@@ -673,6 +740,7 @@ export default function OnboardingScreen() {
         !birthYear.trim() ||
         !birthCity.trim();
       if (missingCore) {
+        void hapticWarning();
         Alert.alert('', t('onboarding.fillRequiredFields'));
         return;
       }
@@ -687,6 +755,7 @@ export default function OnboardingScreen() {
         const age = today.getFullYear() - birthDateObj.getFullYear()
           - (today < new Date(today.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) ? 1 : 0);
         if (age < 16) {
+          void hapticWarning();
           Alert.alert(
             isRussian ? 'Возрастное ограничение' : 'Age Restriction',
             isRussian
@@ -698,6 +767,7 @@ export default function OnboardingScreen() {
       }
 
       if (!hideBirthTimeFields && (!birthHour.trim() || !birthMinute.trim())) {
+        void hapticWarning();
         Alert.alert('', t('onboarding.fillBirthTime'));
         return;
       }
@@ -705,6 +775,7 @@ export default function OnboardingScreen() {
 
     if (step === 2) {
       if (!signature || signature.trim() === '') {
+        void hapticWarning();
         Alert.alert(
           '',
           isRussian
@@ -897,6 +968,7 @@ export default function OnboardingScreen() {
     }
     } catch (error) {
       console.error('Error in goToNext:', error);
+      void hapticError();
     }
   };
 
@@ -939,6 +1011,7 @@ export default function OnboardingScreen() {
   };
   
   const handleBackFromAccountCreation = () => {
+    void hapticMedium();
     setShowAccountCreation(false);
     if (isAddGoalFlow) {
       goToPrevious();
@@ -959,12 +1032,60 @@ export default function OnboardingScreen() {
     }
   };
 
+  const goToNextFromUser = async () => {
+    void hapticMedium();
+    await goToNext();
+  };
+
+  const currentStepId = ONBOARDING_STEPS[currentStep]?.id;
+  const shouldShowOnboardingBackground =
+    !showJourneyLoading &&
+    !showPaywall &&
+    !showAccountCreation &&
+    (currentStep <= 4 || currentStepId === 7 || currentStepId === 8 || currentStepId === 9);
+  const onboardingBackgroundSource =
+    currentStepId === 9
+      ? require('../assets/images/own.png')
+      : currentStepId === 8
+        ? require('../assets/images/direction.png')
+      : currentStepId === 7
+        ? require('../assets/images/calling.png')
+      : currentStepId === 2
+        ? require('../assets/images/about.png')
+      : currentStepId === 1
+        ? require('../assets/images/ikigaion.png')
+        : require('../assets/images/onboarding.png');
+
   return (
     <PaperTextureBackground>
     <View style={styles.container}>
+      {shouldShowOnboardingBackground && (
+        <Image
+          source={onboardingBackgroundSource}
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100%',
+            height: '100%',
+          }}
+          resizeMode="cover"
+        />
+      )}
       {!showJourneyLoading && !showCustomPathForm && !showPredefinedGoalChallenge && !showPathChallenge && !showAccountCreation && (
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={goToPrevious}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPressIn={() => {
+              void hapticMedium();
+            }}
+            onPress={() => {
+              goToPrevious();
+            }}
+          >
             <MaterialIcons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
             <View style={styles.headerProgressContainer}>
@@ -980,7 +1101,12 @@ export default function OnboardingScreen() {
             {currentStep === 3 && (
               <TouchableOpacity 
                 style={styles.ikigaiHelpButton} 
-                onPress={() => setShowIkigaiModal(true)}
+                onPressIn={() => {
+                  void hapticLight();
+                }}
+                onPress={() => {
+                  setShowIkigaiModal(true);
+                }}
                 activeOpacity={0.7}
               >
                 <MaterialIcons name="help-outline" size={24} color="#342846" />
@@ -989,7 +1115,12 @@ export default function OnboardingScreen() {
             {currentStep === 4 && (
               <TouchableOpacity 
                 style={styles.ikigaiHelpButton} 
-                onPress={() => setShowLifeContextModal(true)}
+                onPressIn={() => {
+                  void hapticLight();
+                }}
+                onPress={() => {
+                  setShowLifeContextModal(true);
+                }}
                 activeOpacity={0.7}
               >
                 <MaterialIcons name="help-outline" size={24} color="#342846" />
@@ -1019,12 +1150,14 @@ export default function OnboardingScreen() {
       {showPaywall && !isAddGoalFlow ? (
         <PaywallStep
           onSubscribe={() => {
+            void hapticHeavy();
             setPendingRoute('premium');
             setUserIsPremium(true);
             setShowPaywall(false);
             setShowAccountCreation(true);
           }}
           onContinueFree={(meta) => {
+            void hapticMedium();
             // If user backs out of paywall page 1, return to Calling Awaits (step 7),
             // not to Create Account. Mark free route so paywall does not reopen instantly.
             setPendingRoute('free');
@@ -1045,6 +1178,20 @@ export default function OnboardingScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
+            <Image
+              source={require('../assets/images/account.png')}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100%',
+                height: '100%',
+              }}
+              resizeMode="cover"
+            />
             <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
               <View style={{ marginTop: -195 }}>
                 <Text style={{ fontFamily: 'BricolageGrotesque-Bold', fontSize: 28, color: '#342846', textAlign: 'center', marginBottom: 8 }}>
@@ -1091,6 +1238,7 @@ export default function OnboardingScreen() {
                       style={{ marginTop: 10, backgroundColor: '#342846', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 }}
                       activeOpacity={0.8}
                       onPress={() => {
+                        void hapticMedium();
                         setShowExistingUserLoginButton(false);
                         setSignupError('');
                         router.push({
@@ -1111,6 +1259,9 @@ export default function OnboardingScreen() {
               <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingHorizontal: 40, paddingBottom: 40, zIndex: 1000 }}>
                 <TouchableOpacity
                   style={{ backgroundColor: '#342846', borderRadius: 30, paddingVertical: 16, alignItems: 'center', opacity: signupLoading ? 0.7 : 1 }}
+                  onPressIn={() => {
+                    void hapticMedium();
+                  }}
                   onPress={handleCreateAccount}
                   disabled={signupLoading}
                 >
@@ -1171,7 +1322,7 @@ export default function OnboardingScreen() {
                 setShowDontKnowTimeModal={setShowDontKnowTimeModal}
               />
             ) : step.id === 3 ? (
-              <PledgeStep name={name} signature={signature} setSignature={setSignature} onNext={goToNext} />
+              <PledgeStep name={name} signature={signature} setSignature={setSignature} onNext={goToNextFromUser} />
             ) : step.id === 4 ? (
               <IkigaiForm
                 whatYouLove={whatYouLove}
@@ -1183,7 +1334,7 @@ export default function OnboardingScreen() {
                 whatCanBePaidFor={whatCanBePaidFor}
                 setWhatCanBePaidFor={setWhatCanBePaidFor}
                 onPageChange={setIkigaiCurrentPage}
-                onContinue={goToNext}
+                onContinue={goToNextFromUser}
               />
             ) : step.id === 5 ? (
               // Current Life Context step - explicitly prevent Path Forward forms from showing
@@ -1194,7 +1345,7 @@ export default function OnboardingScreen() {
                 setBiggestConstraint={setBiggestConstraint}
                 whatMattersMost={whatMattersMost}
                 setWhatMattersMost={setWhatMattersMost}
-                onContinue={() => goToNext()}
+                onContinue={() => goToNextFromUser()}
                 birthMonth={birthMonth}
                 birthDate={birthDate}
                 birthYear={birthYear}
@@ -1247,7 +1398,7 @@ export default function OnboardingScreen() {
                 fear={fearOrBarrier}
                 whatExcites={dreamGoal}
                 isActive={currentStep === 6}
-                onContinue={() => goToNext()}
+                onContinue={() => goToNextFromUser()}
               />
             ) : step.id === 8 ? (
               showJourneyLoading ? (
@@ -1275,8 +1426,12 @@ export default function OnboardingScreen() {
               ) : (showCustomPathDreamForm && step.id === 8) ? (
                 // Only show CustomPathDreamForm on step 8 (Paths Aligned), not on other steps
                 <CustomPathDreamForm
-                  onBack={goToPrevious}
+                  onBack={() => {
+                    void hapticMedium();
+                    goToPrevious();
+                  }}
                   onComplete={async (pathData) => {
+                    void hapticMedium();
                     // Generate meaningful milestones from the user's input
                     const generatedMilestones: string[] = [];
 
@@ -1337,8 +1492,12 @@ export default function OnboardingScreen() {
                 <CustomPathForm
                   currentStep={7}
                   totalSteps={ONBOARDING_STEPS.length}
-                  onBack={goToPrevious}
+                  onBack={() => {
+                    void hapticMedium();
+                    goToPrevious();
+                  }}
                   onComplete={async (pathData) => {
+                    void hapticMedium();
                     // Save custom path data
                     const nextCustomPathData = {
                       pathName: pathData.goalTitle,
@@ -1365,12 +1524,14 @@ export default function OnboardingScreen() {
                   pathName={predefinedGoalTitle}
                   selectedGoalFear={selectedGoalFear}
                   onContinue={async (challenge) => {
+                    void hapticMedium();
                     setFearOrBarrier(challenge);
                     setShowPredefinedGoalChallenge(false);
                     // Create and save goal, then show journey loading
                     await createAndSaveGoal(customPathData, challenge);
                   }}
                   onBack={() => {
+                    void hapticLight();
                     setShowPredefinedGoalChallenge(false);
                     setPredefinedGoalTitle('');
                     setSelectedGoalFear('');
@@ -1380,10 +1541,12 @@ export default function OnboardingScreen() {
                 <PathChallengeStep
                   pathName={exploringPathName}
                   onContinue={(challenge) => {
+                    void hapticMedium();
                     setPathChallenge(challenge);
                     setShowPathChallenge(false);
                   }}
                   onBack={() => {
+                    void hapticLight();
                     setShowPathChallenge(false);
                     setExploringPathId(null);
                     setPathChallenge('');
@@ -1408,11 +1571,13 @@ export default function OnboardingScreen() {
                   fear={pathChallenge || fearOrBarrier}
                   whatExcites={dreamGoal}
                   onWorkOnDreamGoal={() => {
+                    void hapticLight();
                     // Show custom path form to create custom goal
                     // Keep exploringPathId so back button returns to PathExplorationStep
                     setShowCustomPathForm(true);
                   }}
                   onStartJourney={async (goalId, goalTitle, goalFear) => {
+                    void hapticMedium();
                     // Use goal title from PathExplorationStep, or fallback to path title
                     const path = generatedPaths.find(p => p.id === goalId);
                     const finalGoalTitle = goalTitle || path?.title || localeText('Your personalized goal', 'Твоя персональная цель');
@@ -1442,6 +1607,7 @@ export default function OnboardingScreen() {
                     setGeneratedPaths(paths);
                   }}
                   onExplorePath={(pathId) => {
+                    void hapticLight();
                     // Get path name from generated paths
                     const path = generatedPaths.find(p => p.id === pathId);
                     // Use the path title directly (already formatted as "The [Name]")
@@ -1450,6 +1616,7 @@ export default function OnboardingScreen() {
                     setExploringPathId(pathId);
                   }}
                   onWorkOnDreamGoal={() => {
+                    void hapticLight();
                     // Match "Create Your Goal" flow from trajectory screen:
                     // open the direct goal-with-steps form.
                     setShowCustomPathForm(true);
@@ -1470,8 +1637,12 @@ export default function OnboardingScreen() {
                 <ForgeYourOwnPathStep
                   currentStep={8}
                   totalSteps={ONBOARDING_STEPS.length}
-                  onBack={goToPrevious}
+                  onBack={() => {
+                    void hapticMedium();
+                    goToPrevious();
+                  }}
                   onComplete={async (pathData) => {
+                    void hapticMedium();
                     const nextCustomPathData = {
                       pathName: pathData.goalTitle,
                       pathDescription: pathData.description,
@@ -1492,8 +1663,8 @@ export default function OnboardingScreen() {
               )
             ) : (
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepText}>{step.content}</Text>
+                <Text style={[styles.stepTitle, step.id === 1 && { color: '#FFFFFF' }]}>{step.title}</Text>
+                <Text style={[styles.stepText, step.id === 1 && { color: '#FFFFFF' }]}>{step.content}</Text>
                 {step.showImage && (
                   <Image 
                     source={require('../assets/images/full.deer.png')}
@@ -1519,7 +1690,10 @@ export default function OnboardingScreen() {
           <View style={styles.dontKnowTimeModal}>
             <TouchableOpacity
               style={styles.dontKnowTimeModalCloseButton}
-              onPress={() => setShowDontKnowTimeModal(false)}
+              onPress={() => {
+                void hapticLight();
+                setShowDontKnowTimeModal(false);
+              }}
             >
               <Text style={styles.dontKnowTimeModalCloseX}>✕</Text>
             </TouchableOpacity>
@@ -1529,6 +1703,7 @@ export default function OnboardingScreen() {
             <TouchableOpacity
               style={styles.dontKnowTimeModalConfirmButton}
               onPress={() => {
+                void hapticMedium();
                 setDontKnowTime(true);
                 setHideBirthTimeFields(true);
                 setBirthHour('');
@@ -1572,7 +1747,10 @@ export default function OnboardingScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.ikigaiModalButton}
-                  onPress={() => setShowIkigaiModal(false)}
+                  onPress={() => {
+                    void hapticLight();
+                    setShowIkigaiModal(false);
+                  }}
                 >
                   <Text style={styles.ikigaiModalButtonText}>{t('common.gotIt')}</Text>
                 </TouchableOpacity>
@@ -1613,7 +1791,10 @@ export default function OnboardingScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.ikigaiModalButton}
-                  onPress={() => setShowLifeContextModal(false)}
+                  onPress={() => {
+                    void hapticLight();
+                    setShowLifeContextModal(false);
+                  }}
                 >
                   <Text style={styles.ikigaiModalButtonText}>{t('common.gotIt')}</Text>
                 </TouchableOpacity>
@@ -1629,8 +1810,11 @@ export default function OnboardingScreen() {
           {currentStep !== 3 && currentStep !== 4 && currentStep !== 5 && currentStep !== 6 && currentStep !== 7 && currentStep !== 8 && exploringPathId === null && !showCustomPathForm && (
             <TouchableOpacity 
               style={styles.continueButton} 
+              onPressIn={() => {
+                void hapticMedium();
+              }}
               onPress={async () => {
-                await goToNext();
+                await goToNextFromUser();
               }}
             >
               <Text style={styles.continueButtonText}>

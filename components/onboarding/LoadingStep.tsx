@@ -817,7 +817,7 @@ function LoadingStep({
         }}
       >
         <Image
-          source={require('../../assets/images/applogo.png')}
+          source={require('../../assets/images/deer.face.png')}
           style={styles.deerFaceImage}
           resizeMode="contain"
         />

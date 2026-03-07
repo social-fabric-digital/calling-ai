@@ -2,6 +2,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 import {
     Animated,
     Dimensions,
@@ -176,9 +178,19 @@ function SectionCard({ icon, iconColor, title, children, delay = 0 }: SectionCar
         },
       ]}
     >
+      <FrostedCardLayer />
       <View style={styles.sectionHeader}>
-        <View style={[styles.sectionIconContainer, { backgroundColor: iconColor + '20' }]}>
-          <MaterialIcons name={icon as any} size={20} color={iconColor} />
+        <View
+          style={[
+            styles.sectionIconContainer,
+            {
+              backgroundColor: '#342846',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.65)',
+            },
+          ]}
+        >
+          <MaterialIcons name={icon as any} size={22} color={COLORS.white} />
         </View>
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
@@ -290,10 +302,11 @@ function TimelineOption({ id, label, description, icon, color, isSelected, onSel
           { transform: [{ scale: scaleAnim }] },
         ]}
       >
+        <FrostedCardLayer />
         <View
           style={[
             styles.timelineIconContainer,
-            { backgroundColor: isSelected ? COLORS.primary : 'rgba(52, 40, 70, 0.08)' },
+            { backgroundColor: isSelected ? COLORS.primary : 'rgba(255, 255, 255, 0.7)' },
           ]}
         >
           <MaterialIcons
@@ -380,6 +393,7 @@ export default function CustomPathForm({
   ];
 
   const handleAddMilestone = () => {
+    void hapticMedium();
     if (isFixedMilestones) return;
     if (milestones.length < 6) {
       setMilestones([...milestones, '']);
@@ -387,6 +401,7 @@ export default function CustomPathForm({
   };
 
   const handleRemoveMilestone = (index: number) => {
+    void hapticLight();
     if (isFixedMilestones) return;
     if (milestones.length > 1) {
       setMilestones(milestones.filter((_, i) => i !== index));
@@ -400,6 +415,7 @@ export default function CustomPathForm({
   };
 
   const handleSubmit = () => {
+    void hapticMedium();
     // Show challenge step instead of completing immediately
     setShowChallengeStep(true);
   };
@@ -448,7 +464,13 @@ export default function CustomPathForm({
         {!hideHeader && (
           <View style={styles.header}>
             {onBack && (
-              <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  void hapticMedium();
+                  onBack();
+                }}
+              >
                 <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
               </TouchableOpacity>
             )}
@@ -573,7 +595,10 @@ export default function CustomPathForm({
                 key={option.id}
                 {...option}
                 isSelected={timeline === option.id}
-                onSelect={() => setTimeline(option.id)}
+                onSelect={() => {
+                  void hapticLight();
+                  setTimeline(option.id);
+                }}
               />
             ))}
           </View>
@@ -713,12 +738,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     marginTop: 0,
+    textShadowColor: 'rgba(255, 255, 255, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   heroSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
     color: COLORS.primary,
-    opacity: 0.6,
+    opacity: 1,
     textAlign: 'center',
     marginBottom: 0,
     width: '90%',
@@ -726,15 +754,18 @@ const styles = StyleSheet.create({
 
   // Section Card
   sectionCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     padding: 20,
     marginBottom: 16,
+    overflow: 'hidden',
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -748,6 +779,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   sectionTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
@@ -769,14 +805,14 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: COLORS.primary,
-    opacity: 0.5,
+    opacity: 1,
     marginBottom: 10,
   },
   textInput: {
-    backgroundColor: 'rgba(52, 40, 70, 0.04)',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.08)',
+    borderColor: 'rgba(52, 40, 70, 0.15)',
     paddingHorizontal: 16,
     paddingTop: 10, // Increased by 4px to move text down
     paddingBottom: 14, // Decreased by 4px to maintain spacing
@@ -801,7 +837,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 14,
     color: COLORS.primary,
-    opacity: 0.5,
+    opacity: 1,
     marginBottom: 16,
   },
   milestoneList: {
@@ -829,10 +865,10 @@ const styles = StyleSheet.create({
   },
   milestoneInput: {
     flex: 1,
-    backgroundColor: 'rgba(52, 40, 70, 0.04)',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.08)',
+    borderColor: 'rgba(52, 40, 70, 0.15)',
     paddingHorizontal: 14,
     paddingTop: 8, // Increased by 4px to move text down
     paddingBottom: 12, // Decreased by 4px to maintain spacing
@@ -882,7 +918,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 14,
     color: COLORS.primary,
-    opacity: 0.5,
+    opacity: 1,
     marginBottom: 16,
   },
   timelineGrid: {
@@ -891,19 +927,20 @@ const styles = StyleSheet.create({
   timelineOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(52, 40, 70, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 14,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     padding: 14,
+    overflow: 'hidden',
   },
   timelineOptionSelected: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
   },
   timelineIconContainer: {
     width: 40,
@@ -926,7 +963,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: COLORS.primary,
-    opacity: 0.5,
+    opacity: 1,
   },
   timelineCheck: {
     width: 24,
@@ -946,7 +983,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
     color: COLORS.primary,
-    opacity: 0.6,
+    opacity: 0.9,
     textAlign: 'center',
     fontStyle: 'italic',
     marginTop: 8,
@@ -956,7 +993,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: COLORS.primary,
-    opacity: 0.4,
+    opacity: 0.75,
     marginTop: 8,
   },
 

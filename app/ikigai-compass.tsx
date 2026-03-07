@@ -1,4 +1,5 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { ButtonHeadingStyle } from '@/constants/theme';
 import { generateIkigaiConclusion } from '@/utils/claudeApi';
 import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
@@ -110,7 +111,7 @@ function QuoteCard({ category, index, isVisible, onEdit }: QuoteCardProps) {
 
   const iconName = category.icon as keyof typeof MaterialIcons.glyphMap;
   const hasAnswer = category.answer && category.answer.trim().length > 0;
-  const cardAnswer = category.displayAnswer || category.answer;
+  const cardAnswer = category.answer;
 
   return (
     <Animated.View
@@ -133,20 +134,21 @@ function QuoteCard({ category, index, isVisible, onEdit }: QuoteCardProps) {
         }}
         style={styles.cardTouchable}
       >
-        {/* Card with gradient background */}
+        {/* Card shell */}
         <LinearGradient
-          colors={['#342846', '#a592b0', '#342846']}
+          colors={['rgba(255,255,255,0.6)', 'rgba(255,255,255,0.6)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.card}
         >
+          <FrostedCardLayer />
           {/* Noise texture overlay */}
           <View style={styles.cardNoiseOverlay} />
 
           {/* Header row */}
           <View style={styles.cardHeader}>
             <View style={styles.iconContainer}>
-              <MaterialIcons name={iconName} size={22} color="#FFFFFF" />
+              <MaterialIcons name={iconName} size={22} color="#342846" />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.cardTitle}>{category.title}</Text>
@@ -157,7 +159,7 @@ function QuoteCard({ category, index, isVisible, onEdit }: QuoteCardProps) {
               onPress={() => onEdit(category.id)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialIcons name="edit" size={18} color="rgba(255,255,255,0.7)" />
+              <MaterialIcons name="edit" size={18} color="rgba(52,40,70,0.7)" />
             </TouchableOpacity>
           </View>
 
@@ -344,15 +346,6 @@ export default function IkigaiSummaryScreen({
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const hasCyrillic = (text: string) => /[А-Яа-яЁё]/.test(text);
   const hasLatin = (text: string) => /[A-Za-z]/.test(text);
-  const toTwoWordSummary = (value: string) => {
-    const normalized = String(value || '').trim().replace(/\s+/g, ' ');
-    if (!normalized) return '';
-    const cleaned = normalized
-      .split(' ')
-      .map((word) => word.replace(/^[^\p{L}\p{N}'-]+|[^\p{L}\p{N}'-]+$/gu, ''))
-      .filter(Boolean);
-    return cleaned.slice(0, 2).join(' ');
-  };
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isVisible, setIsVisible] = useState(false);
@@ -685,7 +678,6 @@ export default function IkigaiSummaryScreen({
       title: tr('WHAT YOU LOVE', 'ЧТО ТЫ ЛЮБИШЬ'),
       subtitle: tr('Your passion and what brings you joy', 'Твоя страсть и то, что приносит радость'),
       answer: whatYouLove || '',
-      displayAnswer: toTwoWordSummary(whatYouLove || ''),
     },
     {
       id: 'goodAt',
@@ -693,7 +685,6 @@ export default function IkigaiSummaryScreen({
       title: tr('WHAT YOU ARE GOOD AT', 'В ЧЕМ ТЫ СИЛЕН'),
       subtitle: tr('Your skills and natural talents', 'Твои навыки и природные таланты'),
       answer: whatYouGoodAt || '',
-      displayAnswer: toTwoWordSummary(whatYouGoodAt || ''),
     },
     {
       id: 'worldNeeds',
@@ -701,7 +692,6 @@ export default function IkigaiSummaryScreen({
       title: tr('WHAT THE WORLD NEEDS', 'ЧТО НУЖНО МИРУ'),
       subtitle: tr('Problems you want to solve', 'Проблемы, которые ты хочешь решать'),
       answer: whatWorldNeeds || '',
-      displayAnswer: toTwoWordSummary(whatWorldNeeds || ''),
     },
     {
       id: 'paidFor',
@@ -709,7 +699,6 @@ export default function IkigaiSummaryScreen({
       title: tr('WHAT YOU CAN BE PAID FOR', 'ЗА ЧТО ТЕБЕ МОГУТ ПЛАТИТЬ'),
       subtitle: tr('Your value and professional role', 'Твоя ценность и профессиональная роль'),
       answer: whatCanBePaidFor || '',
-      displayAnswer: toTwoWordSummary(whatCanBePaidFor || ''),
     },
   ];
 
@@ -741,6 +730,12 @@ export default function IkigaiSummaryScreen({
   if (isLoading) {
     return (
       <PaperTextureBackground>
+        <Image
+          source={require('../assets/images/yourpath.png')}
+          pointerEvents="none"
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
         <View style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#342846" />
@@ -753,6 +748,12 @@ export default function IkigaiSummaryScreen({
 
   return (
     <PaperTextureBackground>
+      <Image
+        source={require('../assets/images/yourpath.png')}
+        pointerEvents="none"
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
@@ -928,6 +929,15 @@ export default function IkigaiSummaryScreen({
 // Styles
 // ============================================
 const styles = StyleSheet.create({
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent', // Uses parent PaperTextureBackground
@@ -985,7 +995,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#342846',
     textAlign: 'center',
-    opacity: 0.7,
+    opacity: 0.95,
     lineHeight: 22,
     marginBottom: 24,
   },
@@ -1005,7 +1015,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: '#342846',
-    opacity: 0.5,
+    opacity: 0.9,
     marginHorizontal: 16,
   },
 
@@ -1015,10 +1025,10 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     borderRadius: 16,
-    shadowColor: '#342846', // Purple shadow for 3D effect
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
     elevation: 10,
   },
   cardTouchable: {
@@ -1026,11 +1036,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     minHeight: 160,
     position: 'relative',
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
   },
   cardNoiseOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1047,7 +1060,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(52, 40, 70, 0.25)',
+    backgroundColor: 'rgba(52, 40, 70, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -1058,27 +1071,27 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#342846',
     marginBottom: 3,
     letterSpacing: 0.5,
   },
   cardSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.85,
+    color: '#342846',
+    opacity: 0.8,
   },
   editButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(52, 40, 70, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardDivider: {
     height: 1,
-    backgroundColor: 'rgba(52, 40, 70, 0.15)',
+    backgroundColor: 'rgba(52, 40, 70, 0.2)',
     marginBottom: 16,
   },
   answerContainer: {
@@ -1088,8 +1101,8 @@ const styles = StyleSheet.create({
   },
   answerBackgroundWrapper: {
     flex: 1,
-    marginLeft: 25,
-    marginRight: 25,
+    marginLeft: 0,
+    marginRight: 0,
   },
   answerBackground: {
     backgroundColor: 'rgba(255, 255, 255, 1.0)',

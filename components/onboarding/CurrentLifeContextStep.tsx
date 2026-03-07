@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, FlatList, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { getLifeContextQuestions, width } from './constants';
 import { styles } from './styles';
 import { CurrentLifeContextStepProps } from './types';
@@ -271,6 +273,7 @@ const LifeContextOptionButton = ({
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
+    void hapticLight();
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 0.97, duration: 100, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
@@ -383,6 +386,7 @@ const LifeContextQuestionCard = ({
         isThirdCard && styles.lifeContextQuestionCardMulti,
         { transform: [{ scale }], opacity }
       ]}>
+        <FrostedCardLayer />
         {/* Question */}
         <Text style={styles.lifeContextQuestionText}>{item.question}</Text>
         
@@ -550,6 +554,7 @@ function CurrentLifeContextStep({
   };
 
   const handleNext = async () => {
+    void hapticMedium();
     const currentQuestion = lifeContextQuestions[currentIndex];
     const currentAnswer = answers[currentQuestion.id];
     
@@ -790,7 +795,18 @@ function CurrentLifeContextStep({
           { bottom: continueButtonBottom },
           !hasAnswer && styles.lifeContextContinueButtonDisabled
         ]}
-        onPress={isLastQuestion ? onContinue : handleNext}
+        onPressIn={() => {
+          if (hasAnswer) {
+            void hapticMedium();
+          }
+        }}
+        onPress={() => {
+          if (isLastQuestion) {
+            onContinue();
+            return;
+          }
+          void handleNext();
+        }}
         activeOpacity={0.8}
         disabled={!hasAnswer}
       >

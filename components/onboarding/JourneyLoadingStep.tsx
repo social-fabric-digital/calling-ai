@@ -440,7 +440,7 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
         }}
       >
         <Image
-          source={require('../../assets/images/applogo.png')}
+          source={require('../../assets/images/deer.face.png')}
           style={styles.journeyDeerImage}
           resizeMode="contain"
         />

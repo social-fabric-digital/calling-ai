@@ -1,6 +1,7 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import CustomPathForm from '@/components/onboarding/CustomPathForm';
 import { generateGoalSteps } from '@/utils/claudeApi';
+import { hapticError, hapticMedium, hapticSuccess } from '@/utils/haptics';
 import { checkSubscriptionStatus } from '@/utils/superwall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ export default function NewGoalScreen() {
   const [isCreatingGoal, setIsCreatingGoal] = useState(false);
 
   const handleBackNavigation = async () => {
+    void hapticMedium();
     const openedFromOnboarding = params.fromOnboarding === 'true';
     if (openedFromOnboarding) {
       const userIsPremium = await checkSubscriptionStatus();
@@ -41,6 +43,7 @@ export default function NewGoalScreen() {
     targetTimeline: string;
     challenge?: string;
   }) => {
+    void hapticMedium();
     setIsCreatingGoal(true);
     try {
       const userIsPremium = await checkSubscriptionStatus();
@@ -225,11 +228,13 @@ export default function NewGoalScreen() {
       await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
 
       setIsCreatingGoal(false);
+      void hapticSuccess();
 
       // Navigate back to goals screen
       router.back();
     } catch (error) {
       console.error('Error creating goal:', error);
+      void hapticError();
       setIsCreatingGoal(false);
       alert(t('newGoal.createError') || 'Error creating goal. Please try again.');
     }

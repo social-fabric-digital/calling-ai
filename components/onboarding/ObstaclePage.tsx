@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { hapticMedium } from '@/utils/haptics';
 import { ObstaclePageProps } from './types';
 import { styles } from './styles';
 
@@ -10,6 +11,7 @@ function ObstaclePage({ pathName, onContinue }: ObstaclePageProps) {
 
   const handleContinue = () => {
     if (obstacle.trim()) {
+      void hapticMedium();
       onContinue(obstacle.trim());
     }
   };

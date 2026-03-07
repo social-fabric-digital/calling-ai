@@ -14,13 +14,39 @@ import { loadLanguagePreference } from '@/utils/i18n';
 import { ensureSuperwallInitialized } from '@/utils/superwall';
 import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 
-// Decode splash images immediately when the bundle executes so they're
-// ready before AnimatedSplashScreen mounts — eliminates the purple flash.
-Asset.loadAsync([
+// Preload splash + key background images at app bootstrap.
+// This removes background pop-in when navigating between screens.
+const PRELOAD_ASSETS = [
+  // Splash assets
   require('../assets/images/loading_forest.png'),
   require('../assets/images/cloud.png'),
   require('../assets/images/full.deer.png'),
-]).catch(() => {});
+  // Common backgrounds
+  require('../assets/images/noise.background.png'),
+  require('../assets/images/welcome.png'),
+  require('../assets/images/onboarding.png'),
+  require('../assets/images/about.png'),
+  require('../assets/images/ikigaion.png'),
+  require('../assets/images/calling.png'),
+  require('../assets/images/direction.png'),
+  require('../assets/images/own.png'),
+  require('../assets/images/account.png'),
+  require('../assets/images/me.png'),
+  require('../assets/images/sanctuary.png'),
+  require('../assets/images/active.png'),
+  require('../assets/images/yourpath.png'),
+  require('../assets/images/goalmap.png'),
+  require('../assets/images/level.png'),
+  require('../assets/images/level1.png'),
+  require('../assets/images/level2.png'),
+  require('../assets/images/level3.png'),
+  require('../assets/images/level4.png'),
+  // Additional frequently visited screens
+  require('../assets/images/progress.png'),
+  require('../assets/images/moon.star.png'),
+  require('../assets/images/clear.png'),
+  require('../assets/images/astrology.png'),
+] as const;
 
 // Keep the splash screen visible while we fetch resources
 let splashScreenPrevented = false;
@@ -81,6 +107,7 @@ export default function RootLayout() {
         // Phase 1: language — minimum 2.5s so cloud is just entering the screen
         await Promise.all([
           loadLanguagePreference(),
+          Asset.loadAsync(PRELOAD_ASSETS).catch(() => {}),
           new Promise((r) => setTimeout(r, 2500)),
         ]);
         setLoadProgress(30);
@@ -92,18 +119,10 @@ export default function RootLayout() {
         ]);
         setLoadProgress(50);
 
-        // Phase 3: Superwall — 1.5s, cloud approaching right side
+        // Phase 3: hold timing (Superwall initializes lazily on demand).
+        // Avoid eager network requests at app boot, which can throw
+        // intermittent "Network request failed" errors on unstable connections.
         await Promise.all([
-          (async () => {
-            if (Platform.OS === 'ios' || Platform.OS === 'android') {
-              try {
-                const initialized = await ensureSuperwallInitialized();
-                console.log(initialized ? 'Superwall initialized successfully' : 'Superwall initialization skipped');
-              } catch (error) {
-                console.log('Superwall init error (expected in Expo Go):', error);
-              }
-            }
-          })(),
           new Promise((r) => setTimeout(r, 1500)),
         ]);
         setLoadProgress(85); // Atlas appears here (~6.5s in, cloud on 2nd pass)
@@ -141,6 +160,7 @@ export default function RootLayout() {
             <Stack.Screen name="landing" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="reset-password" />
             <Stack.Screen name="account" />
             <Stack.Screen name="settings" />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

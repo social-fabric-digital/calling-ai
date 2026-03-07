@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, FlatList, Keyboard, KeyboardAvoidingView, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import { hapticMedium } from '@/utils/haptics';
 import { width } from './constants';
 import { styles } from './styles';
 import { IkigaiFormProps } from './types';
@@ -378,6 +380,7 @@ const IkigaiQuestionCard = ({
           { transform: [{ scale }], opacity }
         ]}
       >
+        <FrostedCardLayer />
         {/* Question */}
         <Text style={styles.ikigaiQuestionText}>{item.question}</Text>
         
@@ -580,6 +583,7 @@ function IkigaiForm({
   });
 
   const handleBack = () => {
+    void hapticMedium();
     if (currentIndex > 0) {
       flatListRef.current?.scrollToIndex({ 
         index: currentIndex - 1, 
@@ -591,6 +595,7 @@ function IkigaiForm({
   };
 
   const handleNext = async () => {
+    void hapticMedium();
     // Save current answer
     const currentQuestion = questions[currentIndex];
     const currentAnswer = answers[currentQuestion.id]?.trim();
@@ -781,6 +786,9 @@ function IkigaiForm({
         {currentIndex > 0 && (
           <TouchableOpacity 
             style={styles.ikigaiBackButtonNav} 
+            onPressIn={() => {
+              void hapticMedium();
+            }}
             onPress={handleBack}
             activeOpacity={0.7}
           >
@@ -797,6 +805,11 @@ function IkigaiForm({
               flex: 1,
             }
           ]} 
+          onPressIn={() => {
+            if (hasCurrentAnswer) {
+              void hapticMedium();
+            }
+          }}
           onPress={handleNext}
           activeOpacity={0.8}
           disabled={!hasCurrentAnswer}

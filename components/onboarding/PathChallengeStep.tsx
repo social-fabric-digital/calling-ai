@@ -12,7 +12,9 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { useTranslation } from 'react-i18next';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -108,6 +110,7 @@ export default function PathChallengeStep({ pathName, selectedGoalFear, onContin
 
   const handleContinue = () => {
     if (canProceed) {
+      void hapticMedium();
       const selectedChallengeLabel =
         challenges.find((challenge) => challenge.id === selectedChallenge)?.label || selectedChallenge;
       onContinue(selectedChallengeLabel);
@@ -123,7 +126,13 @@ export default function PathChallengeStep({ pathName, selectedGoalFear, onContin
       {!hideHeader && (
         <View style={styles.headerButtonsRow}>
           {onBack ? (
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                void hapticMedium();
+                onBack();
+              }}
+            >
               <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
           ) : (
@@ -201,9 +210,13 @@ export default function PathChallengeStep({ pathName, selectedGoalFear, onContin
                       styles.challengeCard,
                       isSelected && styles.challengeCardSelected,
                     ]}
-                    onPress={() => setSelectedChallenge(challenge.id)}
+                    onPress={() => {
+                      void hapticLight();
+                      setSelectedChallenge(challenge.id);
+                    }}
                     activeOpacity={0.8}
                   >
+                    <FrostedCardLayer />
                     <View style={[styles.challengeIconContainer, isSelected && styles.challengeIconSelected]}>
                       <MaterialIcons
                         name={challenge.icon as any}
@@ -304,16 +317,16 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 26,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
   },
   stepSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
-    opacity: 0.7,
+    opacity: 1,
     marginBottom: 28,
     lineHeight: 22,
     paddingHorizontal: 10,
@@ -326,7 +339,7 @@ const styles = StyleSheet.create({
   },
   challengeCard: {
     width: (width - 72) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: 'rgba(52, 40, 70, 0.1)',
@@ -336,6 +349,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 130,
     justifyContent: 'flex-start',
+    overflow: 'hidden',
   },
   challengeCardSelected: {
     borderColor: '#342846',

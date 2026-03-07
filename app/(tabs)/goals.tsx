@@ -1,11 +1,19 @@
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { supabase } from '@/lib/supabase';
+import {
+  hapticError,
+  hapticHeavy,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticWarning,
+} from '@/utils/haptics';
 import { gatePremiumFeature } from '@/utils/premiumGate';
 import { maybePromptForGoalCompletionReview } from '@/utils/storeReview';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -238,6 +246,7 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   
   const handleNextStepPress = () => {
+    void hapticMedium();
     // Navigate to goal map and scroll to the specific level card
     router.push({
       pathname: '/goal-map',
@@ -258,6 +267,7 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
 
   // Ensure we're deleting the correct goal by using the goal.id directly
   const handleDelete = () => {
+    void hapticHeavy();
     console.log('GoalCard delete button clicked for goal:', goal.id, goal.name);
     onDelete();
   };
@@ -292,21 +302,9 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
     return tr('1-2 months', '1-2 месяца');
   };
 
-  // Use the same gradient for all cards as per design
-  const gradientColors: [string, string, string] = ['#7B6A95', '#9B8BB5', '#a592b0'];
-
   return (
     <Animated.View style={[styles.card, cardStyle]}>
-      {/* Card gradient background */}
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cardGradient}
-      />
-      
-      {/* Card gradient background overlay */}
-      <View style={styles.cardBg} />
+      <FrostedCardLayer />
 
       {/* Top row: status + remove */}
       <View style={styles.cardTopRow}>
@@ -324,7 +322,7 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
           activeOpacity={0.7}
         >
           <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <Path d="M18 6L6 18M6 6L18 18" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round"/>
+            <Path d="M18 6L6 18M6 6L18 18" stroke="rgba(52,40,70,0.65)" strokeWidth="2" strokeLinecap="round"/>
           </Svg>
         </TouchableOpacity>
       </View>
@@ -388,7 +386,7 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
           <Text style={styles.nextLevelName}>{displayData.nextStep}</Text>
           <View style={{ marginLeft: 'auto' }}>
             <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <Path d="M9 18L15 12L9 6" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <Path d="M9 18L15 12L9 6" stroke="#342846" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </Svg>
           </View>
         </TouchableOpacity>
@@ -414,7 +412,14 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
   
   return (
     <Modal visible={true} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => {
+          void hapticLight();
+          onClose();
+        }}
+      >
         <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View
             style={[
@@ -430,7 +435,10 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
             <View style={styles.addGoalModalCloseRow}>
               <TouchableOpacity
                 style={[styles.helperButton, styles.addGoalModalCloseButton]}
-                onPress={onClose}
+                onPress={() => {
+                  void hapticLight();
+                  onClose();
+                }}
               >
                 <MaterialIcons name="close" size={22} color="#342846" />
               </TouchableOpacity>
@@ -458,6 +466,7 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
               style={[styles.optionButton, isStartingAiFlow && styles.optionButtonDisabled]}
               onPress={async () => {
                 if (isStartingAiFlow) return;
+                void hapticMedium();
                 setIsStartingAiFlow(true);
                 try {
                   const canProceed = await gatePremiumFeature('ai_custom_goal');
@@ -499,6 +508,7 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
             <TouchableOpacity
               style={styles.optionButton}
               onPress={() => {
+                void hapticMedium();
                 onClose();
                 router.push('/new-goal');
               }}
@@ -557,11 +567,17 @@ const QueueModal = ({ goals, onClose, onActivate, onDelete, canActivate, activeC
         <TouchableOpacity 
           style={StyleSheet.absoluteFill} 
           activeOpacity={1} 
-          onPress={onClose}
+          onPress={() => {
+            void hapticLight();
+            onClose();
+          }}
         />
         <View style={styles.queueModalContent}>
           <TouchableOpacity
-            onPress={onClose}
+            onPress={() => {
+              void hapticLight();
+              onClose();
+            }}
             style={[styles.helperButton, styles.queueModalCloseButton]}
           >
             <MaterialIcons name="close" size={22} color="#342846" />
@@ -616,6 +632,7 @@ const QueueModal = ({ goals, onClose, onActivate, onDelete, canActivate, activeC
                     <TouchableOpacity
                       style={[styles.activateButton, { opacity: canActivate ? 1 : 0.5 }]}
                       onPress={() => {
+                        void hapticMedium();
                         console.log('Activate button pressed for goal:', goal.id, goal.name);
                         console.log('canActivate:', canActivate);
                         if (canActivate) {
@@ -630,7 +647,10 @@ const QueueModal = ({ goals, onClose, onActivate, onDelete, canActivate, activeC
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deleteQueueButton}
-                      onPress={() => onDelete(goal)}
+                      onPress={() => {
+                        void hapticHeavy();
+                        onDelete(goal);
+                      }}
                     >
                       <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                         <Path d="M18 6L6 18M6 6L18 18" stroke="#7A8A9A" strokeWidth="2" strokeLinecap="round"/>
@@ -656,7 +676,14 @@ const DeleteConfirmModal = ({ onConfirm, onCancel }: {
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   return (
     <Modal visible={true} transparent animationType="slide" onRequestClose={onCancel}>
-      <TouchableOpacity style={styles.deleteConfirmModalOverlay} activeOpacity={1} onPress={onCancel}>
+      <TouchableOpacity
+        style={styles.deleteConfirmModalOverlay}
+        activeOpacity={1}
+        onPress={() => {
+          void hapticLight();
+          onCancel();
+        }}
+      >
         <TouchableOpacity style={styles.confirmModal} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.confirmIcon}>🌙</Text>
           <Text style={styles.confirmTitle}>{tr('Let this goal go?', 'Отпустить эту цель?')}</Text>
@@ -664,10 +691,22 @@ const DeleteConfirmModal = ({ onConfirm, onCancel }: {
             {tr('It is okay to release what no longer helps you. This goal will be removed from active goals.', 'Это нормально - отпускать то, что больше тебе не помогает. Цель будет удалена из списка активных.')}
           </Text>
           <View style={styles.confirmButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                void hapticLight();
+                onCancel();
+              }}
+            >
               <Text style={styles.cancelButtonText}>{tr('Keep it', 'Оставить')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteButton} onPress={onConfirm}>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => {
+                void hapticHeavy();
+                onConfirm();
+              }}
+            >
               <Text style={styles.deleteButtonText}>{tr('Release', 'Отпустить')}</Text>
             </TouchableOpacity>
           </View>
@@ -874,6 +913,7 @@ export default function GoalsScreen() {
   // Handle delete goal
   const handleDeleteGoal = async (goalId: string) => {
     try {
+      void hapticHeavy();
       console.log('Deleting goal with ID:', goalId);
       const goalToDelete = activeGoals.find(g => g.id === goalId);
       console.log('Goal to delete:', goalToDelete?.name);
@@ -919,6 +959,7 @@ export default function GoalsScreen() {
         // User must manually activate goals from the queue using the "Activate" button
         
         await loadGoals();
+        void hapticSuccess();
         if (deletingLastActiveGoal) {
           setRequireGoalSelectionAfterDelete(true);
           setShowQueueModal(true);
@@ -926,17 +967,20 @@ export default function GoalsScreen() {
       }
     } catch (error) {
       console.error('Error deleting goal:', error);
+      void hapticError();
     }
   };
   
   // Handle add goal from queue
   const handleAddGoalFromQueue = async (goal: Goal) => {
+    void hapticMedium();
     console.log('=== ACTIVATE GOAL ===');
     console.log('Goal to activate:', goal.id, goal.name);
     console.log('Current active goals:', activeGoals.length);
     
     // Double-check we have space before activating
     if (activeGoals.length >= 3) {
+      void hapticWarning();
       console.log('❌ Cannot activate: already have 3 active goals');
       return;
     }
@@ -955,6 +999,7 @@ export default function GoalsScreen() {
       console.log('Active goals in storage:', activeCountInStorage);
       
       if (activeCountInStorage >= 3) {
+        void hapticWarning();
         console.log('❌ Cannot activate: storage already has 3 active goals');
         await loadGoals();
         return;
@@ -990,9 +1035,11 @@ export default function GoalsScreen() {
       setShowQueueModal(false);
       setRequireGoalSelectionAfterDelete(false);
       setShowGoalSelectionRequiredModal(false);
+      void hapticSuccess();
       
     } catch (error) {
       console.error('❌ Error activating goal:', error);
+      void hapticError();
       await loadGoals();
     }
   };
@@ -1000,6 +1047,7 @@ export default function GoalsScreen() {
   // Handle delete queued goal
   const handleDeleteQueuedGoal = async (goal: Goal) => {
     try {
+      void hapticHeavy();
       const userGoalsData = await AsyncStorage.getItem('userGoals');
       if (userGoalsData) {
         const allGoals: Goal[] = JSON.parse(userGoalsData);
@@ -1007,9 +1055,11 @@ export default function GoalsScreen() {
         await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
         setQueuedGoals(prev => prev.filter(g => g.id !== goal.id));
         loadGoals();
+        void hapticSuccess();
       }
     } catch (error) {
       console.error('Error deleting queued goal:', error);
+      void hapticError();
     }
   };
   
@@ -1072,6 +1122,12 @@ export default function GoalsScreen() {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={require('../../assets/images/yourpath.png')}
+        pointerEvents="none"
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       <ScrollView
         ref={mainScrollViewRef}
         style={styles.scrollView}
@@ -1085,7 +1141,10 @@ export default function GoalsScreen() {
           <View style={{ width: 44, height: 44 }} />
           <TouchableOpacity
             style={styles.helperButton}
-            onPress={() => setShowHelpModal(true)}
+            onPress={() => {
+              void hapticMedium();
+              setShowHelpModal(true);
+            }}
             activeOpacity={0.7}
           >
             <MaterialIcons name="help-outline" size={24} color="#342846" />
@@ -1109,6 +1168,7 @@ export default function GoalsScreen() {
                   index === currentCardIndex && styles.dotActive
                 ]}
                 onPress={() => {
+                  void hapticLight();
                   setCurrentCardIndex(index);
                   const cardWidth = width; // Full width for paging
                   scrollViewRef.current?.scrollTo({
@@ -1169,10 +1229,13 @@ export default function GoalsScreen() {
         {activeGoals.length > 0 && currentGoal && (
           <TouchableOpacity
             style={styles.continueButton}
-            onPress={() => router.push({
-              pathname: '/goal-map',
-              params: { goalName: currentGoal.name, goalId: currentGoal.id }
-            })}
+            onPress={() => {
+              void hapticMedium();
+              router.push({
+                pathname: '/goal-map',
+                params: { goalName: currentGoal.name, goalId: currentGoal.id }
+              });
+            }}
           >
             <Text style={styles.continueButtonText}>
               {tr('Continue quest', 'Продолжить квест')}
@@ -1184,7 +1247,10 @@ export default function GoalsScreen() {
         <View style={styles.queueSection}>
           <TouchableOpacity
             style={styles.queueButton}
-            onPress={() => setShowQueueModal(true)}
+            onPress={() => {
+              void hapticMedium();
+              setShowQueueModal(true);
+            }}
           >
             <Text style={styles.queueText}>
               {tr('View queued goals', 'Посмотреть цели в очереди')}
@@ -1204,7 +1270,10 @@ export default function GoalsScreen() {
         <View style={styles.addNewGoalSection}>
           <TouchableOpacity
             style={styles.addNewGoalButton}
-            onPress={() => setShowAddModal(true)}
+            onPress={() => {
+              void hapticMedium();
+              setShowAddModal(true);
+            }}
           >
             <Text style={styles.addNewGoalText}>{tr('Add new goal', 'Добавить новую цель')}</Text>
             <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -1244,6 +1313,7 @@ export default function GoalsScreen() {
               <TouchableOpacity
                 style={styles.goalCompletedButtonPrimary}
                 onPress={() => {
+                  void hapticMedium();
                   setShowGoalCompletedPopup(false);
                   router.push('/(tabs)/me');
                 }}
@@ -1314,6 +1384,7 @@ export default function GoalsScreen() {
               <TouchableOpacity
                 style={styles.goalCompletedButtonPrimary}
                 onPress={() => {
+                  void hapticMedium();
                   setShowGoalSelectionRequiredModal(false);
                   setShowQueueModal(true);
                 }}
@@ -1421,7 +1492,16 @@ export default function GoalsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#1f1a2a',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   contentContainer: {
     paddingHorizontal: 20,
@@ -1842,14 +1922,14 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 28,
     fontWeight: '700',
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
     ...BodyStyle,
     fontSize: 14,
-    color: '#7A8A9A',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginTop: 0,
   },
@@ -1872,6 +1952,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   carouselContainer: {
+    marginTop: -20,
     marginBottom: 0,
     paddingHorizontal: 0,
   },
@@ -1892,36 +1973,21 @@ const styles = StyleSheet.create({
   },
   card: {
     width: width - 48, // Full width minus padding
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    padding: 20,
     position: 'relative',
     overflow: 'hidden',
     minHeight: 420,
     flexDirection: 'column',
-    backgroundColor: '#7B6A95', // Fallback background color (matches gradient start)
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 40,
-    elevation: 8,
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 10,
     zIndex: 1,
-  },
-  cardGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 24,
-  },
-  cardBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    opacity: 0.1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -1936,7 +2002,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.7)',
     borderRadius: 20,
   },
   statusDot: {
@@ -1947,10 +2013,10 @@ const styles = StyleSheet.create({
   statusText: {
     ...BodyStyle,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
+    color: '#342846',
   },
   removeBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.7)',
     borderRadius: 16,
     width: 32,
     height: 32,
@@ -1961,7 +2027,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#342846',
     marginBottom: 20,
     lineHeight: 26,
     position: 'relative',
@@ -1970,7 +2036,7 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 18,
@@ -1986,7 +2052,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(52,40,70,0.7)',
     textTransform: 'uppercase',
   },
   chipValue: {
@@ -2001,11 +2067,11 @@ const styles = StyleSheet.create({
   chipText: {
     ...BodyStyle,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: '#342846',
   },
   chipDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(52,40,70,0.2)',
     marginHorizontal: 18,
   },
   insightRow: {
@@ -2013,7 +2079,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: 12,
     marginBottom: 20,
     position: 'relative',
@@ -2030,13 +2096,13 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(52,40,70,0.7)',
     textTransform: 'uppercase',
   },
   insightValue: {
     ...BodyStyle,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: '#342846',
   },
   progressSection: {
     marginBottom: 18,
@@ -2051,23 +2117,23 @@ const styles = StyleSheet.create({
   progressLevel: {
     ...BodyStyle,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(52,40,70,0.8)',
   },
   progressPercent: {
     ...HeadingStyle,
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#342846',
   },
   progressTrack: {
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(52,40,70,0.18)',
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#342846',
     borderRadius: 4,
   },
   nextLevel: {
@@ -2079,7 +2145,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(52,40,70,0.7)',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
@@ -2088,15 +2154,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.7)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(52,40,70,0.22)',
   },
   nextLevelNumber: {
     width: 28,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(52,40,70,0.12)',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2105,12 +2171,12 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#342846',
   },
   nextLevelName: {
     ...BodyStyle,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: '#342846',
     flex: 1,
   },
   emptyState: {

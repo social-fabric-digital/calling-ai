@@ -18,6 +18,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CustomPathDreamFormProps } from './types';
 import { HeadingStyle, BodyStyle, ButtonHeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -192,7 +194,10 @@ function Step1NameYourDream({ isActive, value, onChange, onNext, onBack }: Step1
                 <TouchableOpacity
                   key={suggestion}
                   style={styles.suggestionChip}
-                  onPress={() => onChange(suggestion)}
+                  onPress={() => {
+                    void hapticLight();
+                    onChange(suggestion);
+                  }}
                 >
                   <Text style={styles.suggestionChipText}>{suggestion}</Text>
                 </TouchableOpacity>
@@ -552,8 +557,8 @@ function Step4Challenge({ isActive, value, onChange, onNext, onBack }: Step4Prop
           </LinearGradient>
         </View>
 
-        <Text style={styles.stepTitle}>{isRussian ? 'ТВОЯ ПРОБЛЕМА' : 'YOUR CHALLENGE'}</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: '#FFFFFF' }]}>{isRussian ? 'ТВОЯ ПРОБЛЕМА' : 'YOUR CHALLENGE'}</Text>
+        <Text style={[styles.stepSubtitle, { color: '#FFFFFF', opacity: 1 }]}>
           {isRussian
             ? 'Какое главное препятствие стоит между тобой и твоей мечтой?'
             : "What's the biggest obstacle standing between you and your dream?"}
@@ -585,6 +590,7 @@ function Step4Challenge({ isActive, value, onChange, onNext, onBack }: Step4Prop
                   onPress={() => onChange(challenge.id)}
                   activeOpacity={0.8}
                 >
+                  <FrostedCardLayer />
                   <View style={[styles.challengeIconContainer, isSelected && styles.challengeIconSelected]}>
                     <MaterialIcons
                       name={challenge.icon as any}
@@ -731,6 +737,7 @@ function Step5Timeline({ isActive, value, onChange, onNext, onBack }: Step5Props
                   onPress={() => onChange(timeline.id)}
                   activeOpacity={0.8}
                 >
+                  <FrostedCardLayer />
                   <View
                     style={[
                       styles.timelineIconContainer,
@@ -830,6 +837,7 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
   const totalSteps = 5;
 
   const handleNext = () => {
+    void hapticMedium();
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -845,6 +853,7 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
   };
 
   const handleBack = () => {
+    void hapticMedium();
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     } else {
@@ -897,7 +906,10 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
               <Step4Challenge
                 isActive={currentStep === 3}
                 value={pathData.mainObstacle}
-                onChange={(v) => updatePathData('mainObstacle', v)}
+                onChange={(v) => {
+                  void hapticLight();
+                  updatePathData('mainObstacle', v);
+                }}
                 onNext={handleNext}
                 onBack={handleBack}
               />
@@ -906,7 +918,10 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
               <Step5Timeline
                 isActive={currentStep === 4}
                 value={pathData.timeline}
-                onChange={(v) => updatePathData('timeline', v)}
+                onChange={(v) => {
+                  void hapticLight();
+                  updatePathData('timeline', v);
+                }}
                 onNext={handleNext}
                 onBack={handleBack}
               />
@@ -1191,7 +1206,7 @@ const styles = StyleSheet.create({
   },
   challengeCard: {
     width: (width - 72) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: 'rgba(52, 40, 70, 0.1)',
@@ -1201,6 +1216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 130,
     justifyContent: 'flex-start',
+    overflow: 'hidden',
   },
   challengeCardSelected: {
     borderColor: '#342846',
@@ -1243,11 +1259,12 @@ const styles = StyleSheet.create({
   timelineCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: 'rgba(52, 40, 70, 0.1)',
     padding: 16,
+    overflow: 'hidden',
   },
   timelineCardSelected: {
     backgroundColor: 'rgba(52, 40, 70, 0.03)',

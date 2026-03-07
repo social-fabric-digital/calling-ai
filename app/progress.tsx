@@ -1,16 +1,17 @@
-import { PaperTextureBackground } from '@/components/PaperTextureBackground';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { getActiveDaysThisWeek, getCurrentWeekDateRange, getDaysActiveThisWeek, getLoginCountThisWeek, getReflectionCountsThisWeek } from '@/utils/appTracking';
 import i18n from '@/utils/i18n';
 import { getMostFrequentMoodThisWeek } from '@/utils/moodStorage';
 import { getCompletedGoals, getLevelCompletionEvents, getStepCompletionEvents } from '@/utils/goalTracking';
+import { hapticSuccess } from '@/utils/haptics';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
@@ -301,6 +302,7 @@ export default function ProgressScreen() {
         badgeNumber: weeklyClaimedBadge.badgeNumber,
         category: weeklyClaimedBadge.category,
       });
+      void hapticSuccess();
       setShowBadgeModal(true);
       return;
     }
@@ -322,6 +324,7 @@ export default function ProgressScreen() {
       badgeNumber: badgeInfo.badgeNumber,
       category: badgeInfo.category,
     });
+    void hapticSuccess();
     setShowBadgeModal(true);
   };
 
@@ -385,7 +388,11 @@ export default function ProgressScreen() {
   const smallWinsToDisplay = isPlaceholderSmallWins ? placeholderSmallWins : weekData.smallWins;
 
   return (
-    <PaperTextureBackground>
+    <ImageBackground
+      source={require('../assets/images/progress.png')}
+      style={styles.screen}
+      resizeMode="cover"
+    >
       <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, { paddingTop: Math.max(60, insets.top + 20) }]}>
@@ -417,49 +424,53 @@ export default function ProgressScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* ============ ENGAGEMENT CARD ============ */}
-          <View style={styles.engagementCard}>
-            <View style={styles.engagementHeader}>
-              <View style={styles.fireImageWrapper}>
-                <Image 
-                  source={require('../assets/images/fire.png')} 
-                  style={styles.streakEmoji}
-                  resizeMode="contain"
-                />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tr('WEEKLY ENGAGEMENT', 'НЕДЕЛЬНАЯ АКТИВНОСТЬ')}</Text>
+            <View style={styles.engagementCard}>
+              <FrostedCardLayer />
+              <View style={styles.engagementHeader}>
+                <View style={styles.fireImageWrapper}>
+                  <Image 
+                    source={require('../assets/images/fire.png')} 
+                    style={styles.streakEmoji}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.engagementStats}>
+                  <Text style={styles.daysActiveNumber}>{weekData.loginCount}</Text>
+                  <Text style={styles.daysActiveLabel}>
+                    {isRussian ? `${weekData.loginCount} входов на этой неделе` : `${weekData.loginCount} logins this week`}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.engagementStats}>
-                <Text style={styles.daysActiveNumber}>{weekData.loginCount}</Text>
-                <Text style={styles.daysActiveLabel}>
-                  {isRussian ? `${weekData.loginCount} входов на этой неделе` : `${weekData.loginCount} logins this week`}
-                </Text>
+              
+              {/* Progress bar */}
+              <View style={styles.engagementProgressTrack}>
+                {[...Array(7)].map((_, i) => (
+                  <View 
+                    key={i}
+                    style={[
+                      styles.engagementDot,
+                      { backgroundColor: i < Math.min(weekData.loginCount, 7) ? '#342846' : '#E8E8E8' }
+                    ]}
+                  />
+                ))}
               </View>
-            </View>
-            
-            {/* Progress bar */}
-            <View style={styles.engagementProgressTrack}>
-              {[...Array(7)].map((_, i) => (
-                <View 
-                  key={i}
-                  style={[
-                    styles.engagementDot,
-                    { backgroundColor: i < Math.min(weekData.loginCount, 7) ? '#342846' : '#E8E8E8' }
-                  ]}
-                />
-              ))}
-            </View>
 
-            {/* Badge section */}
-            <View style={styles.badgeSection}>
-              <TouchableOpacity 
-                style={styles.claimBadgeButton}
-                onPress={handleClaimBadge}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.claimBadgeButtonText}>
-                  {weeklyClaimedBadge
-                    ? tr('Badge already claimed this week', 'Награда за эту неделю уже получена')
-                    : t('progress.claimYourBadge', { defaultValue: tr('Claim your badge', 'Забрать награду') })}
-                </Text>
-              </TouchableOpacity>
+              {/* Badge section */}
+              <View style={styles.badgeSection}>
+                <TouchableOpacity 
+                  style={styles.claimBadgeButton}
+                  onPress={handleClaimBadge}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.claimBadgeButtonText}>
+                    {weeklyClaimedBadge
+                      ? tr('Badge already claimed this week', 'Награда за эту неделю уже получена')
+                      : t('progress.claimYourBadge', { defaultValue: tr('Claim your badge', 'Забрать награду') })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -468,6 +479,7 @@ export default function ProgressScreen() {
             <Text style={styles.sectionTitle}>{tr('THIS WEEK ON YOUR PATH', 'ТВОЙ ПУТЬ НА ЭТОЙ НЕДЕЛЕ')}</Text>
             
             <View style={styles.pathCard}>
+              <FrostedCardLayer />
               <View style={styles.pathHeader}>
                 <View style={styles.pathIcon}>
                   <Image 
@@ -552,6 +564,7 @@ export default function ProgressScreen() {
             <Text style={styles.sectionTitle}>{tr('YOUR MOST FREQUENT MOOD', 'ТВОЕ САМОЕ ЧАСТОЕ НАСТРОЕНИЕ')}</Text>
             
             <View style={styles.moodCard}>
+              <FrostedCardLayer />
               <Text style={styles.moodEmoji}>{weekData.mostFrequentMood.emoji}</Text>
               <View style={styles.moodInfo}>
                 <Text style={styles.moodLabel}>{weekData.mostFrequentMood.label}</Text>
@@ -571,6 +584,7 @@ export default function ProgressScreen() {
             </View>
             
             <View style={styles.winsCard}>
+              <FrostedCardLayer />
               {smallWinsToDisplay.map((win, index) => (
                 <View
                   key={index}
@@ -726,7 +740,7 @@ export default function ProgressScreen() {
           </View>
         </View>
       </Modal>
-    </PaperTextureBackground>
+    </ImageBackground>
   );
 }
 
@@ -1072,6 +1086,7 @@ const analyzeUserGoals = async (stats: WeeklyBadgeStats): Promise<WeeklyBadgeDec
 
 const ReflectionItem = ({ emoji, imageSource, label, count }: { emoji?: string; imageSource?: any; label: string; count: number }) => (
   <View style={styles.reflectionItem}>
+    <FrostedCardLayer />
     {imageSource ? (
       <Image 
         source={imageSource} 
@@ -1091,6 +1106,10 @@ const ReflectionItem = ({ emoji, imageSource, label, count }: { emoji?: string; 
 // ============================================================================
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#1f1a2a',
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1103,9 +1122,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: 'transparent',
   },
   backButton: {
     width: 40,
@@ -1124,14 +1143,14 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 20,
     fontWeight: '700',
-    color: '#342846',
+    color: '#FFFFFF',
     letterSpacing: 1,
     marginBottom: 2.5,
   },
   dateRange: {
     ...BodyStyle,
     fontSize: 13,
-    color: '#7A8A9A',
+    color: '#FFFFFF',
   },
   helpButton: {
     width: 40,
@@ -1155,74 +1174,90 @@ const styles = StyleSheet.create({
 
   // Engagement Card
   engagementCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 20,
-    padding: 24,
+    padding: 22,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    overflow: 'hidden',
   },
   engagementHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 20,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   fireImageWrapper: {
-    height: 36,
-    justifyContent: 'flex-end',
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.42)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
   },
   streakEmoji: {
-    width: 41.4,
-    height: 41.4,
+    width: 32,
+    height: 32,
   },
   engagementStats: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
   },
   daysActiveNumber: {
     ...HeadingStyle,
-    fontSize: 36,
+    fontSize: 30,
     fontWeight: '700',
     color: '#342846',
-    lineHeight: 36,
+    lineHeight: 32,
     includeFontPadding: false,
   },
   daysActiveLabel: {
     ...BodyStyle,
-    fontSize: 14,
-    color: '#7A8A9A',
+    fontSize: 13,
+    color: 'rgba(52, 40, 70, 0.78)',
   },
   engagementProgressTrack: {
     flexDirection: 'row',
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 16,
   },
   engagementDot: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: 7,
+    borderRadius: 999,
   },
   badgeSection: {
     alignItems: 'center',
   },
   claimBadgeButton: {
     width: '100%',
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 24,
-    backgroundColor: '#342846',
+    backgroundColor: 'rgba(255,255,255,0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.75)',
     borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 8,
   },
   claimBadgeButtonText: {
-    ...BodyStyle,
-    fontSize: 15,
+    ...HeadingStyle,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#342846',
+    textAlign: 'center',
   },
 
   // Section
@@ -1238,7 +1273,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 18,
     fontWeight: '700',
-    color: '#342846',
+    color: '#FFFFFF',
     letterSpacing: 0,
     marginBottom: 15,
   },
@@ -1252,14 +1287,17 @@ const styles = StyleSheet.create({
 
   // Path Card
   pathCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    overflow: 'hidden',
   },
   pathHeader: {
     flexDirection: 'row',
@@ -1378,17 +1416,20 @@ const styles = StyleSheet.create({
     rowGap: 12,
   },
   reflectionItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 14,
     padding: 16,
     width: '48%',
     alignItems: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    overflow: 'hidden',
   },
   reflectionEmoji: {
     fontSize: 24,
@@ -1437,17 +1478,20 @@ const styles = StyleSheet.create({
 
   // Mood Card
   moodCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 16,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    overflow: 'hidden',
   },
   moodEmoji: {
     fontSize: 40,
@@ -1471,15 +1515,18 @@ const styles = StyleSheet.create({
 
   // Wins Card
   winsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 16,
     padding: 16,
     gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 14,
+    overflow: 'hidden',
   },
   winItem: {
     flexDirection: 'row',
@@ -1629,6 +1676,8 @@ const styles = StyleSheet.create({
   badgeImageWrapper: {
     width: 140,
     height: 140,
+    borderRadius: 70,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

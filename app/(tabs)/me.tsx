@@ -1,3 +1,4 @@
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { MoodCalendar } from '@/components/MoodCalendar';
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
@@ -5,12 +6,10 @@ import { supabase } from '@/lib/supabase';
 import { UserAnswer, generateLevelStepInstructions } from '@/utils/claudeApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 interface Badge {
   id: string;
@@ -84,7 +83,6 @@ export default function MeScreen() {
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const locale = isRussian ? 'ru-RU' : 'en-US';
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -107,6 +105,24 @@ export default function MeScreen() {
   const [userName, setUserName] = useState<string>('');
   const [zodiacSign, setZodiacSign] = useState<string>('');
   const [completedGoalsCount, setCompletedGoalsCount] = useState<number>(0);
+  const [isProfileLoaded, setIsProfileLoaded] = useState<boolean>(false);
+
+  const sanitizeProfileText = (value?: string | null): string => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    const normalized = trimmed.toLowerCase();
+    if (
+      !trimmed ||
+      normalized === 'username' ||
+      normalized === 'user name' ||
+      normalized.includes('loading') ||
+      normalized.includes('placeholder') ||
+      normalized.includes('me.user')
+    ) {
+      return '';
+    }
+    return trimmed;
+  };
 
   const localizeBadge = (badge: Badge): Badge => {
     switch (badge.id) {
@@ -167,7 +183,7 @@ export default function MeScreen() {
     if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return t('me.zodiacSigns.Pisces');
     return '';
   };
-  
+
   // Animation refs for badge slamming effect
   const badgeAnimations = useRef<{ [key: string]: Animated.Value }>({});
 
@@ -275,7 +291,7 @@ export default function MeScreen() {
       // Load user name
       const name = await AsyncStorage.getItem('userName');
       if (name) {
-        setUserName(name);
+        setUserName(sanitizeProfileText(name));
       }
 
       // Load birth date and calculate zodiac sign
@@ -285,7 +301,7 @@ export default function MeScreen() {
         const month = parseInt(birthMonth);
         const day = parseInt(birthDate);
         const zodiac = calculateZodiacSign(month, day);
-        setZodiacSign(zodiac);
+        setZodiacSign(sanitizeProfileText(zodiac));
       }
 
       // Load completed goals count
@@ -320,6 +336,8 @@ export default function MeScreen() {
 
     } catch (error) {
       console.error('Error loading user data:', error);
+    } finally {
+      setIsProfileLoaded(true);
     }
   };
 
@@ -701,34 +719,46 @@ export default function MeScreen() {
   };
 
   return (
-    <PaperTextureBackground>
+    <PaperTextureBackground baseColor="#1f1a2a">
+      <Image
+        source={require('../../assets/images/me.png')}
+        pointerEvents="none"
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       <View style={styles.container}>
 
         {/* User Portfolio Area */}
         <View style={[styles.portfolioContainer, { paddingTop: insets.top + 20 }]}>
-          <LinearGradient
-            colors={['#342846', '#a592b0', '#342846']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.portfolioCard}
-          >
+          <View style={styles.portfolioCard}>
+            <FrostedCardLayer />
+
             {/* User Name */}
-            <Text style={styles.portfolioUserName}>{userName || t('me.user')}</Text>
-            
-            {/* Zodiac Sign and Goals Count Row */}
-            <View style={styles.portfolioInfoRow}>
-              {zodiacSign && (
+            <Text style={styles.portfolioUserName}>{isProfileLoaded ? userName : ''}</Text>
+            <Text style={styles.portfolioSubtitle}>
+              {tr('Your growth snapshot', 'Твой снимок прогресса')}
+            </Text>
+
+            {/* Zodiac Sign, goals count, and weekly entries */}
+            {isProfileLoaded && (
+              <View style={styles.portfolioInfoRow}>
+                {zodiacSign ? (
+                  <View style={styles.portfolioInfoItem}>
+                    <Text style={styles.portfolioInfoLabel}>{t('me.zodiac')}</Text>
+                    <Text style={styles.portfolioInfoValue}>{zodiacSign}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.portfolioInfoItem}>
-                  <Text style={styles.portfolioInfoLabel}>{t('me.zodiac')}</Text>
-                  <Text style={styles.portfolioInfoValue}>{zodiacSign}</Text>
+                  <Text style={styles.portfolioInfoLabel}>{t('me.goalsCompleted')}</Text>
+                  <Text style={styles.portfolioInfoValue}>{completedGoalsCount}</Text>
                 </View>
-              )}
-              <View style={styles.portfolioInfoItem}>
-                <Text style={styles.portfolioInfoLabel}>{t('me.goalsCompleted')}</Text>
-                <Text style={styles.portfolioInfoValue}>{completedGoalsCount}</Text>
+                <View style={styles.portfolioInfoItem}>
+                  <Text style={styles.portfolioInfoLabel}>{tr('Entries this week', 'Записей за неделю')}</Text>
+                  <Text style={styles.portfolioInfoValue}>{currentWeekAnswers.length}</Text>
+                </View>
               </View>
-            </View>
-          </LinearGradient>
+            )}
+          </View>
         </View>
 
         <ScrollView 
@@ -937,26 +967,27 @@ export default function MeScreen() {
                 {currentWeekAnswers.map((answer, index) => (
                   <View key={`${answer.date}-${index}`} style={styles.answerSlide}>
                     <View style={styles.answerCard}>
+                      <FrostedCardLayer />
                       <View style={styles.answerJournalHeader}>
                         <Text style={styles.answerJournalTag}>
                           {tr('Journal entry', 'Запись дневника')}
                         </Text>
-                        <Text style={styles.answerJournalPage}>
-                          {index + 1}/{currentWeekAnswers.length}
-                        </Text>
-                      </View>
-                      <View style={styles.answerDateContainer}>
-                        <View style={styles.answerDateIcon}>
-                          <Text style={styles.answerDateIconText}>✎</Text>
+                        <View style={styles.answerJournalMetaRight}>
+                          <Text style={styles.answerJournalPage}>
+                            {index + 1}/{currentWeekAnswers.length}
+                          </Text>
+                          <Text style={styles.answerJournalDateMeta}>{formatDateShort(answer.date)}</Text>
                         </View>
-                        <Text style={styles.answerDate}>{formatDateShort(answer.date)}</Text>
                       </View>
                       <View style={styles.answerPromptRow}>
                         <Text style={styles.answerPromptLabel}>{tr('Question', 'Вопрос')}</Text>
                       </View>
-                      <Text style={styles.answerQuestion}>
-                        {answer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
-                      </Text>
+                      <View style={styles.answerQuestionBlock}>
+                        <Text style={styles.answerQuestion} numberOfLines={3} ellipsizeMode="tail">
+                          {answer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
+                        </Text>
+                      </View>
+                      <Text style={styles.answerEntryLabel}>{tr('The entry', 'Запись')}</Text>
                       <View style={styles.answerField}>
                         <Text style={styles.answerText}>{answer.answer || ''}</Text>
                       </View>
@@ -1145,25 +1176,27 @@ export default function MeScreen() {
               <View style={styles.answersCalendarEntryPanel}>
                 {selectedCalendarAnswer ? (
                   <>
-                    <Text style={styles.answersCalendarEntryDate}>
-                      {parseDateKey(selectedCalendarAnswer.date).toLocaleDateString(locale, {
-                        weekday: 'long',
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                    <Text style={styles.answersCalendarEntryPromptLabel}>
-                      {tr('Question', 'Вопрос')}
-                    </Text>
-                    <Text style={styles.answersCalendarEntryQuestion}>
-                      {selectedCalendarAnswer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
-                    </Text>
-                    <Text style={styles.answersCalendarEntryAnswerLabel}>
-                      {tr('Entry', 'Запись')}
-                    </Text>
-                    <View style={styles.answersCalendarEntryAnswerBox}>
-                      <Text style={styles.answersCalendarEntryAnswerText}>
+                    <View style={styles.answerJournalHeader}>
+                      <Text style={styles.answerJournalTag}>
+                        {tr('Journal entry', 'Запись дневника')}
+                      </Text>
+                      <View style={styles.answerJournalMetaRight}>
+                        <Text style={styles.answerJournalDateMeta}>
+                          {formatDateShort(selectedCalendarAnswer.date)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.answerPromptRow}>
+                      <Text style={styles.answerPromptLabel}>{tr('Question', 'Вопрос')}</Text>
+                    </View>
+                    <View style={styles.answerQuestionBlock}>
+                      <Text style={styles.answerQuestion} numberOfLines={3} ellipsizeMode="tail">
+                        {selectedCalendarAnswer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
+                      </Text>
+                    </View>
+                    <Text style={styles.answerEntryLabel}>{tr('The entry', 'Запись')}</Text>
+                    <View style={styles.answerField}>
+                      <Text style={styles.answerText}>
                         {selectedCalendarAnswer.answer || tr('No answer saved for this day.', 'Для этого дня ответ не сохранен.')}
                       </Text>
                     </View>
@@ -1484,6 +1517,15 @@ export default function MeScreen() {
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1495,48 +1537,65 @@ const styles = StyleSheet.create({
   },
   portfolioCard: {
     borderRadius: 16,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
     alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: '#000',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    shadowColor: '#342846',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 20,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.55,
+    shadowRadius: 30,
+    elevation: 20,
   },
   portfolioUserName: {
     ...HeadingStyle,
-    color: '#FFFFFF',
+    color: '#342846',
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  portfolioSubtitle: {
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.72)',
+    fontSize: 13,
+    marginBottom: 10,
   },
   portfolioInfoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
+    columnGap: 10,
   },
   portfolioInfoItem: {
     alignItems: 'center',
     flex: 1,
   },
   portfolioInfoLabel: {
-    ...BodyStyle,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
+    ...HeadingStyle,
+    color: 'rgba(52, 40, 70, 0.75)',
+    fontSize: 11,
+    lineHeight: 13,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 0.4,
+    marginTop: 15,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   portfolioInfoValue: {
-    ...HeadingStyle,
-    color: '#FFFFFF',
-    fontSize: 20,
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
@@ -1667,10 +1726,10 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   badgesScroll: {
-    marginHorizontal: -4,
+    marginHorizontal: 0,
   },
   badgesScrollContent: {
-    paddingHorizontal: 20, // Minimum 20px padding (was 4)
+    paddingHorizontal: 20,
     gap: 13,
   },
   badgeCard: {
@@ -1680,7 +1739,7 @@ const styles = StyleSheet.create({
   badgeIconContainer: {
     width: 64,
     height: 64,
-    borderRadius: 16,
+    borderRadius: 32,
     backgroundColor: 'rgba(186, 204, 215, 0.2)',
     borderWidth: 1,
     borderColor: '#baccd7',
@@ -1720,110 +1779,109 @@ const styles = StyleSheet.create({
   answerSlide: {
     width: 320,
     marginRight: 12,
-    height: 360,
+    height: 382,
   },
   answerCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    paddingBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+    padding: 18,
+    paddingBottom: 18,
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    elevation: 12,
     height: '100%',
+    overflow: 'hidden',
   },
   answerJournalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(52, 40, 70, 0.12)',
   },
   answerJournalTag: {
-    ...BodyStyle,
+    ...HeadingStyle,
     fontSize: 11,
-    color: '#7a6f88',
+    color: '#342846',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  answerJournalMetaRight: {
+    alignItems: 'flex-end',
   },
   answerJournalPage: {
     ...BodyStyle,
-    fontSize: 11,
-    color: '#7a6f88',
+    fontSize: 10,
+    color: 'rgba(52, 40, 70, 0.72)',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
-  answerDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  answerDateIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(52, 40, 70, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  answerDateIconText: {
+  answerJournalDateMeta: {
     ...BodyStyle,
-    color: '#342846',
-    fontSize: 14,
-    fontWeight: 'bold',
-    lineHeight: 14,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-  },
-  answerDate: {
-    ...BodyStyle,
-    color: '#7a6f88',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: 'rgba(52, 40, 70, 0.78)',
+    fontSize: 10,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.35,
+    marginTop: 4,
   },
   answerPromptRow: {
+    marginTop: 2,
     marginBottom: 6,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(52, 40, 70, 0.12)',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(52, 40, 70, 0.08)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   answerPromptLabel: {
-    ...BodyStyle,
-    color: '#7a6f88',
-    fontSize: 11,
-    letterSpacing: 0.2,
-  },
-  answerQuestion: {
     ...HeadingStyle,
     color: '#342846',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    fontSize: 10,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
-    minHeight: 56,
+  },
+  answerQuestion: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 21,
+    textTransform: 'none',
+  },
+  answerQuestionBlock: {
+    marginTop: 10,
+    marginBottom: 6,
+    height: 63,
+    justifyContent: 'flex-start',
+  },
+  answerEntryLabel: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 10,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginTop: 10,
+    marginBottom: 10,
   },
   answerField: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.12)',
-    borderRadius: 10,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: 'rgba(52, 40, 70, 0.25)',
     overflow: 'hidden',
-    minHeight: 96,
+    minHeight: 104,
     marginBottom: 10,
   },
   answerCardBottomSpacer: {
-    height: 10,
+    height: 4,
   },
   answerText: {
     ...BodyStyle,
@@ -2013,7 +2071,7 @@ const styles = StyleSheet.create({
   journalArchiveTitle: {
     textAlign: 'center',
     width: '100%',
-    marginTop: 65,
+    marginTop: 50,
   },
   journalArchiveTitleWrap: {
     width: '100%',
@@ -2157,14 +2215,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.15)',
     padding: 16,
-    gap: 8,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   answersCalendarEntryDate: {
-    ...HeadingStyle,
-    color: '#342846',
-    fontSize: 15,
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.78)',
+    fontSize: 11,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    letterSpacing: 0.4,
+    marginBottom: 6,
   },
   answersCalendarEntryPromptLabel: {
     ...BodyStyle,
@@ -2184,8 +2247,11 @@ const styles = StyleSheet.create({
     color: '#7a6f88',
     fontSize: 11,
     letterSpacing: 0.2,
+    marginTop: 10,
+    marginBottom: 10,
   },
   answersCalendarEntryAnswerBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.12)',
     borderLeftWidth: 3,
@@ -2193,7 +2259,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    minHeight: 96,
+    marginBottom: 10,
   },
   answersCalendarEntryAnswerText: {
     ...BodyStyle,

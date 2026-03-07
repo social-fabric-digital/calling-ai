@@ -2,6 +2,14 @@ import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle, SubtitleStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import {
+  hapticError,
+  hapticHeavy,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticWarning,
+} from '@/utils/haptics';
 import { changeLanguage } from '@/utils/i18n';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -139,9 +147,11 @@ export default function SettingsScreen() {
   );
 
   const handleToggleNotifications = async (value: boolean) => {
+    void hapticLight();
     if (value) {
       const granted = await requestNotificationPermissions();
       if (!granted) {
+        void hapticWarning();
         Alert.alert(
           '',
           t('settings.notificationPermissionDenied', {
@@ -167,9 +177,11 @@ export default function SettingsScreen() {
     }
     setNotificationsEnabled(value);
     await saveNotificationPreferences(value, reminderHour, reminderMinute);
+    void hapticSuccess();
   };
 
   const handleTimeChange = async (hour: number, minute: number) => {
+    void hapticLight();
     setReminderHour(hour);
     setReminderMinute(minute);
     await saveNotificationPreferences(notificationsEnabled, hour, minute);
@@ -180,10 +192,13 @@ export default function SettingsScreen() {
 
   const handleLanguageChange = async (lang: 'en' | 'ru') => {
     if (lang === currentLang) return;
+    void hapticLight();
     await changeLanguage(lang);
+    void hapticSuccess();
   };
 
   const handleUpgrade = async () => {
+    void hapticMedium();
     try {
       if (Platform.OS === 'ios') {
         const canOpenNative = await Linking.canOpenURL(APPLE_SUBSCRIPTIONS_URL);
@@ -203,6 +218,7 @@ export default function SettingsScreen() {
       await Linking.openURL(APP_STORE_URL || APPLE_SUBSCRIPTIONS_FALLBACK_URL);
     } catch (error) {
       console.error('Upgrade flow error:', error);
+      void hapticError();
       Alert.alert(
         '',
         t('settings.unableToOpenStore', {
@@ -215,15 +231,19 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
+    void hapticMedium();
     try {
       await supabase.auth.signOut();
+      void hapticSuccess();
       router.replace('/landing');
     } catch (error) {
       console.error('Logout error:', error);
+      void hapticError();
     }
   };
 
   const handleDeleteAccount = () => {
+    void hapticHeavy();
     Alert.alert(
       t('settings.deleteAccountTitle'),
       t('settings.deleteAccountMessage'),
@@ -233,6 +253,7 @@ export default function SettingsScreen() {
           text: t('settings.deleteAccountConfirm'),
           style: 'destructive',
           onPress: async () => {
+            void hapticHeavy();
             try {
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
@@ -241,9 +262,11 @@ export default function SettingsScreen() {
               }
               await AsyncStorage.clear();
               await supabase.auth.signOut();
+              void hapticSuccess();
               router.replace('/landing');
             } catch (error) {
               console.error('Delete account error:', error);
+              void hapticError();
             }
           },
         },
@@ -276,7 +299,13 @@ export default function SettingsScreen() {
   return (
     <PaperTextureBackground>
       <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => {
+            void hapticMedium();
+            router.back();
+          }}
+          style={styles.backButton}
+        >
           <MaterialIcons name="arrow-back" size={24} color="#342846" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.title')}</Text>
@@ -301,7 +330,10 @@ export default function SettingsScreen() {
           </View>
           <TouchableOpacity
             style={styles.cardButton}
-            onPress={() => router.push('/edit-profile')}
+            onPress={() => {
+              void hapticMedium();
+              router.push('/edit-profile');
+            }}
             activeOpacity={0.7}
           >
             <Text style={styles.cardButtonText}>{t('settings.editProfile')}</Text>
@@ -440,7 +472,10 @@ export default function SettingsScreen() {
           </View>
           <TouchableOpacity
             style={[styles.cardButton, { marginTop: 10 }]}
-            onPress={() => router.push('/edit-birth-data')}
+            onPress={() => {
+              void hapticMedium();
+              router.push('/edit-birth-data');
+            }}
             activeOpacity={0.7}
           >
             <Text style={styles.cardButtonText}>{t('settings.editBirthData')}</Text>
@@ -455,19 +490,37 @@ export default function SettingsScreen() {
             <Text style={styles.rowValue}>{appVersion}</Text>
           </View>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL(APP_STORE_URL)}>
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => {
+              void hapticMedium();
+              void Linking.openURL(APP_STORE_URL);
+            }}
+          >
             <Ionicons name="star-outline" size={20} color="#342846" />
             <Text style={styles.linkText}>{t('settings.rateApp')}</Text>
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/privacy-policy')}>
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => {
+              void hapticMedium();
+              router.push('/privacy-policy');
+            }}
+          >
             <Ionicons name="shield-checkmark-outline" size={20} color="#342846" />
             <Text style={styles.linkText}>{t('settings.privacyPolicy')}</Text>
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/terms-of-service')}>
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => {
+              void hapticMedium();
+              router.push('/terms-of-service');
+            }}
+          >
             <Ionicons name="document-text-outline" size={20} color="#342846" />
             <Text style={styles.linkText}>{t('settings.termsOfService')}</Text>
             <Ionicons name="chevron-forward" size={18} color="#999" />
@@ -475,7 +528,10 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.linkRow}
-            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+            onPress={() => {
+              void hapticMedium();
+              void Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+            }}
           >
             <Ionicons name="mail-outline" size={20} color="#342846" />
             <Text style={styles.linkText}>{t('settings.contactSupport')}</Text>

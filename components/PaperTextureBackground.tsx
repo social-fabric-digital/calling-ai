@@ -5,17 +5,19 @@ interface PaperTextureBackgroundProps {
   children: React.ReactNode;
   style?: ViewStyle;
   opacity?: number;
+  baseColor?: string;
 }
 
 export function PaperTextureBackground({ 
   children, 
   style,
-  opacity = 1.0
+  opacity = 1.0,
+  baseColor = '#f5f2eb',
 }: PaperTextureBackgroundProps) {
   return (
     <View style={[styles.container, style]}>
       {/* Base paper color - warm off-white with slight yellow/brown tint */}
-      <View style={[styles.baseLayer, { backgroundColor: '#f5f2eb' }]} />
+      <View style={[styles.baseLayer, { backgroundColor: baseColor }]} />
       
       {/* Noise background image */}
       <Image

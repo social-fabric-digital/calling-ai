@@ -167,11 +167,16 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      detachInactiveScreens={false}
       screenOptions={{
         tabBarActiveTintColor: '#342846',
         tabBarInactiveTintColor: '#9BA3AF',
         headerShown: false,
         tabBarButton: HapticTab,
+        lazy: false,
+        sceneStyle: {
+          backgroundColor: '#1f1a2a',
+        },
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,

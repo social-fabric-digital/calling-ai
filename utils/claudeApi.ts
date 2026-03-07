@@ -1311,9 +1311,9 @@ What the Universe Wants You to Know
 
 Your Protected Windows
 (Give 3 time windows with 1 sentence each:)
-- Morning (before 11am): [what to do or avoid]
-- Midday (11am-3pm): [what to do or avoid]
-- Evening (after 6pm): [what to do or avoid]
+- Morning: [what to do or avoid]
+- Midday: [what to do or avoid]
+- Evening: [what to do or avoid]
 
 Tonight's Gentle Landing
 (2 sentences. A soft wind-down prompt. A question to reflect on or permission to let go. Nurturing tone.)
