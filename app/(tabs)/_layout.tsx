@@ -6,7 +6,7 @@ import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import i18n from '@/utils/i18n';
+import { useTranslation } from 'react-i18next';
 
 // ============================================================================
 // CUSTOM ICON COMPONENTS
@@ -163,7 +163,9 @@ const TabBarIcon = ({
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { i18n } = useTranslation();
   const isRussian = i18n.language === 'ru' || i18n.language?.startsWith('ru');
+  const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
 
   return (
     <Tabs
@@ -188,10 +190,11 @@ export default function TabLayout() {
           paddingHorizontal: 16,
         },
         tabBarLabelStyle: {
-          fontFamily: 'AnonymousPro-Regular',
-          fontSize: 11,
-          marginTop: 4,
+          ...styles.tabLabelBase,
+          ...(isTabletLayout ? styles.tabLabelTablet : null),
         },
+        tabBarLabelPosition: isTabletLayout ? 'beside-icon' : undefined,
+        tabBarIconStyle: isTabletLayout ? styles.tabIconTablet : undefined,
         tabBarItemStyle: {
           paddingVertical: 4,
         },
@@ -285,5 +288,17 @@ const styles = StyleSheet.create({
   },
   iconContainerActive: {
     backgroundColor: '#a592b0',
+  },
+  tabLabelBase: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  tabLabelTablet: {
+    marginTop: 0,
+  },
+  tabIconTablet: {
+    marginRight: 5,
+    marginBottom: 0,
   },
 });

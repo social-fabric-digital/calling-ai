@@ -517,12 +517,14 @@ export default function ProgressScreen() {
                 style={styles.viewGoalMapButton}
                 activeOpacity={0.7}
                 onPress={() => {
-                  if (currentGoalId) {
-                    router.push({
-                      pathname: '/goal-map',
-                      params: { goalId: currentGoalId },
-                    });
-                  }
+                  router.push(
+                    currentGoalId
+                      ? {
+                          pathname: '/goal-map',
+                          params: { goalId: currentGoalId },
+                        }
+                      : '/(tabs)/goals'
+                  );
                 }}
               >
                 <Text style={styles.viewGoalMapButtonText}>{tr('Open goal map', 'Открыть карту цели')}</Text>

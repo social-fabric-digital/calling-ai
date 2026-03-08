@@ -34,8 +34,8 @@ const getLocalizedTodayKey = (timezone?: string): string => {
   return `${year}-${month}-${day}`;
 };
 
-const buildGenericSupportiveInsight = (): string => {
-  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+const buildGenericSupportiveInsight = (language: 'en' | 'ru' = 'en'): string => {
+  const isRussian = language === 'ru';
   if (isRussian) {
     return [
       'Твой Космический Щит на Сегодня',
@@ -219,8 +219,10 @@ export async function getPersonalizedDailyInsight(
     'UTC';
   const today = getLocalizedTodayKey(currentTimezone);
   const hasBirthDate = Boolean(params.birthMonth && params.birthDate && params.birthYear);
+  const insightLanguage: 'en' | 'ru' =
+    params.language === 'ru' || i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
 
-  const cacheKey = `personalized-insight-${INSIGHT_CACHE_VERSION}-${params.birthMonth || 'na'}-${params.birthDate || 'na'}-${params.birthYear || 'na'}-${today}`;
+  const cacheKey = `personalized-insight-${INSIGHT_CACHE_VERSION}-${insightLanguage}-${params.birthMonth || 'na'}-${params.birthDate || 'na'}-${params.birthYear || 'na'}-${today}`;
 
   try {
     const cachedReport = await AsyncStorage.getItem(cacheKey);
@@ -233,7 +235,7 @@ export async function getPersonalizedDailyInsight(
   }
 
   if (!hasBirthDate) {
-    const fallback = buildGenericSupportiveInsight();
+    const fallback = buildGenericSupportiveInsight(insightLanguage);
     await AsyncStorage.setItem(cacheKey, fallback).catch(() => {});
     return fallback;
   }
@@ -251,7 +253,7 @@ export async function getPersonalizedDailyInsight(
   if (!hasCoordinates && params.birthCity) {
     const cityCoordinates = await fetchCityCoordinatesByName(
       params.birthCity,
-      i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en'
+      insightLanguage
     );
     if (cityCoordinates) {
       resolvedLatitude = cityCoordinates.lat;
@@ -284,6 +286,7 @@ export async function getPersonalizedDailyInsight(
     console.log('🔮 Generating NEW personalized daily insight...');
     report = await generatePersonalizedDailyInsight({
       ...params,
+      language: insightLanguage,
       birthLatitude: resolvedLatitude,
       birthLongitude: resolvedLongitude,
       birthTimezone: resolvedBirthTimezone,
@@ -292,7 +295,7 @@ export async function getPersonalizedDailyInsight(
     report = normalizeProtectedWindowsLabels(report);
   } catch (error) {
     console.warn('Using generic fallback after personalized generation failure:', error);
-    report = buildGenericSupportiveInsight();
+    report = buildGenericSupportiveInsight(insightLanguage);
   }
 
   try {

@@ -49,6 +49,14 @@ const APP_STORE_URL = Platform.select({
 const APPLE_SUBSCRIPTIONS_URL = 'itms-apps://apps.apple.com/account/subscriptions';
 const APPLE_SUBSCRIPTIONS_FALLBACK_URL = 'https://apps.apple.com/account/subscriptions';
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
+const SUPABASE_URL =
+  (Constants.expoConfig?.extra?.supabaseUrl ||
+    process.env.EXPO_PUBLIC_SUPABASE_URL ||
+    'https://unyrkyvyngafjubjhkkf.supabase.co')?.trim();
+const SUPABASE_ANON_KEY =
+  (Constants.expoConfig?.extra?.supabaseAnonKey ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVueXJreXZ5bmdhZmp1Ympoa2tmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjQ5MjUsImV4cCI6MjA4NTc0MDkyNX0.ZSnPR76qULI3TjOudumVer4Vp_Wa69GlfiT4sfJ9VlM')?.trim();
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
@@ -255,18 +263,50 @@ export default function SettingsScreen() {
           onPress: async () => {
             void hapticHeavy();
             try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                await supabase.from('profiles').delete().eq('id', user.id);
-                await supabase.from('daily_answers').delete().eq('user_id', user.id);
+              const { data: { session } } = await supabase.auth.getSession();
+              const accessToken = session?.access_token;
+
+              if (!accessToken || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+                throw new Error('Missing authenticated session for account deletion.');
               }
-              await AsyncStorage.clear();
+
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user?.id) {
+                await Promise.all([
+                  supabase.from('profiles').delete().eq('id', user.id),
+                  supabase.from('daily_answers').delete().eq('user_id', user.id),
+                ]);
+              }
+
+              const deleteResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+                method: 'DELETE',
+                headers: {
+                  apikey: SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (!deleteResponse.ok) {
+                const errorText = await deleteResponse.text();
+                throw new Error(errorText || `Delete failed with status ${deleteResponse.status}`);
+              }
+
               await supabase.auth.signOut();
+              await AsyncStorage.clear();
               void hapticSuccess();
-              router.replace('/landing');
+              router.replace('/onboarding');
             } catch (error) {
               console.error('Delete account error:', error);
               void hapticError();
+              Alert.alert(
+                '',
+                t('settings.deleteAccountError', {
+                  defaultValue: currentLang === 'ru'
+                    ? 'Не удалось удалить аккаунт. Попробуйте еще раз.'
+                    : 'Unable to delete account. Please try again.',
+                })
+              );
             }
           },
         },

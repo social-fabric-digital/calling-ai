@@ -1688,7 +1688,7 @@ const styles = StyleSheet.create({
   insightCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.15)',
@@ -1894,7 +1894,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   goalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,

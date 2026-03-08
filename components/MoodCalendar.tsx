@@ -162,7 +162,7 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,

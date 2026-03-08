@@ -23,6 +23,7 @@ import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
+const isTabletLayout = Platform.OS === 'ios' && (Platform.isPad || Math.max(width, height) >= 1000);
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
 const QUESTION_DAY_KEY = '@question_day';
 const LAST_QUESTION_DATE_KEY = '@last_question_date';
@@ -84,7 +85,9 @@ export default function HomeScreen() {
   const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
   const [questionDay, setQuestionDay] = useState<number>(1);
   const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
-  const ignorePersistedDailyAnswerInDev = __DEV__;
+  // Persist daily-answer state consistently across dev/prod so the question
+  // does not reappear after submission on simulator reloads.
+  const ignorePersistedDailyAnswerInDev = false;
   
   // Debug: Log current language and force re-render on language change
   useEffect(() => {
@@ -755,6 +758,8 @@ export default function HomeScreen() {
   // Capture answer and trigger animations
   const captureAnswer = async () => {
     if (answerCaptured) return;
+    const normalizedAnswer = dailyAnswer.trim();
+    if (!normalizedAnswer) return;
     
     setAnswerCaptured(true);
     
@@ -772,7 +777,7 @@ export default function HomeScreen() {
       const today = new Date().toDateString();
       const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       await AsyncStorage.setItem('lastAnswerDate', today);
-      await AsyncStorage.setItem('lastAnswer', dailyAnswer);
+      await AsyncStorage.setItem('lastAnswer', normalizedAnswer);
       
       // Save to userAnswers array for the "Me" screen
       const answersData = await AsyncStorage.getItem('userAnswers');
@@ -785,14 +790,14 @@ export default function HomeScreen() {
       
       if (todayAnswerIndex >= 0) {
         // Update existing answer
-        answers[todayAnswerIndex].answer = dailyAnswer;
+        answers[todayAnswerIndex].answer = normalizedAnswer;
         answers[todayAnswerIndex].question = questionText;
       } else {
         // Add new answer
         const newAnswer = {
           date: todayISO,
           question: questionText,
-          answer: dailyAnswer,
+          answer: normalizedAnswer,
         };
         answers.unshift(newAnswer); // Add to beginning
         // Keep only last 100 answers
@@ -821,13 +826,13 @@ export default function HomeScreen() {
           if (existing) {
             await supabase.from('daily_answers').update({
               question_text: questionText,
-              answer_text: dailyAnswer,
+              answer_text: normalizedAnswer,
             }).eq('id', existing.id);
           } else {
             await supabase.from('daily_answers').insert({
               user_id: user.id,
               question_text: questionText,
-              answer_text: dailyAnswer,
+              answer_text: normalizedAnswer,
             });
           }
         }
@@ -1206,6 +1211,8 @@ export default function HomeScreen() {
       const today = new Date();
       const todayKey = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
       const cacheKey = `daily-report-${todayKey}`;
+      const insightLanguage: 'en' | 'ru' = i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+      const premiumInsightCacheKey = `premium-daily-report-${insightLanguage}-${todayKey}`;
       
       console.log('🌟 Cosmic Insight clicked');
       console.log('📅 Today\'s date:', todayKey);
@@ -1221,8 +1228,6 @@ export default function HomeScreen() {
       });
       
       setShowAstrologyModal(true);
-      setIsLoadingReport(true);
-      setAstrologyReport('');
       setInsightProfileMessage('');
       setQueueSkipped(false);
       await trackReflectionEvent('cosmic_insight_opened');
@@ -1255,12 +1260,26 @@ export default function HomeScreen() {
       })();
 
       if (userIsPremium) {
+        const cachedPremiumInsight = await AsyncStorage.getItem(premiumInsightCacheKey);
+        if (cachedPremiumInsight && cachedPremiumInsight.trim()) {
+          setQueueSkipped(true);
+          setIsLoadingReport(false);
+          setAstrologyReport(cachedPremiumInsight);
+          return;
+        }
+
+        setIsLoadingReport(true);
+        setAstrologyReport('');
         setQueueSkipped(true);
-        await generateReport(cacheKey, null, requestId);
+        await generateReport(cacheKey, null, requestId, {
+          persistPremiumCacheKey: premiumInsightCacheKey,
+        });
         return;
       }
 
       // For free users: Start generating immediately but ensure loading shows for exactly 30 seconds
+      setIsLoadingReport(true);
+      setAstrologyReport('');
       const startTime = Date.now();
       queueStartTimeRef.current = startTime;
       
@@ -1279,10 +1298,16 @@ export default function HomeScreen() {
   };
 
   // Generate report function
-  const generateReport = async (_cacheKey: string, startTime: number | null, requestId: number) => {
+  const generateReport = async (
+    _cacheKey: string,
+    startTime: number | null,
+    requestId: number,
+    options?: { persistPremiumCacheKey?: string }
+  ) => {
     try {
       const isStaleRequest = () => requestId !== insightRequestIdRef.current;
       let report: string | null = null;
+      const insightLanguage: 'en' | 'ru' = i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
 
       const [
         ikigaiWhatYouLove,
@@ -1330,6 +1355,7 @@ export default function HomeScreen() {
       const parsedLon = Number.parseFloat(birthLongitude || '');
 
       const insightParams = {
+        language: insightLanguage,
         userName: userName || undefined,
         birthMonth: birthMonth || '',
         birthDate: birthDate || '',
@@ -1436,6 +1462,9 @@ export default function HomeScreen() {
       
       if (report && typeof report === 'string' && report.trim()) {
         if (isStaleRequest()) return;
+        if (options?.persistPremiumCacheKey) {
+          await AsyncStorage.setItem(options.persistPremiumCacheKey, report);
+        }
         setIsLoadingReport(false);
         setAstrologyReport(report);
         console.log('✨ Report displayed in modal');
@@ -1483,6 +1512,8 @@ export default function HomeScreen() {
     const today = new Date();
     const todayKey = today.toISOString().split('T')[0];
     const cacheKey = `daily-report-${todayKey}`;
+    const insightLanguage: 'en' | 'ru' = i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+    const premiumInsightCacheKey = `premium-daily-report-${insightLanguage}-${todayKey}`;
     
     const userIsPremium = await (async () => {
       const [superwallAccess, subscriptionAccess] = await Promise.all([
@@ -1514,7 +1545,9 @@ export default function HomeScreen() {
       queueTimerRef.current = null;
     }
     queueStartTimeRef.current = null;
-    await generateReport(cacheKey, null, requestId);
+    await generateReport(cacheKey, null, requestId, {
+      persistPremiumCacheKey: premiumInsightCacheKey,
+    });
   };
 
   // Transform answer field to envelope and fly away
@@ -2134,7 +2167,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={isHomeAnsweredLayout ? styles.homeAnsweredContent : undefined}>
+        <View style={isHomeAnsweredLayout ? [styles.homeAnsweredContent, isTabletLayout && styles.homeAnsweredContentTablet] : undefined}>
           <View>
             {/* Explore Heading */}
             <Text
@@ -2252,9 +2285,10 @@ export default function HomeScreen() {
                 moodText={todaysMood.text}
                 moodValue={todaysMood.value}
                 onUpdatePress={handleUpdateMood}
+                containerStyle={isTabletLayout ? styles.moodLoggedCardTablet : undefined}
               />
             ) : (
-              <View style={styles.moodCard}>
+              <View style={[styles.moodCard, isTabletLayout && styles.moodCardTablet]}>
                 <FrostedCardLayer />
                 <View pointerEvents="auto">
                   <MoodSelector 
@@ -2332,7 +2366,11 @@ export default function HomeScreen() {
           </View>
 
           {/* Feeling Anxious Section */}
-          <View ref={atlasRef} collapsable={false}>
+          <View
+            ref={atlasRef}
+            collapsable={false}
+            style={isTabletLayout ? styles.feelingAnxiousSectionTablet : undefined}
+          >
             <Text style={styles.sectionHeading}>{t('home.feelingAnxious')}</Text>
             <TouchableOpacity 
               style={styles.feelingAnxiousCard}
@@ -2676,6 +2714,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+  homeAnsweredContentTablet: {
+    justifyContent: 'flex-start',
+  },
   settingsButton: {
     position: 'absolute',
     right: 72,
@@ -2863,6 +2904,12 @@ const styles = StyleSheet.create({
     elevation: 14,
     overflow: 'hidden',
   },
+  moodCardTablet: {
+    marginBottom: 0,
+  },
+  moodLoggedCardTablet: {
+    marginBottom: 0,
+  },
   moodCardImage: {
     borderRadius: 12,
     resizeMode: 'cover',
@@ -2906,6 +2953,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+  },
+  feelingAnxiousSectionTablet: {
+    marginTop: 30,
   },
   feelingAnxiousContent: {
     flexDirection: 'row',

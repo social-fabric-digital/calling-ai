@@ -927,6 +927,7 @@ Return ONLY valid JSON, no markdown, no code blocks, no explanations.`;
 // Personalized daily cosmic insight generation
 export interface PersonalizedDailyInsightParams {
   userName?: string;
+  language?: 'en' | 'ru';
   birthMonth: string;
   birthDate: string;
   birthYear: string;
@@ -1157,6 +1158,7 @@ export async function generatePersonalizedDailyInsight(
 
   const {
     userName,
+    language,
     birthMonth,
     birthDate,
     birthYear,
@@ -1171,6 +1173,9 @@ export async function generatePersonalizedDailyInsight(
     ikigaiData,
     lifeContext,
   } = params;
+
+  const outputLanguage: 'en' | 'ru' =
+    language === 'ru' || i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
 
   const monthPadded = birthMonth.padStart(2, '0');
   const dayPadded = birthDate.padStart(2, '0');
@@ -1232,7 +1237,9 @@ export async function generatePersonalizedDailyInsight(
           .map((goal) => goal.title?.trim())
           .filter(Boolean)
           .join('\n')
-      : 'No goals set yet.';
+      : outputLanguage === 'ru'
+        ? 'Цели пока не заданы.'
+        : 'No goals set yet.';
 
   const ikigaiSection = ikigaiData
     ? `
@@ -1255,7 +1262,7 @@ CURRENT LIFE CONTEXT:
       }`
     : '';
 
-  const russianPromptAddition = i18n.language?.startsWith('ru')
+  const russianPromptAddition = outputLanguage === 'ru'
     ? `
 Write the entire response in Russian. Use warm, supportive language. Section titles in Russian:
 - Твой Космический Щит на Сегодня

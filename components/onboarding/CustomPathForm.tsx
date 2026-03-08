@@ -19,9 +19,11 @@ import {
     View,
 } from 'react-native';
 import PathChallengeStep from './PathChallengeStep';
+import { styles as onboardingStyles } from './styles';
 import { CustomPathFormProps } from './types';
 
 const { width } = Dimensions.get('window');
+const isTablet = Platform.OS === 'ios' && (Platform.isPad || Dimensions.get('window').width >= 768);
 
 // ============================================
 // Color Palette
@@ -172,6 +174,7 @@ function SectionCard({ icon, iconColor, title, children, delay = 0 }: SectionCar
     <Animated.View
       style={[
         styles.sectionCard,
+        isTablet && styles.sectionCardTablet,
         {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
@@ -372,6 +375,7 @@ export default function CustomPathForm({
   heroTitle,
   heroSubtitle,
   fixedMilestoneCount,
+  cardHorizontalInset,
 }: CustomPathFormProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
@@ -462,10 +466,10 @@ export default function CustomPathForm({
       <View style={styles.container}>
         {/* Header */}
         {!hideHeader && (
-          <View style={styles.header}>
+          <View style={isTablet ? onboardingStyles.header : styles.header}>
             {onBack && (
               <TouchableOpacity
-                style={styles.backButton}
+                style={isTablet ? onboardingStyles.backButton : styles.backButton}
                 onPress={() => {
                   void hapticMedium();
                   onBack();
@@ -476,11 +480,11 @@ export default function CustomPathForm({
             )}
             
             {/* Progress indicator */}
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
+            <View style={isTablet ? onboardingStyles.headerProgressContainer : styles.progressContainer}>
+              <View style={isTablet ? onboardingStyles.headerProgressBar : styles.progressBar}>
                 <View
                   style={[
-                    styles.progressFill,
+                    isTablet ? onboardingStyles.headerProgressFill : styles.progressFill,
                     { width: `${onboardingProgress}%` },
                   ]}
                 />
@@ -491,9 +495,11 @@ export default function CustomPathForm({
 
         <ScrollView
           ref={scrollViewRef}
-          style={styles.scrollView}
+          style={[styles.scrollView, isTablet && styles.scrollViewTablet]}
           contentContainerStyle={[
             styles.scrollContent,
+            isTablet && styles.scrollContentTablet,
+            typeof cardHorizontalInset === 'number' ? { paddingHorizontal: cardHorizontalInset } : null,
             hideHeader && { paddingTop: hideHeaderTopPadding }
           ]}
           showsVerticalScrollIndicator={false}
@@ -677,9 +683,17 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollViewTablet: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 10,
+  },
+  scrollContentTablet: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
 
   // Hero Section
@@ -733,7 +747,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 26,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -745,7 +759,7 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     opacity: 1,
     textAlign: 'center',
     marginBottom: 0,
@@ -766,6 +780,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 18,
     elevation: 10,
+  },
+  sectionCardTablet: {
+    width: '100%',
   },
   sectionHeader: {
     flexDirection: 'row',
