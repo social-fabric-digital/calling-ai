@@ -2203,7 +2203,7 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     marginHorizontal: 24,
-    marginTop: 20,
+    marginTop: -10,
     marginBottom: 16,
     paddingVertical: 18,
     paddingHorizontal: 32,

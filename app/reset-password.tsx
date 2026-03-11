@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -23,6 +23,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    access_token?: string;
+    refresh_token?: string;
+    type?: string;
+    code?: string;
+    token_hash?: string;
+    token?: string;
+    otp?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
@@ -38,6 +47,7 @@ export default function ResetPasswordScreen() {
   const [tokenHash, setTokenHash] = useState('');
   const [recoveryToken, setRecoveryToken] = useState('');
   const [isUrlChecked, setIsUrlChecked] = useState(false);
+  const [hasRecoveryContext, setHasRecoveryContext] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const parseTokensFromUrl = (url: string | null) => {
@@ -66,6 +76,14 @@ export default function ResetPasswordScreen() {
     const nextCode = pick('code');
     const nextTokenHash = pick('token_hash');
     const nextRecoveryToken = pick('token') || pick('otp');
+    const hasRecoveryMarkers = Boolean(
+      nextAccessToken ||
+      nextRefreshToken ||
+      nextCode ||
+      nextTokenHash ||
+      nextRecoveryToken ||
+      nextType === 'recovery'
+    );
 
     if (nextAccessToken) setAccessToken(nextAccessToken);
     if (nextRefreshToken) setRefreshToken(nextRefreshToken);
@@ -73,6 +91,7 @@ export default function ResetPasswordScreen() {
     if (nextCode) setAuthCode(nextCode);
     if (nextTokenHash) setTokenHash(nextTokenHash);
     if (nextRecoveryToken) setRecoveryToken(nextRecoveryToken);
+    if (hasRecoveryMarkers) setHasRecoveryContext(true);
   };
 
   useEffect(() => {
@@ -101,6 +120,33 @@ export default function ResetPasswordScreen() {
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const fromParams = (value: unknown) => (typeof value === 'string' ? value : '');
+    const nextAccessToken = fromParams(params.access_token);
+    const nextRefreshToken = fromParams(params.refresh_token);
+    const nextType = fromParams(params.type);
+    const nextCode = fromParams(params.code);
+    const nextTokenHash = fromParams(params.token_hash);
+    const nextRecoveryToken = fromParams(params.token) || fromParams(params.otp);
+
+    const hasRecoveryMarkers = Boolean(
+      nextAccessToken ||
+      nextRefreshToken ||
+      nextCode ||
+      nextTokenHash ||
+      nextRecoveryToken ||
+      nextType === 'recovery'
+    );
+
+    if (nextAccessToken) setAccessToken(nextAccessToken);
+    if (nextRefreshToken) setRefreshToken(nextRefreshToken);
+    if (nextType) setFlowType(nextType);
+    if (nextCode) setAuthCode(nextCode);
+    if (nextTokenHash) setTokenHash(nextTokenHash);
+    if (nextRecoveryToken) setRecoveryToken(nextRecoveryToken);
+    if (hasRecoveryMarkers) setHasRecoveryContext(true);
+  }, [params.access_token, params.refresh_token, params.type, params.code, params.token_hash, params.token, params.otp]);
 
   useEffect(() => {
     const handleKeyboardShow = (event: KeyboardEvent) => {
@@ -171,6 +217,10 @@ export default function ResetPasswordScreen() {
             throw getSessionError;
           }
           if (!sessionData.session) {
+            if (!hasRecoveryContext) {
+              router.replace('/landing');
+              return;
+            }
             setError(t('resetPassword.errors.missingTokens'));
             return;
           }
@@ -188,7 +238,7 @@ export default function ResetPasswordScreen() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, refreshToken, flowType, authCode, tokenHash, recoveryToken, isUrlChecked, t]);
+  }, [accessToken, refreshToken, flowType, authCode, tokenHash, recoveryToken, isUrlChecked, hasRecoveryContext, t, router]);
 
   const handleUpdatePassword = async () => {
     if (!password || !confirmPassword) {

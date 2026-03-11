@@ -1,18 +1,77 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { PledgeStepProps } from './types';
 import { styles } from './styles';
 
+const FIREWORK_COLORS = ['#ff7eb6', '#ffd166', '#7bdff2', '#b8f2e6', '#f9a8ff', '#7dd3fc'];
+const FIREWORK_PARTICLE_ANGLES = Array.from({ length: 20 }, (_, index) => (Math.PI * 2 * index) / 20);
+
+type FireworkBurst = {
+  id: number;
+  x: number;
+  y: number;
+  progress: Animated.Value;
+  color: string;
+};
+
 function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) {
   const { t } = useTranslation();
+  const { width, height } = useWindowDimensions();
+  const safeAreaInsets = useSafeAreaInsets();
   const [displayName, setDisplayName] = useState(name || '');
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState('');
+  const [fireworkBursts, setFireworkBursts] = useState<FireworkBurst[]>([]);
   const currentPathRef = useRef('');
+  const hasSignatureRef = useRef(false);
+  const celebrationTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const triggerFireworkBurst = useCallback((x: number, y: number) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const progress = new Animated.Value(0);
+    const color = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+
+    setFireworkBursts((prev) => [...prev, { id, x, y, progress, color }]);
+
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 1100,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setFireworkBursts((prev) => prev.filter((burst) => burst.id !== id));
+    });
+  }, []);
+
+  const triggerCelebration = useCallback(() => {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    void hapticMedium();
+    triggerFireworkBurst(centerX, centerY);
+
+    const delayedBurst = setTimeout(() => {
+      triggerFireworkBurst(
+        centerX + (Math.random() > 0.5 ? 70 : -70),
+        centerY + (Math.random() > 0.5 ? -50 : 50)
+      );
+    }, 140);
+    celebrationTimeoutsRef.current.push(delayedBurst);
+  }, [height, triggerFireworkBurst, width]);
 
   // Sync displayName with name prop immediately when it changes
   useEffect(() => {
@@ -63,7 +122,15 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         ? JSON.stringify({ type: 'rn-path-signature', version: 1, paths })
         : '';
     setSignature(payload);
+    hasSignatureRef.current = paths.length > 0;
   }, [paths, setSignature]);
+
+  useEffect(
+    () => () => {
+      celebrationTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+    },
+    []
+  );
 
   const panResponder = useMemo(
     () =>
@@ -85,7 +152,12 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         onPanResponderRelease: () => {
           const finalizedPath = currentPathRef.current;
           if (finalizedPath.includes(' L ')) {
+            const shouldCelebrate = !hasSignatureRef.current;
+            hasSignatureRef.current = true;
             setPaths((prev) => [...prev, finalizedPath]);
+            if (shouldCelebrate) {
+              triggerCelebration();
+            }
           }
           currentPathRef.current = '';
           setCurrentPath('');
@@ -95,94 +167,179 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
           setCurrentPath('');
         },
       }),
-    []
+    [triggerCelebration]
   );
 
   return (
     <View style={[styles.pledgeContainer, styles.pledgeContentContainer]}>
-      <Text style={styles.pledgeTitle}>{t('onboarding.step3Title')}</Text>
-      <View style={styles.pledgeContent}>
-        <Text style={styles.pledgeText}>
-          {t('onboarding.pledgeText', { 
-            name: (name && name.trim()) 
-              ? name.trim() 
-              : ((displayName && displayName.trim())
-                  ? displayName.trim() 
-                  : t('onboarding.pledgeNamePlaceholder'))
-          })}
-        </Text>
-        <Text style={styles.pledgeSubtext}>
-          {t('onboarding.pledgeSubtext')}
-        </Text>
-        
-        {/* Signature Field */}
-        <View style={styles.signatureContainer}>
-          <View
-            style={[styles.signatureWrapper, localStyles.signaturePad]}
-            pointerEvents="auto"
-            {...panResponder.panHandlers}
-          >
-            {paths.length === 0 && !currentPath ? (
-              <View pointerEvents="none" style={localStyles.placeholderWrap}>
-                <Text style={localStyles.placeholderText}>
-                  {t('onboarding.signHere', { defaultValue: 'Sign here with your finger' })}
-                </Text>
-              </View>
-            ) : null}
-
-            <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" pointerEvents="none">
-              {paths.map((pathD, index) => (
-                <Path
-                  key={`path-${index}`}
-                  d={pathD}
-                  stroke="#342846"
-                  strokeWidth={2.5}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-              {currentPath ? (
-                <Path
-                  d={currentPath}
-                  stroke="#342846"
-                  strokeWidth={2.5}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+      <ScrollView
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          localStyles.scrollContent,
+          { paddingBottom: 100 + safeAreaInsets.bottom },
+        ]}
+      >
+        <Text style={styles.pledgeTitle}>{t('onboarding.step3Title')}</Text>
+        <View style={styles.pledgeContent}>
+          <Text style={styles.pledgeText}>
+            {t('onboarding.pledgeText', {
+              name: (name && name.trim())
+                ? name.trim()
+                : ((displayName && displayName.trim())
+                    ? displayName.trim()
+                    : t('onboarding.pledgeNamePlaceholder'))
+            })}
+          </Text>
+          <Text style={styles.pledgeSubtext}>
+            {t('onboarding.pledgeSubtext')}
+          </Text>
+          
+          {/* Signature Field */}
+          <View style={styles.signatureContainer}>
+            <View
+              style={[styles.signatureWrapper, localStyles.signaturePad]}
+              pointerEvents="auto"
+              {...panResponder.panHandlers}
+            >
+              {paths.length === 0 && !currentPath ? (
+                <View pointerEvents="none" style={localStyles.placeholderWrap}>
+                  <Text style={localStyles.placeholderText}>
+                    {t('onboarding.signHere', { defaultValue: 'Sign here with your finger' })}
+                  </Text>
+                </View>
               ) : null}
-            </Svg>
+
+              <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" pointerEvents="none">
+                {paths.map((pathD, index) => (
+                  <Path
+                    key={`path-${index}`}
+                    d={pathD}
+                    stroke="#342846"
+                    strokeWidth={2.5}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+                {currentPath ? (
+                  <Path
+                    d={currentPath}
+                    stroke="#342846"
+                    strokeWidth={2.5}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+              </Svg>
+            </View>
+            <TouchableOpacity
+              style={localStyles.clearButton}
+              onPress={() => {
+                void hapticLight();
+                setPaths([]);
+                setCurrentPath('');
+                currentPathRef.current = '';
+                hasSignatureRef.current = false;
+                celebrationTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+                celebrationTimeoutsRef.current = [];
+                setFireworkBursts([]);
+                setSignature('');
+              }}
+            >
+              <Text style={localStyles.clearButtonText}>{t('common.clear', { defaultValue: 'Clear' })}</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Step-local CTA avoids z-index/footer overlay conflicts on iOS. */}
+        <View style={[localStyles.ctaContainer, { paddingBottom: 40 + safeAreaInsets.bottom }]}>
           <TouchableOpacity
-            style={localStyles.clearButton}
+            style={[styles.continueButton, localStyles.iVowButton]}
+            onPressIn={() => {
+              void hapticMedium();
+            }}
             onPress={() => {
-              void hapticLight();
-              setPaths([]);
-              setCurrentPath('');
-              currentPathRef.current = '';
-              setSignature('');
+              onNext();
             }}
           >
-            <Text style={localStyles.clearButtonText}>{t('common.clear', { defaultValue: 'Clear' })}</Text>
+            <Text style={styles.continueButtonText}>{t('common.iVow')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Step-local CTA avoids z-index/footer overlay conflicts on iOS. */}
-      <View style={{ paddingHorizontal: 40, paddingBottom: 40, paddingTop: 24 }}>
-        <TouchableOpacity
-          style={styles.continueButton}
-          onPressIn={() => {
-            void hapticMedium();
-          }}
-          onPress={() => {
-            onNext();
-          }}
-        >
-          <Text style={styles.continueButtonText}>{t('common.iVow')}</Text>
-        </TouchableOpacity>
-      </View>
+      {fireworkBursts.length > 0 ? (
+        <View pointerEvents="none" style={localStyles.celebrationLayer}>
+          {fireworkBursts.map((burst) => (
+            <View
+              key={burst.id}
+              style={[
+                localStyles.burstContainer,
+                {
+                  left: burst.x,
+                  top: burst.y,
+                },
+              ]}
+            >
+              {FIREWORK_PARTICLE_ANGLES.map((angle, index) => {
+                const distance = 60 + (index % 4) * 20;
+                const translateX = burst.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, Math.cos(angle) * distance],
+                });
+                const translateY = burst.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, Math.sin(angle) * distance],
+                });
+                const scale = burst.progress.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.4, 1.2, 0.7],
+                });
+                const opacity = burst.progress.interpolate({
+                  inputRange: [0, 0.75, 1],
+                  outputRange: [1, 0.95, 0],
+                });
+
+                return (
+                  <Animated.View
+                    key={`${burst.id}-${index}`}
+                    style={[
+                      localStyles.particle,
+                      {
+                        backgroundColor: burst.color,
+                        opacity,
+                        transform: [{ translateX }, { translateY }, { scale }],
+                      },
+                    ]}
+                  />
+                );
+              })}
+              <Animated.View
+                style={[
+                  localStyles.sparkCore,
+                  {
+                    backgroundColor: burst.color,
+                    opacity: burst.progress.interpolate({
+                      inputRange: [0, 0.2, 1],
+                      outputRange: [0, 1, 0],
+                    }),
+                    transform: [
+                      {
+                        scale: burst.progress.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [0.25, 1.7, 0.2],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+
     </View>
   );
 }
@@ -216,5 +373,42 @@ const localStyles = StyleSheet.create({
   clearButtonText: {
     color: '#342846',
     fontSize: 14,
+  },
+  ctaContainer: {
+    paddingHorizontal: 40,
+    paddingTop: 24,
+    zIndex: 2,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  iVowButton: {
+    marginBottom: 50,
+  },
+  celebrationLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  burstContainer: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+  },
+  particle: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    marginLeft: -4.5,
+    marginTop: -4.5,
+  },
+  sparkCore: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    marginLeft: -11,
+    marginTop: -11,
   },
 });

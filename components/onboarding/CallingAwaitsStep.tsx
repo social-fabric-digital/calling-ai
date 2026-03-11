@@ -1199,7 +1199,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 11,
     color: '#342846',
-    opacity: 0.6,
+    opacity: 1,
     textAlign: 'center',
     marginBottom: 4,
     width: '100%',

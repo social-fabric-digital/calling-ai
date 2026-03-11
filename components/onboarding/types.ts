@@ -112,6 +112,8 @@ export interface CallingAwaitsStepProps {
 export interface PathsAlignedStepProps {
   onExplorePath?: (pathId: number) => void;
   onWorkOnDreamGoal?: () => void;
+  forceTabletLayout?: boolean;
+  cardHorizontalInset?: number;
   hideCustomPathOption?: boolean;
   headerTopMargin?: number;
   headerExtraContent?: ReactNode;
@@ -197,6 +199,7 @@ export interface CustomPathDreamFormProps {
     timeline: string;
   }) => void;
   onBack?: () => void;
+  backRequestId?: number;
 }
 
 export interface CustomPathFormProps {
@@ -215,6 +218,7 @@ export interface CustomPathFormProps {
   heroTitle?: string;
   heroSubtitle?: string;
   fixedMilestoneCount?: number;
+  cardHorizontalInset?: number;
 }
 
 export interface ObstaclePageProps {
@@ -226,4 +230,81 @@ export interface PaywallStepProps {
   goalTitle: string;
   onContinue: () => void;
   onBack?: () => void;
+}
+
+export interface WelcomeAtlasStepProps {
+  name?: string;
+  onContinue: () => void;
+}
+
+export interface WhyHereStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface CurrentFeelingStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface WhatHeldBackStepProps {
+  onContinue: (values: string[]) => void;
+}
+
+export interface AtlasEncouragementStepProps {
+  currentSituation?: string;
+  onContinue: () => void;
+}
+
+export interface PastAttemptsStepProps {
+  onContinue: (values: string[]) => void;
+}
+
+export interface InsightStatStepProps {
+  onContinue: () => void;
+}
+
+export interface PastChallengesStepProps {
+  name?: string;
+  onContinue: (values: string[]) => void;
+}
+
+export interface WhyDifferentStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface SuccessInspirationStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface FutureSelfStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface MotivationEventStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface CommitmentChallengeStepProps {
+  onContinue: (value: string) => void;
+}
+
+export interface DistractionsStepProps {
+  onContinue: (values: string[]) => void;
+}
+
+export interface ConsistencyPlanStepProps {
+  onContinue: (values: string[]) => void;
+}
+
+export interface SetbackPlanStepProps {
+  onContinue: (values: string[]) => void;
+}
+
+export interface ThankYouAtlasStepProps {
+  name?: string;
+  onContinue: () => void;
+}
+
+export interface PersonalizedPlanStepProps {
+  name?: string;
+  onContinue: () => void;
 }

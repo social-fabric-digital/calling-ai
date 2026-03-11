@@ -667,7 +667,7 @@ function IkigaiForm({
     <KeyboardAvoidingView 
       style={styles.ikigaiFormContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.isPad ? 24 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.ikigaiFormContainer}>

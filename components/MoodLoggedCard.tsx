@@ -3,7 +3,7 @@ import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 const brandColors = {
   primary: '#342846',
@@ -16,9 +16,10 @@ interface MoodLoggedCardProps {
   moodText: string;
   moodValue?: number;
   onUpdatePress: () => void;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress }: MoodLoggedCardProps) {
+export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress, containerStyle }: MoodLoggedCardProps) {
   const { i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
@@ -56,7 +57,7 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress }: Mo
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <FrostedCardLayer />
       <View style={styles.content}>
         <View style={styles.emojiContainer}>
@@ -86,6 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 10,
     marginBottom: 24,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 14 },

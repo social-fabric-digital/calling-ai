@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Text, View, Animated, Easing, StyleSheet } from 'react-native';
+import { Image, Text, View, Animated, Dimensions, Easing, Platform, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { generateUnifiedDestinyProfile } from '@/utils/claudeApi';
 import { LoadingStepProps } from './types';
@@ -354,9 +354,10 @@ interface LoadingItemRowProps {
   text: string;
   isActive: boolean;
   isComplete: boolean;
+  isTabletLayout: boolean;
 }
 
-function LoadingItemRow({ text, isActive, isComplete }: LoadingItemRowProps) {
+function LoadingItemRow({ text, isActive, isComplete, isTabletLayout }: LoadingItemRowProps) {
   const textOpacity = useRef(new Animated.Value(0.4)).current;
   
   useEffect(() => {
@@ -370,7 +371,7 @@ function LoadingItemRow({ text, isActive, isComplete }: LoadingItemRowProps) {
   }, [isActive]);
 
   return (
-    <View style={loaderStyles.itemRow}>
+    <View style={[loaderStyles.itemRow, isTabletLayout && loaderStyles.itemRowPad]}>
       <AnimatedCircularLoader
         size={26}
         strokeWidth={2.5}
@@ -382,6 +383,7 @@ function LoadingItemRow({ text, isActive, isComplete }: LoadingItemRowProps) {
       <Animated.Text
         style={[
           loaderStyles.itemText,
+          isTabletLayout && loaderStyles.itemTextPad,
           {
             opacity: textOpacity,
             fontWeight: isComplete ? '500' : '400',
@@ -443,6 +445,10 @@ function LoadingStep({
   
   const loadingItems = t('onboarding.loadingItems', { returnObjects: true }) as string[];
   const currentRunIdRef = useRef<string>('');
+  const screenSize = Dimensions.get('screen');
+  const isTabletLayout = Platform.OS === 'ios' && (
+    Platform.isPad || Math.max(screenSize.width, screenSize.height) >= 1000
+  );
 
   const buildFallbackProfile = () => ({
     callingAwaits: {
@@ -830,6 +836,7 @@ function LoadingStep({
             text={item}
             isActive={activeIndex >= index}
             isComplete={completedItems.has(index)}
+            isTabletLayout={isTabletLayout}
           />
         ))}
       </View>
@@ -892,12 +899,23 @@ const loaderStyles = StyleSheet.create({
     marginBottom: 16,
     width: '100%',
   },
+  itemRowPad: {
+    width: 'auto',
+    maxWidth: '92%',
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
   itemText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
     color: '#342846',
     marginLeft: 12,
     flex: 1,
+  },
+  itemTextPad: {
+    flex: 0,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   errorContainer: {
     marginTop: 24,

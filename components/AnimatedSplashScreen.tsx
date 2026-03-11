@@ -27,7 +27,7 @@ const ATLAS_DEER = require("@/assets/images/full.deer.png");
 const CLOUD_IMG  = require("@/assets/images/cloud.png");
 
 const BRAND_PURPLE = "#342846";
-const CLOUD_SIZE   = { width: 270, height: 169 };
+const CLOUD_SIZE   = { width: 351, height: 220 };
 const ATLAS_SIZE   = { width: 200, height: 320 };
 
 interface AnimatedSplashScreenProps {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    top: CLOUD_SIZE.height * 0.28,
+    top: CLOUD_SIZE.height * 0.28 + 10,
   },
   progressText: {
     fontFamily: getHeadingFontFamily(),

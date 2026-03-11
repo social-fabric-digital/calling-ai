@@ -39,7 +39,7 @@ export default function EmailLoginScreen() {
   }, [params.email]);
 
   const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || password.length === 0) {
       setError(tr('Please enter email and password', 'Пожалуйста, введи email и пароль'));
       return;
     }
@@ -49,8 +49,9 @@ export default function EmailLoginScreen() {
     setInfo(null);
 
     try {
-      const normalizedEmail = email.trim();
-      const normalizedPassword = password.trim();
+      const normalizedEmail = email.trim().toLowerCase();
+      // Never trim password: spaces may be part of the actual credential.
+      const normalizedPassword = password;
 
       // 1) Existing user path: try sign-in first.
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -88,7 +89,7 @@ export default function EmailLoginScreen() {
   };
 
   const handleForgotPassword = async () => {
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
       setError(tr('Please enter your email first', 'Сначала введи email'));
       return;

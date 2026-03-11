@@ -160,14 +160,16 @@ export async function setLocaleAttribute(locale: string): Promise<void> {
 export async function triggerPaywall(event: string): Promise<{
   shown: boolean;
   purchased: boolean;
+  dismissed: boolean;
+  dismissResultType?: string | null;
 }> {
   const ready = await ensureSuperwallInitialized();
   if (!ready) {
-    return { shown: false, purchased: false };
+    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
   }
   const superwall = await getSuperwall();
   if (!superwall) {
-    return { shown: false, purchased: false };
+    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
   }
 
   try {
@@ -232,8 +234,9 @@ export async function triggerPaywall(event: string): Promise<{
       markPresentationComplete?.();
     });
 
+    // Keep this generous so Apple auth/purchase flow is not interrupted mid-process.
     const completionTimeout = new Promise<void>((resolve) => {
-      setTimeout(resolve, 15000);
+      setTimeout(resolve, 180000);
     });
 
     await Promise.race([registerPromise, presentationCompletion, completionTimeout]);
@@ -249,19 +252,42 @@ export async function triggerPaywall(event: string): Promise<{
       // non-critical: fall back to dismiss result
     }
 
-    const purchased =
-      dismissResultType === 'purchased' ||
-      dismissResultType === 'restored' ||
-      activeAfterRegister;
+    // Some sandbox/App Store flows propagate entitlement state shortly after dismissal.
+    // Retry briefly before deciding purchase failed.
+    let activeAfterRetry = false;
+    if (!activeAfterRegister) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        try {
+          const status = await superwall.shared.getSubscriptionStatus();
+          if (isSubscriptionActive(status)) {
+            activeAfterRetry = true;
+            break;
+          }
+        } catch {
+          // keep retrying
+        }
+      }
+    }
+
+    const hasExplicitDismissResult = dismissResultType !== null && dismissResultType !== undefined;
+    const purchasedFromDismiss =
+      dismissResultType === 'purchased' || dismissResultType === 'restored';
+    // If Superwall explicitly reports a non-purchase dismissal (e.g. close/back),
+    // trust that signal over potentially stale entitlement reads.
+    const purchased = hasExplicitDismissResult
+      ? purchasedFromDismiss
+      : (activeAfterRegister || activeAfterRetry);
     const shown = didPresent || presentationType === 'PresentationResultPaywall';
+    const dismissed = shown && !purchased;
 
     // suppress unused variable warnings
     void skipReasonName;
 
-    return { shown, purchased };
+    return { shown, purchased, dismissed, dismissResultType };
   } catch (error) {
     console.error('[Superwall] triggerPaywall failed', { event, error });
-    return { shown: false, purchased: false };
+    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
   }
 }
 

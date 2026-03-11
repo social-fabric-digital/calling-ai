@@ -11,10 +11,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Image, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
+const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
 
 type TimerDuration = 5 | 15 | 30 | 60;
 
@@ -484,6 +485,37 @@ export default function FocusScreen() {
 
   const selectDuration = (duration: TimerDuration) => {
     void hapticLight();
+    if (isTabletLayout) {
+      // iPad flow: start immediately when a duration is tapped.
+      setPreSelectedDuration(duration);
+      setSelectedDuration(duration);
+      setTimeRemaining(duration * 60);
+      setIsRunning(true);
+      setIsPaused(false);
+      elapsedTimeRef.current = 0;
+
+      // Reset phase refs
+      phaseRefs.phase1Complete = false;
+      phaseRefs.phase2Started = false;
+      phaseRefs.phase2Complete = false;
+      phaseRefs.phase3Started = false;
+      phaseRefs.phase4Started = false;
+
+      // Reset states
+      setShowForest(false);
+      setShowDeer(false);
+      setShowSeed(true);
+
+      // Initialize trees and animation values
+      initializeTrees(duration);
+      forestOpacity.setValue(0);
+      forestScale.setValue(0.9);
+      deerOpacity.setValue(0);
+      deerTranslateX.setValue(-width);
+      deerScale.setValue(1);
+      deerBreathScale.setValue(1);
+      return;
+    }
     setPreSelectedDuration(duration);
   };
 
@@ -996,14 +1028,15 @@ export default function FocusScreen() {
               resizeMode="contain"
             />
           </View>
-          <View style={[styles.durationSelectionFrame, styles.initialContentShift]}>
+          <View style={[styles.durationSelectionFrame, styles.initialContentShift, isTabletLayout && styles.durationSelectionFrameTablet]}>
           <FrostedCardLayer />
           <Text style={styles.selectDurationText}>{t('focus.selectDuration')}</Text>
           
-          <View style={styles.timerOptionsContainer}>
+          <View style={[styles.timerOptionsContainer, isTabletLayout && styles.timerOptionsContainerTablet]}>
             <TouchableOpacity
               style={[
                 styles.timerOptionCircle,
+                isTabletLayout && styles.timerOptionCircleTablet,
                 preSelectedDuration === 5 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(5)}
@@ -1020,6 +1053,7 @@ export default function FocusScreen() {
             <TouchableOpacity
               style={[
                 styles.timerOptionCircle,
+                isTabletLayout && styles.timerOptionCircleTablet,
                 preSelectedDuration === 15 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(15)}
@@ -1036,6 +1070,7 @@ export default function FocusScreen() {
             <TouchableOpacity
               style={[
                 styles.timerOptionCircle,
+                isTabletLayout && styles.timerOptionCircleTablet,
                 preSelectedDuration === 30 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(30)}
@@ -1052,6 +1087,7 @@ export default function FocusScreen() {
             <TouchableOpacity
               style={[
                 styles.timerOptionCircle,
+                isTabletLayout && styles.timerOptionCircleTablet,
                 preSelectedDuration === 60 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(60)}
@@ -1323,6 +1359,11 @@ const styles = StyleSheet.create({
     minHeight: 220,
     overflow: 'hidden',
   },
+  durationSelectionFrameTablet: {
+    width: '70%',
+    alignSelf: 'center',
+    marginHorizontal: 0,
+  },
   selectDurationText: {
     fontFamily: 'AnonymousPro-Regular',
     color: '#342846',
@@ -1396,6 +1437,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     marginTop: 20,
   },
+  timerOptionsContainerTablet: {
+    justifyContent: 'center',
+    width: 'auto',
+    alignSelf: 'center',
+    gap: 50,
+    marginTop: 45,
+  },
   timerOptionCircle: {
     width: 70,
     height: 70,
@@ -1409,6 +1457,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 8,
     elevation: 6,
+  },
+  timerOptionCircleTablet: {
+    marginHorizontal: 0,
   },
   timerOptionCircleSelected: {
     backgroundColor: '#fff',

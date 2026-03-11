@@ -76,6 +76,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 0, // Container padding handled by stepContent
     position: 'relative',
+    overflow: 'hidden',
   },
   stepContent: {
     alignItems: 'center',
@@ -367,7 +368,8 @@ export const styles = StyleSheet.create({
   },
   ikigaiMainTitle: {
     ...HeadingStyle,
-    fontSize: 24,
+    fontSize: 20,
+    lineHeight: 24,
     color: '#342846',
     textAlign: 'center',
   },
@@ -3353,10 +3355,8 @@ export const styles = StyleSheet.create({
     marginTop: 20,
   },
   lifeContextQuestionCardMulti: {
-    alignSelf: 'center',
     marginTop: 20,
     maxHeight: 400,
-    paddingHorizontal: 30,
     overflow: 'hidden',
   },
   lifeContextQuestionText: {
@@ -3374,12 +3374,16 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   lifeContextOptionsContainer: {
-    gap: 5,
+    gap: 15,
   },
   lifeContextOptionsContainerMulti: {
-    alignItems: 'center',
+    alignItems: 'stretch',
+    gap: 15,
     paddingBottom: 10,
-    // width removed for proper centering
+  },
+  lifeContextOptionsContainerMultiPad: {
+    alignItems: 'stretch',
+    width: '100%',
   },
   lifeContextOptionsGridContainer: {
     paddingBottom: 8,
@@ -3410,15 +3414,19 @@ export const styles = StyleSheet.create({
     width: '100%',
   },
   lifeContextOptionWrapperMulti: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
-    marginBottom: 5,
+    marginBottom: 15,
     width: '100%',
   },
+  lifeContextOptionWrapperMultiPad: {
+    width: '100%',
+    alignItems: 'stretch',
+  },
   lifeContextOptionButtonMulti: {
-    width: 280,
-    maxWidth: 280,
-    alignSelf: 'center',
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
   },
   lifeContextOptionButtonInsideMulti: {
     width: '100%',
@@ -3426,13 +3434,14 @@ export const styles = StyleSheet.create({
   lifeContextOptionsWrapper: {
     position: 'relative',
     width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 30,
+    alignItems: 'stretch',
+    paddingHorizontal: 0,
     overflow: 'hidden',
     flexShrink: 1,
   },
   lifeContextOptionsScroll: {
-    maxHeight: 280,
+    height: 280,
+    width: '100%',
     alignSelf: 'stretch',
   },
   lifeContextScrollIndicator: {
@@ -3469,6 +3478,14 @@ export const styles = StyleSheet.create({
   },
   lifeContextOptionTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  lifeContextOptionSelectedSoft: {
+    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    borderColor: '#342846',
+  },
+  lifeContextOptionTextSelectedSoft: {
+    color: '#342846',
     fontWeight: '600',
   },
   lifeContextOptionTextTight: {

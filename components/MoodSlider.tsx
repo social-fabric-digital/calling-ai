@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from 'react-i18next';
-import { PanResponder, StyleSheet, Text, View } from "react-native";
+import { PanResponder, Platform, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -37,6 +37,8 @@ const brandColors = {
   light: '#34284655',
   dark: '#342846DD',
 };
+
+const isTabletIOS = Platform.OS === 'ios' && Platform.isPad;
 
 // Mood emojis from lowest to highest sentiment
 const getMoodEmoji = (value: number): string => {
@@ -77,6 +79,8 @@ export function MoodSlider({
   const [isReady, setIsReady] = useState(false);
   const [currentEmoji, setCurrentEmoji] = useState('😐');
   const [hasInteracted, setHasInteracted] = useState(false);
+  const lastNotifiedValueRef = useRef<number>(-1);
+  const lastNotifiedEmojiRef = useRef<string>('');
   
   const x = useSharedValue(0);
   const progress = useSharedValue(initialValue);
@@ -93,21 +97,37 @@ export function MoodSlider({
 
   // Update emoji when progress changes
   const updateEmoji = (value: number) => {
+    const roundedValue = Math.round(value);
     const emoji = getMoodEmoji(value);
     const text = getMoodText(value, Boolean(isRussian));
-    setCurrentEmoji(emoji);
+
+    // Skip duplicate notifications to keep dragging smooth on JS thread.
+    if (emoji === lastNotifiedEmojiRef.current && roundedValue === lastNotifiedValueRef.current) {
+      return;
+    }
+
+    lastNotifiedEmojiRef.current = emoji;
+    lastNotifiedValueRef.current = roundedValue;
+
+    if (emoji !== currentEmoji) {
+      setCurrentEmoji(emoji);
+    }
+
     if (onMoodChange) {
-      onMoodChange(emoji, text, value);
+      onMoodChange(emoji, text, roundedValue);
     }
   };
 
   // Notify parent when interaction starts
   const notifyInteractionStart = () => {
+    if (onInteractionStart) {
+      onInteractionStart();
+    }
+
+    // Track first interaction locally (used for UI state), but do not
+    // gate parent notifications because each drag should disable parent scroll.
     if (!hasInteracted) {
       setHasInteracted(true);
-      if (onInteractionStart) {
-        onInteractionStart();
-      }
     }
   };
 
@@ -143,6 +163,8 @@ export function MoodSlider({
   const sliderWidthRef = useRef(sliderWidth);
   const sliderPageXRef = useRef(0);
   const gestureGrantedRef = useRef(false);
+  const panStartKnobXRef = useRef(0);
+  const touchOffsetFromKnobCenterRef = useRef(0);
   
   useEffect(() => {
     isReadyRef.current = isReady;
@@ -151,6 +173,21 @@ export function MoodSlider({
   useEffect(() => {
     sliderWidthRef.current = sliderWidth;
   }, [sliderWidth]);
+
+  const updateFromTouchX = (touchX: number) => {
+    const currentWidth = sliderWidthRef.current;
+    const knobHalf = layout.knobSize / 2;
+    const minX = knobHalf;
+    const maxX = currentWidth - knobHalf;
+    const clampedX = Math.max(minX, Math.min(maxX, touchX));
+
+    x.value = clampedX;
+
+    // Calculate progress: map from [minX, maxX] to [0, 100]
+    const effectiveWidth = maxX - minX;
+    const progressValue = effectiveWidth > 0 ? ((clampedX - minX) / effectiveWidth) * 100 : 50;
+    progress.value = Math.max(0, Math.min(100, progressValue));
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -180,47 +217,44 @@ export function MoodSlider({
         isPanActive.value = true;
         hasUserInteracted.value = true;
         notifyInteractionStart();
-        
-        // Use absolute coordinates to avoid localX drift near edges.
-        const touchX = evt.nativeEvent.pageX - sliderPageXRef.current;
-        const currentWidth = sliderWidthRef.current;
-        const knobHalf = layout.knobSize / 2;
-        
-        // Clamp touch position to keep knob fully visible
-        const minX = knobHalf;
-        const maxX = currentWidth - knobHalf;
-        const clampedX = Math.max(minX, Math.min(maxX, touchX));
-        
-        x.value = clampedX;
-        
-        // Calculate progress: map from [minX, maxX] to [0, 100]
-        const effectiveWidth = maxX - minX;
-        const progressValue = effectiveWidth > 0 ? ((clampedX - minX) / effectiveWidth) * 100 : 50;
-        progress.value = Math.max(0, Math.min(100, progressValue));
+
+        // Prefer local coordinates so slider remains responsive inside transformed carousels.
+        const localTouchX = evt.nativeEvent.locationX;
+        if (typeof localTouchX === 'number') {
+          const knobHalf = layout.knobSize / 2;
+          const currentKnobX = x.value;
+          const isTouchOnKnob = Math.abs(localTouchX - currentKnobX) <= knobHalf;
+
+          // Preserve the in-knob finger offset during drag. For track taps, snap center to touch.
+          touchOffsetFromKnobCenterRef.current = isTouchOnKnob ? localTouchX - currentKnobX : 0;
+          updateFromTouchX(localTouchX - touchOffsetFromKnobCenterRef.current);
+          panStartKnobXRef.current = localTouchX - touchOffsetFromKnobCenterRef.current;
+          return;
+        }
+
+        // Fallback for unusual event payloads.
+        const absoluteTouchX = evt.nativeEvent.pageX - sliderPageXRef.current;
+        updateFromTouchX(absoluteTouchX);
+        panStartKnobXRef.current = absoluteTouchX;
+        touchOffsetFromKnobCenterRef.current = 0;
       },
-      onPanResponderMove: (evt) => {
+      onPanResponderMove: (evt, gestureState) => {
         if (!isReadyRef.current || sliderWidthRef.current === 0) return;
-        
-        // Use absolute coordinates to keep full-range dragging stable.
-        const touchX = evt.nativeEvent.pageX - sliderPageXRef.current;
-        const currentWidth = sliderWidthRef.current;
-        const knobHalf = layout.knobSize / 2;
-        
-        // Clamp touch position to keep knob fully visible
-        const minX = knobHalf;
-        const maxX = currentWidth - knobHalf;
-        const clampedX = Math.max(minX, Math.min(maxX, touchX));
-        
-        x.value = clampedX;
-        
-        // Calculate progress: map from [minX, maxX] to [0, 100]
-        const effectiveWidth = maxX - minX;
-        const progressValue = effectiveWidth > 0 ? ((clampedX - minX) / effectiveWidth) * 100 : 50;
-        progress.value = Math.max(0, Math.min(100, progressValue));
+        const localTouchX = evt.nativeEvent?.locationX;
+        if (typeof localTouchX === 'number') {
+          updateFromTouchX(localTouchX - touchOffsetFromKnobCenterRef.current);
+          return;
+        }
+        const nextX = panStartKnobXRef.current + gestureState.dx;
+        updateFromTouchX(nextX);
       },
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderRelease: () => {
         gestureGrantedRef.current = false;
         isPanActive.value = false;
+        x.value = withSpring(x.value, { damping: 20, stiffness: 280, mass: 0.25 });
+        progress.value = withSpring(progress.value, { damping: 20, stiffness: 280, mass: 0.25 });
         // Keep hasUserInteracted true so balloon stays visible
         if (onInteractionEnd) {
           onInteractionEnd();
@@ -229,6 +263,8 @@ export function MoodSlider({
       onPanResponderTerminate: () => {
         gestureGrantedRef.current = false;
         isPanActive.value = false;
+        x.value = withSpring(x.value, { damping: 20, stiffness: 280, mass: 0.25 });
+        progress.value = withSpring(progress.value, { damping: 20, stiffness: 280, mass: 0.25 });
         if (onInteractionEnd) {
           onInteractionEnd();
         }
@@ -341,7 +377,7 @@ export function MoodSlider({
 const styles = StyleSheet.create({
   sliderWrapper: {
     width: "100%",
-    height: 56, // Larger touch target improves drag reliability
+    height: isTabletIOS ? 72 : 56, // Give iPad a larger touch target
     justifyContent: "center",
     alignItems: "center",
   },

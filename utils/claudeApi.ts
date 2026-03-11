@@ -14,12 +14,20 @@ const MAX_CHAT_HISTORY = 20; // Keep last 20 messages only
 let apiFailureCache: {
   lastFailureTime: number | null;
   failureCount: number;
+  cooldownMs: number;
+  lastSkipLogAt: number | null;
+  lastFailureReason: 'network' | 'rate_limit' | 'billing' | 'other' | null;
 } = {
   lastFailureTime: null,
   failureCount: 0,
+  cooldownMs: 60000,
+  lastSkipLogAt: null,
+  lastFailureReason: null,
 };
 
-const API_FAILURE_COOLDOWN = 60000; // 60 seconds - don't retry for 1 minute after failure
+const API_FAILURE_COOLDOWN = 60000; // 60 seconds - generic cooldown
+const BILLING_FAILURE_COOLDOWN = 15 * 60 * 1000; // 15 minutes for insufficient credits/billing issues
+const BILLING_RECHECK_INTERVAL = 45000; // Allow a billing-status probe every 45s
 const MAX_FAILURES_BEFORE_SKIP = 3; // After 3 failures, skip API calls for cooldown period
 
 const stripDoubleAsterisks = (text: string): string => text.replace(/\*{2,}/g, '').trim();
@@ -70,6 +78,9 @@ const sanitizeModelOutput = <T>(value: T): T => {
   return value;
 };
 
+const isBillingIssueMessage = (message: string): boolean =>
+  /credit balance is too low|insufficient credit|insufficient funds|billing|payment required/i.test(message);
+
 // Check if we should skip API calls due to recent failures
 const shouldSkipApiCall = (): boolean => {
   if (apiFailureCache.lastFailureTime === null) {
@@ -77,21 +88,45 @@ const shouldSkipApiCall = (): boolean => {
   }
   
   const timeSinceFailure = Date.now() - apiFailureCache.lastFailureTime;
+  const activeCooldown = apiFailureCache.cooldownMs || API_FAILURE_COOLDOWN;
+
+  // Billing issues can be fixed externally at any moment (user tops up credits).
+  // Allow periodic probe calls before full cooldown expires so recovery is fast.
+  if (
+    apiFailureCache.lastFailureReason === 'billing' &&
+    timeSinceFailure >= BILLING_RECHECK_INTERVAL
+  ) {
+    return false;
+  }
   
   // If we've had multiple failures and it's been less than cooldown period, skip
-  if (apiFailureCache.failureCount >= MAX_FAILURES_BEFORE_SKIP && timeSinceFailure < API_FAILURE_COOLDOWN) {
-    const remainingSeconds = Math.ceil((API_FAILURE_COOLDOWN - timeSinceFailure) / 1000);
-    console.warn(`⚠️ API calls temporarily disabled due to ${apiFailureCache.failureCount} recent failures. Retrying in ${remainingSeconds} seconds.`);
+  if (apiFailureCache.failureCount >= MAX_FAILURES_BEFORE_SKIP && timeSinceFailure < activeCooldown) {
+    const remainingSeconds = Math.ceil((activeCooldown - timeSinceFailure) / 1000);
+    const shouldLogSkip =
+      apiFailureCache.lastSkipLogAt === null || Date.now() - apiFailureCache.lastSkipLogAt > 10000;
+    if (shouldLogSkip) {
+      const reasonHint =
+        apiFailureCache.lastFailureReason === 'billing'
+          ? ' Billing/credits issue detected.'
+          : '';
+      console.warn(
+        `⚠️ API calls temporarily disabled due to recent failures. Retrying in ${remainingSeconds} seconds.${reasonHint}`
+      );
+      apiFailureCache.lastSkipLogAt = Date.now();
+    }
     return true;
   }
   
   // Reset failure count if enough time has passed
-  if (timeSinceFailure >= API_FAILURE_COOLDOWN) {
+  if (timeSinceFailure >= activeCooldown) {
     if (apiFailureCache.failureCount > 0) {
       console.log('✅ API failure cooldown expired, retrying API calls');
     }
     apiFailureCache.failureCount = 0;
     apiFailureCache.lastFailureTime = null;
+    apiFailureCache.cooldownMs = API_FAILURE_COOLDOWN;
+    apiFailureCache.lastSkipLogAt = null;
+    apiFailureCache.lastFailureReason = null;
     return false;
   }
   
@@ -99,8 +134,27 @@ const shouldSkipApiCall = (): boolean => {
 };
 
 // Record an API failure
-const recordApiFailure = () => {
+const recordApiFailure = (
+  reason: 'network' | 'rate_limit' | 'billing' | 'other' = 'other'
+) => {
   apiFailureCache.lastFailureTime = Date.now();
+  apiFailureCache.lastFailureReason = reason;
+  apiFailureCache.lastSkipLogAt = null;
+
+  if (reason === 'billing') {
+    apiFailureCache.failureCount = MAX_FAILURES_BEFORE_SKIP;
+    apiFailureCache.cooldownMs = BILLING_FAILURE_COOLDOWN;
+    console.warn(
+      `API billing failure detected. Pausing API calls for ${Math.ceil(BILLING_FAILURE_COOLDOWN / 1000)} seconds.`
+    );
+    return;
+  }
+
+  if (reason === 'rate_limit') {
+    apiFailureCache.cooldownMs = Math.max(apiFailureCache.cooldownMs, 120000);
+  } else {
+    apiFailureCache.cooldownMs = API_FAILURE_COOLDOWN;
+  }
   apiFailureCache.failureCount += 1;
   console.warn(`API failure recorded (count: ${apiFailureCache.failureCount}/${MAX_FAILURES_BEFORE_SKIP})`);
 };
@@ -109,6 +163,9 @@ const recordApiFailure = () => {
 export const resetApiFailureCache = () => {
   apiFailureCache.failureCount = 0;
   apiFailureCache.lastFailureTime = null;
+  apiFailureCache.cooldownMs = API_FAILURE_COOLDOWN;
+  apiFailureCache.lastSkipLogAt = null;
+  apiFailureCache.lastFailureReason = null;
   console.log('✅ API failure cache reset');
 };
 
@@ -333,13 +390,20 @@ export async function tryModel(
   if (shouldSkipApiCall()) {
     // Return a mock error response to trigger fallback behavior
     const remainingSeconds = apiFailureCache.lastFailureTime 
-      ? Math.ceil((API_FAILURE_COOLDOWN - (Date.now() - apiFailureCache.lastFailureTime)) / 1000)
+      ? Math.ceil(((apiFailureCache.cooldownMs || API_FAILURE_COOLDOWN) - (Date.now() - apiFailureCache.lastFailureTime)) / 1000)
       : 60;
-    console.warn(`⚠️ Skipping API call - in cooldown period (${remainingSeconds}s remaining). Check API key and account status.`);
+    const reasonHint =
+      apiFailureCache.lastFailureReason === 'billing'
+        ? 'Billing credits required.'
+        : 'Check API key and account status.';
+    console.warn(`⚠️ Skipping API call - in cooldown period (${remainingSeconds}s remaining). ${reasonHint}`);
     return new Response(
       JSON.stringify({
         error: {
-          message: `API temporarily unavailable due to recent failures. Retrying in ${remainingSeconds} seconds.`,
+          message:
+            apiFailureCache.lastFailureReason === 'billing'
+              ? 'API temporarily unavailable due to insufficient credits/billing status.'
+              : `API temporarily unavailable due to recent failures. Retrying in ${remainingSeconds} seconds.`,
           type: 'api_error',
         },
       }),
@@ -428,9 +492,26 @@ export async function tryModel(
     throw (lastNetworkError instanceof Error ? lastNetworkError : new Error(String(lastNetworkError)));
   }
 
-  // Record failures (400, 402, 429) for credit/payment issues
+  // Any successful response means account/network is healthy again.
+  if (response.ok && apiFailureCache.failureCount > 0) {
+    resetApiFailureCache();
+  }
+
+  // Record failures and classify billing/rate-limit errors for smarter cooldown behavior
   if (!response.ok && (response.status === 400 || response.status === 402 || response.status === 429)) {
-    recordApiFailure();
+    let failureReason: 'network' | 'rate_limit' | 'billing' | 'other' = 'other';
+
+    if (response.status === 429) {
+      failureReason = 'rate_limit';
+    } else {
+      const errorData = await response.clone().json().catch(() => ({}));
+      const errorMessage = String(errorData?.error?.message || '');
+      if (isBillingIssueMessage(errorMessage) || response.status === 402) {
+        failureReason = 'billing';
+      }
+    }
+
+    recordApiFailure(failureReason);
   }
 
   return response;
@@ -2959,7 +3040,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       const responseData = await response.json();
       const responseText = responseData.content?.[0]?.text || JSON.stringify(responseData);
       
-      console.log('Path Content API Response:', responseText);
+      if (__DEV__) {
+        console.log('Path Content API Response:', responseText);
+      }
       
       // Clean the response - remove markdown code blocks if present
       let cleanedResponse = responseText.trim();
@@ -2996,7 +3079,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
 
         parsed = JSON.parse(cleanedResponse.substring(firstBrace, endIndex + 1));
       }
-      console.log('Parsed Path Content:', parsed);
+      if (__DEV__) {
+        console.log('Parsed Path Content:', parsed);
+      }
       
       // Validate and format the response
       content = {

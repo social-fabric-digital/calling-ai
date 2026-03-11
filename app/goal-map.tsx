@@ -30,6 +30,11 @@ export default function GoalMapScreen() {
   const insets = useSafeAreaInsets();
   const unlockLevelParam = params.unlockLevel ? parseInt(params.unlockLevel as string) : null;
   const scrollToLevelParam = params.scrollToLevel ? parseInt(params.scrollToLevel as string) : null;
+  const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
+  const levelCardScale = isTabletLayout ? 1.5 * 1.3 : 1;
+  const scaleLevelCard = (value: number) => value * levelCardScale;
+  const levelIconScale = 1;
+  const scaleLevelIcon = (value: number) => value * levelIconScale;
   
   // Get goal name and ID from params, fallback to default
   const goalId = (params.goalId as string) || '';
@@ -411,8 +416,8 @@ export default function GoalMapScreen() {
   const horizontalPadding = 40;
   const circleRadius = 35; // Larger circles for unlocked stages
   const circleWidth = 70; // Circle diameter
-  const cardWidth = 126; // Reduced by 30% from 180 (180 * 0.7 = 126)
-  const cardMargin = 15; // Margin between circle and card (15px spacing - increased by 10px)
+  const cardWidth = scaleLevelCard(126); // iPad cards are 50% larger
+  const cardMargin = scaleLevelCard(15); // Keep visual spacing proportional when card size grows
   const availableWidth = width - (horizontalPadding * 2);
   
   // Calculate vertical spacing - ensure all 4 levels fit on screen above the banner
@@ -423,11 +428,11 @@ export default function GoalMapScreen() {
   const bannerTop = height - tabBarHeight - bottomElementsHeight;
   
   // Circle and card dimensions
-  const level1CircleHeight = 49; // Level 1 circle is smaller (30% reduction)
-  const otherCircleHeight = 70; // Other levels use standard circle size
+  const level1CircleHeight = scaleLevelIcon(49); // Level 1 circle is smaller (30% reduction)
+  const otherCircleHeight = scaleLevelIcon(70); // Other levels use standard circle size
   // Card height: padding (12*2=24) + label (~15) + heading (~26) = ~65px
   // Reduced by 25%: 65 * 0.75 = 49px, then reduced by another 25%: 49 * 0.75 = 37px
-  const cardHeight = 37; // Actual card height: padding 18px + content ~19px (reduced by 25% from 49px)
+  const cardHeight = scaleLevelCard(37); // iPad cards are 50% larger
   const circleToCardSpacing = 21; // Space between circle and its card (increased by 15px from 6px to 21px)
   
   // Layout: Levels go down vertically in order: 1 → 2 → 3 → 4
@@ -442,14 +447,14 @@ export default function GoalMapScreen() {
   const level1Height = level1CircleHeight + circleToCardSpacing + cardHeight;
   const otherLevelHeight = otherCircleHeight + circleToCardSpacing + cardHeight;
   
-  // Vertical spacing between level cards - increased by 20px
-  const verticalSpacing = 107; // Increased from 87px to 107px (added 20px spacing)
+  // Vertical spacing between cards (bottom of one card to top of next card)
+  const verticalSpacing = isTabletLayout ? 50 : 107;
   
   // Calculate positions for all stages dynamically
   // Level 1 - starts below the progress section with exactly 10px top margin
   const level1CardTopFinal = headingTop + headingHeight + progressSectionHeight + 10; // Always 10px spacing from progress section
   const level1CardCenter = level1CardTopFinal + (cardHeight / 2);
-  const level1CircleTopFinal = level1CardCenter - (level1CircleHeight / 2) + 37; // Moved icon down by 37px total
+  const level1CircleTopFinal = level1CardCenter - (level1CircleHeight / 2) + 37 + (isTabletLayout ? 40 : 0); // iPad: move level 1 number down 40px
   const level1CardBottom = level1CardTopFinal + cardHeight;
   
   // Level 2 - entire level (circle + card) starts below Level 1 card
@@ -473,8 +478,8 @@ export default function GoalMapScreen() {
   const rightSideLeft = width - horizontalPadding - otherCircleHeight;
   
   // Calculate card left positions
-  const cardMinWidth = 140; // Reduced by 30% from 200 (200 * 0.7 = 140)
-  const lockedCircleWidth = 50;
+  const cardMinWidth = scaleLevelCard(140); // iPad cards are 50% larger
+  const lockedCircleWidth = scaleLevelIcon(50);
   
   // Level 1 and Level 3 circles must have EXACTLY the same left position
   const leftSideCircleLeft = horizontalPadding;
@@ -490,21 +495,26 @@ export default function GoalMapScreen() {
   // Levels 2-4 numbered circles
   // Move circles left by 50px to match card movement, maintaining 15px spacing
   const level2CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50; // Moved left 50px to match card
-  const level2CardLeft = level2CircleLeft + otherCircleHeight + 15; // 15px spacing between icon and card
+  const level2CardLeft = level2CircleLeft + otherCircleHeight + cardMargin;
   
   const level4CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50; // Moved left 50px to match card
-  const level4CardLeft = level4CircleLeft + otherCircleHeight + 15; // 15px spacing between icon and card
+  const level4CardLeft = level4CircleLeft + otherCircleHeight + cardMargin;
 
   // Generate stage positions dynamically based on number of stages
   // Apply 165px upward offset to move all level cards and icons up (135px + 30px)
   const LEVEL_OFFSET = -195; // Move levels up to reduce excessive top gap under "ТВОЙ ПУТЬ"
+  const iPadCardsVerticalOffset = isTabletLayout ? 70 : 0;
+  const iPadLevelIconsExtraDown = isTabletLayout ? 50 : 0;
+  const iPadLevel2ExtraOffset = isTabletLayout ? 80 : 0;
+  const iPadLevel3ExtraOffset = isTabletLayout ? 100 : 0;
+  const iPadLevel4ExtraOffset = isTabletLayout ? 135 : 0;
   
   // Calculate level 4 card bottom position (with offset) for scroll limiting
   // level4CardTopFinal is calculated from screen top, but when used in ScrollView with absolute positioning,
   // it's relative to ScrollView content (which starts at y=0 after header/progress)
   // So the actual rendered top position in ScrollView content is: level4CardTopFinal + LEVEL_OFFSET
   // And the bottom is: (level4CardTopFinal + LEVEL_OFFSET) + cardHeight
-  const level4CardRenderedTop = level4CardTopFinal + LEVEL_OFFSET;
+  const level4CardRenderedTop = level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset;
   const level4CardBottom = level4CardRenderedTop + cardHeight;
   // Content height needs to be at least the bottom of level 4 card plus some padding
   // Ensure it's at least as tall as the visible area to allow proper scrolling
@@ -521,23 +531,12 @@ export default function GoalMapScreen() {
     
     for (let i = 0; i < numStages && i < 4; i++) {
       const stageNumber = i + 1;
-      // Calculate locked circle adjustment to ensure 5px spacing
-      // For level 1: locked circle (50px) should end where regular circle (49px) ends
-      // For other levels: locked circle (50px) should end where regular circle (70px) ends
-      let lockedCircleAdjustment;
-      if (stageNumber === 1) {
-        // Level 1: regular circle ends at circleLeft + 49, locked should end at same position
-        // Locked circle starts at: (circleLeft + 49) - 50 = circleLeft - 1
-        lockedCircleAdjustment = -1; // Move left by 1px
-      } else {
-        // Other levels: regular circle ends at circleLeft + 70, locked should end at same position  
-        // Locked circle starts at: (circleLeft + 70) - 50 = circleLeft + 20
-        lockedCircleAdjustment = 20; // Move right by 20px
-      }
+      const regularCircleWidth = stageNumber === 1 ? level1CircleHeight : otherCircleHeight;
+      const lockedCircleAdjustment = regularCircleWidth - lockedCircleWidth;
       
       positions.push({
-        circleTop: circleTops[i] + LEVEL_OFFSET, // Apply offset to move icons up by 120px
-        cardTop: cardTops[i] + LEVEL_OFFSET, // Apply offset to move cards up by 120px
+        circleTop: circleTops[i] + LEVEL_OFFSET + (stageNumber === 2 ? iPadLevel2ExtraOffset : 0) + (stageNumber === 3 ? iPadLevel3ExtraOffset : 0) + (stageNumber === 4 ? iPadLevel4ExtraOffset : 0) + (stageNumber >= 2 ? iPadLevelIconsExtraDown : 0),
+        cardTop: cardTops[i] + LEVEL_OFFSET + iPadCardsVerticalOffset + (stageNumber === 2 ? iPadLevel2ExtraOffset : 0) + (stageNumber === 3 ? iPadLevel3ExtraOffset : 0) + (stageNumber === 4 ? iPadLevel4ExtraOffset : 0),
         circleLeft: circleLefts[i],
         cardLeft: cardLefts[i],
         cardSide: cardSides[i],
@@ -552,6 +551,88 @@ export default function GoalMapScreen() {
   const numberOfStages = Math.min(stageNames.length, 4);
   
   const stagePositions = generateStagePositions(numberOfStages);
+  const iPadCardBaseStyle = isTabletLayout
+    ? {
+        minWidth: scaleLevelCard(140),
+        maxWidth: scaleLevelCard(210),
+        borderRadius: scaleLevelCard(16),
+        marginTop: scaleLevelCard(8),
+        marginBottom: scaleLevelCard(25),
+      }
+    : null;
+  const iPadCardRightStyle = isTabletLayout
+    ? {
+        paddingRight: scaleLevelCard(25),
+      }
+    : null;
+  const iPadCompletedCardPaddingStyle = isTabletLayout
+    ? {
+        padding: scaleLevelCard(12),
+        paddingTop: scaleLevelCard(15),
+      }
+    : null;
+  const iPadCurrentCardPaddingStyle = isTabletLayout
+    ? {
+        padding: scaleLevelCard(14),
+        paddingTop: scaleLevelCard(16),
+      }
+    : null;
+  const iPadLockedCardStyle = isTabletLayout
+    ? {
+        minWidth: scaleLevelCard(140),
+        maxWidth: scaleLevelCard(210),
+        borderRadius: scaleLevelCard(16),
+        paddingHorizontal: scaleLevelCard(14),
+        paddingVertical: scaleLevelCard(12),
+        marginTop: scaleLevelCard(12),
+        marginBottom: scaleLevelCard(37.5),
+      }
+    : null;
+  const iPadStageContainerStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(85),
+        height: scaleLevelIcon(85),
+      }
+    : null;
+  const iPadRegularCircleStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(70),
+        height: scaleLevelIcon(70),
+        borderRadius: scaleLevelIcon(35),
+      }
+    : null;
+  const iPadLevel1CircleStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(49),
+        height: scaleLevelIcon(49),
+        borderRadius: scaleLevelIcon(24.5),
+      }
+    : null;
+  const iPadCurrentCircleStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(85),
+        height: scaleLevelIcon(85),
+        borderRadius: scaleLevelIcon(42.5),
+      }
+    : null;
+  const iPadLevel1CurrentCircleStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(60),
+        height: scaleLevelIcon(60),
+        borderRadius: scaleLevelIcon(30),
+      }
+    : null;
+  const iPadLockedCircleStyle = isTabletLayout
+    ? {
+        width: scaleLevelIcon(50),
+        height: scaleLevelIcon(50),
+        borderRadius: scaleLevelIcon(25),
+      }
+    : null;
+  const iPadCurrentNumberStyle = isTabletLayout ? { fontSize: Math.round(32 * levelIconScale) } : null;
+  const iPadLevel1CurrentNumberStyle = isTabletLayout ? { fontSize: Math.round(22 * levelIconScale) } : null;
+  const iPadCurrentNumberWhiteStyle = isTabletLayout ? { fontSize: Math.round(38 * levelIconScale) } : null;
+  const iPadLevel1CurrentNumberWhiteStyle = isTabletLayout ? { fontSize: Math.round(27 * levelIconScale) } : null;
 
   // Debug: Verify card positions are in ascending order
   // console.log('Card positions:', {
@@ -585,7 +666,7 @@ export default function GoalMapScreen() {
           const targetPosition = stagePositions[levelIndex];
           // Card positions are already relative to ScrollView content (include LEVEL_OFFSET)
           // Scroll to card position with some offset for better visibility
-          const scrollY = Math.max(0, targetPosition.cardTop - 80); // Offset by 80px from top
+          const scrollY = Math.max(0, targetPosition.cardTop - 80);
           
           scrollViewRef.current?.scrollTo({
             y: scrollY,
@@ -704,6 +785,7 @@ export default function GoalMapScreen() {
     number: currentLevel,
     name: stageNames[currentLevel - 1] || `Stage ${currentLevel}`,
   } : null;
+  const levelPathBottomPadding = currentLevelData ? 200 + insets.bottom : 120;
 
   return (
     <View style={styles.container}>
@@ -796,7 +878,7 @@ export default function GoalMapScreen() {
           { 
             // Keep enough content height for all cards and allow smooth scrolling
             minHeight: maxContentHeight + 120,
-            paddingBottom: 120,
+            paddingBottom: levelPathBottomPadding,
           }
         ]}
         showsVerticalScrollIndicator={false}
@@ -822,7 +904,7 @@ export default function GoalMapScreen() {
             {/* Full path (dashed) - starts at level 1 card, ends at level 4 card */}
             {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
             <Path
-              d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2}`}
+              d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
               stroke="url(#pathGradient)"
               strokeWidth="3.45"
               fill="none"
@@ -831,7 +913,7 @@ export default function GoalMapScreen() {
             />
             {/* Second segment: Level 2 circle to Level 3 circle */}
             <Path
-              d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2}`}
+              d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -840,7 +922,7 @@ export default function GoalMapScreen() {
             />
             {/* Third segment: Level 3 circle to Level 4 card */}
             <Path
-              d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + cardHeight/2}`}
+              d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + iPadLevel4ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset + cardHeight/2}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -852,7 +934,7 @@ export default function GoalMapScreen() {
               <>
                 {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
                 <Path
-                  d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2}`}
+                  d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
                   stroke="url(#completedGradient)"
                   strokeWidth="4.6"
                   fill="none"
@@ -860,7 +942,7 @@ export default function GoalMapScreen() {
                 {/* Second segment: Level 2 circle to Level 3 circle (if completed) */}
                 {completedCount >= 2 && (
                   <Path
-                    d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2}`}
+                    d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -869,7 +951,7 @@ export default function GoalMapScreen() {
                 {/* Third segment: Level 3 circle to Level 4 card (if completed) */}
                 {completedCount >= 3 && (
                   <Path
-                    d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + cardHeight/2}`}
+                    d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + iPadLevel4ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset + cardHeight/2}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -897,7 +979,7 @@ export default function GoalMapScreen() {
                 style={[styles.stageContainer, { 
                   top: position.circleTop, 
                   left: position.circleLeft + (status === 'locked' ? position.lockedCircleAdjustment : 0),
-                }]}
+                }, iPadStageContainerStyle]}
                 onPress={() => handleStagePress(stageNumber)}
                 activeOpacity={0.8}
                 disabled={status === 'locked'}
@@ -925,26 +1007,29 @@ export default function GoalMapScreen() {
                     colors={['#e1e1bb', '#e1e1bb']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
-                    style={isFirstStage ? styles.level1CircleGradient : styles.level1CircleGradient}
+                    style={[
+                      isFirstStage ? styles.level1CircleGradient : styles.currentCircleGradient,
+                      isFirstStage ? iPadLevel1CircleStyle : iPadRegularCircleStyle,
+                    ]}
                   >
-                    <MaterialIcons name="check" size={isFirstStage ? 18 : 24} color="#342846" />
+                    <MaterialIcons name="check" size={Math.round((isFirstStage ? 18 : 24) * levelIconScale)} color="#342846" />
                   </ExpoLinearGradient>
                 ) : status === 'current' ? (
-                  <View style={isFirstStage ? styles.level1CurrentCircle : styles.currentCircleWhite}>
-                    <Text style={isFirstStage ? styles.currentNumberWhiteSmall : styles.currentNumberWhite}>{stageNumber}</Text>
+                  <View style={[isFirstStage ? styles.level1CurrentCircle : styles.currentCircleWhite, isFirstStage ? iPadLevel1CurrentCircleStyle : iPadCurrentCircleStyle]}>
+                    <Text style={[isFirstStage ? styles.currentNumberWhiteSmall : styles.currentNumberWhite, isFirstStage ? iPadLevel1CurrentNumberWhiteStyle : iPadCurrentNumberWhiteStyle]}>{stageNumber}</Text>
                   </View>
                 ) : status === 'unlocked' ? (
                   <ExpoLinearGradient
                     colors={['#6B5B95', '#9B8FB8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
-                    style={styles.currentCircleGradient}
+                    style={[styles.currentCircleGradient, iPadRegularCircleStyle]}
                   >
-                    <Text style={styles.currentNumber}>{stageNumber}</Text>
+                    <Text style={[styles.currentNumber, iPadCurrentNumberStyle]}>{stageNumber}</Text>
                   </ExpoLinearGradient>
                 ) : (
-                  <View style={styles.lockedCircle}>
-                    <MaterialIcons name="lock" size={20} color="rgba(255,255,255,0.5)" />
+                  <View style={[styles.lockedCircle, iPadLockedCircleStyle]}>
+                    <MaterialIcons name="lock" size={Math.round(20 * levelIconScale)} color="rgba(255,255,255,0.5)" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -953,29 +1038,68 @@ export default function GoalMapScreen() {
               <TouchableOpacity
                 style={[
                   styles.cardContainer, 
-                  { top: position.cardTop, left: position.cardLeft },
+                  {
+                    top: position.cardTop,
+                    left: position.cardLeft,
+                  },
                 ]}
                 onPress={() => handleStagePress(stageNumber)}
                 activeOpacity={0.8}
                 disabled={status === 'locked'}
               >
                 {status === 'completed' ? (
-                  <View style={[styles.currentLevelBox, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft, { flexShrink: 0 }]}>
+                  <View
+                    style={[
+                      styles.currentLevelBox,
+                      position.cardSide === 'right' ? styles.cardRight : styles.cardLeft,
+                      iPadCardBaseStyle,
+                      iPadCompletedCardPaddingStyle,
+                      position.cardSide === 'right' ? iPadCardRightStyle : null,
+                      { flexShrink: 0 },
+                    ]}
+                  >
                     <Text style={styles.completedLevelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
                     <Text style={styles.completedStatusLabel}>{tr('Completed', 'Завершен')}</Text>
                   </View>
                 ) : status === 'current' ? (
-                  <View style={[styles.currentLevelBoxWhite, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft, { flexShrink: 0 }]}>
+                  <View
+                    style={[
+                      styles.currentLevelBoxWhite,
+                      position.cardSide === 'right' ? styles.cardRight : styles.cardLeft,
+                      iPadCardBaseStyle,
+                      iPadCurrentCardPaddingStyle,
+                      position.cardSide === 'right' ? iPadCardRightStyle : null,
+                      { flexShrink: 0 },
+                    ]}
+                  >
                     <Text style={styles.currentLevelLabelPurple}>{tr('Level', 'Уровень')} {stageNumber}</Text>
                     <Text style={styles.currentLevelNamePurple}>{stageName}</Text>
                   </View>
                 ) : status === 'unlocked' ? (
-                  <View style={[styles.currentLevelBox, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft, styles.incompleteCard, { flexShrink: 0 }]}>
+                  <View
+                    style={[
+                      styles.currentLevelBox,
+                      position.cardSide === 'right' ? styles.cardRight : styles.cardLeft,
+                      styles.incompleteCard,
+                      iPadCardBaseStyle,
+                      iPadCurrentCardPaddingStyle,
+                      position.cardSide === 'right' ? iPadCardRightStyle : null,
+                      { flexShrink: 0 },
+                    ]}
+                  >
                     <Text style={styles.incompleteLevelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
                     <Text style={styles.unlockedLevelNameHeading}>{stageName}</Text>
                   </View>
                 ) : (
-                  <View style={[styles.lockedCalloutBox, position.cardSide === 'right' ? styles.cardRight : styles.cardLeft, { flexShrink: 0 }]}>
+                  <View
+                    style={[
+                      styles.lockedCalloutBox,
+                      position.cardSide === 'right' ? styles.cardRight : styles.cardLeft,
+                      iPadLockedCardStyle,
+                      position.cardSide === 'right' ? iPadCardRightStyle : null,
+                      { flexShrink: 0 },
+                    ]}
+                  >
                     <Text style={styles.levelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
                     <Text style={styles.levelNameHeading}>{stageName}</Text>
                   </View>
@@ -1325,6 +1449,8 @@ interface LevelDetailModalProps {
 const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail, onLevelComplete }: LevelDetailModalProps) => {
   const router = useRouter();
   const { i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const [steps, setSteps] = useState<Array<{ id: number; text: string; completed: boolean }>>([]);
@@ -1727,7 +1853,18 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
           </ExpoLinearGradient>
 
           {/* Steps */}
-          <ScrollView style={styles.levelModalBody} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+          <ScrollView
+            style={styles.levelModalBody}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.levelModalBodyContent,
+              isTabletLayout
+                ? {
+                    paddingBottom: Math.max(insets.bottom + 20, 36),
+                  }
+                : null,
+            ]}
+          >
             <View style={styles.stepsHeader}>
               <Text style={styles.stepsTitle}>{tr('Steps to complete', 'Шаги для завершения')}</Text>
               {!isLoadingSteps && <Text style={styles.stepsCount}>{completedStepsCount}/{steps.length}</Text>}
@@ -1800,83 +1937,99 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
               </View>
             </TouchableOpacity>
 
-            {/* Chat with Atlas Section */}
-            <TouchableOpacity
-              style={styles.chatAtlasCard}
-              onPress={handleOpenAtlasChat}
-              activeOpacity={0.8}
-            >
-              <View style={styles.chatAtlasAvatar}>
-                <Image
-                  source={require('../assets/images/anxious.png')}
-                  style={styles.chatAtlasImage}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={styles.chatAtlasContent}>
-                <Text style={styles.chatAtlasTitle}>{tr('CHAT WITH ATLAS', 'ЧАТ С АТЛАСОМ')}</Text>
-                <Text style={styles.chatAtlasSubtitle}>{tr('Stuck? I am here to help!', 'Застрял? Я рядом, чтобы помочь!')}</Text>
-              </View>
-              <View style={styles.chatAtlasChevron}>
-                <MaterialIcons name="chevron-right" size={18} color="#342846" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Complete Level Button */}
-            <TouchableOpacity 
+            <View
               style={[
-                styles.completeLevelBtn,
-                { opacity: progress === 100 ? 1 : 0.5 }
+                styles.levelModalFooter,
+                isTabletLayout
+                  ? {
+                      marginTop: 'auto',
+                      paddingTop: 28,
+                    }
+                  : null,
               ]}
-              disabled={progress !== 100}
-              onPress={async () => {
-                if (progress === 100) {
-                  // Save level completion to AsyncStorage
-                  try {
-                    const userGoalsData = await AsyncStorage.getItem('userGoals');
-                    if (userGoalsData) {
-                      const userGoals = JSON.parse(userGoalsData);
-                      const goalIndex = userGoals.findIndex((g: any) => g.id === goalId);
-                      
-                      if (goalIndex !== -1) {
-                        // Update currentStepIndex to mark this level as completed
-                        // currentStepIndex is 0-indexed: level 1 completed = 0, level 2 completed = 1, etc.
-                        const newStepIndex = level.number - 1;
-                        userGoals[goalIndex].currentStepIndex = newStepIndex;
-                        
-                        // Also update progress percentage
-                        const totalSteps = userGoals[goalIndex].numberOfSteps || 4;
-                        userGoals[goalIndex].progressPercentage = Math.round(((newStepIndex + 1) / totalSteps) * 100);
-                        
-                        await AsyncStorage.setItem('userGoals', JSON.stringify(userGoals));
-                        
-                        // Save step completion for this level
-                        const storageKey = `stepCompletion_${goalId}_${level.number}`;
-                        await AsyncStorage.setItem(storageKey, JSON.stringify(Array.from(completedSteps)));
-                        await trackLevelCompletionEvent(goalId, goalName, level.number);
-                        
-                        // Close modal
-                        onClose();
-                        
-                        // Trigger unlock animation for next level
-                        if (onLevelComplete) {
-                          onLevelComplete(level.number);
+            >
+              {/* Chat with Atlas Section */}
+              <TouchableOpacity
+                style={[
+                  styles.chatAtlasCard,
+                  isTabletLayout ? styles.chatAtlasCardTablet : null,
+                ]}
+                onPress={handleOpenAtlasChat}
+                activeOpacity={0.8}
+              >
+                <View style={styles.chatAtlasAvatar}>
+                  <Image
+                    source={require('../assets/images/anxious.png')}
+                    style={styles.chatAtlasImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.chatAtlasContent}>
+                  <Text style={styles.chatAtlasTitle}>{tr('CHAT WITH ATLAS', 'ЧАТ С АТЛАСОМ')}</Text>
+                  <Text style={styles.chatAtlasSubtitle}>{tr('Stuck? I am here to help!', 'Застрял? Я рядом, чтобы помочь!')}</Text>
+                </View>
+                <View style={styles.chatAtlasChevron}>
+                  <MaterialIcons name="chevron-right" size={18} color="#342846" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Complete Level Button */}
+              <TouchableOpacity
+                style={[
+                  styles.completeLevelBtn,
+                  isTabletLayout ? styles.completeLevelBtnTablet : null,
+                  { opacity: progress === 100 ? 1 : 0.5 }
+                ]}
+                disabled={progress !== 100}
+                onPress={async () => {
+                  if (progress === 100) {
+                    // Save level completion to AsyncStorage
+                    try {
+                      const userGoalsData = await AsyncStorage.getItem('userGoals');
+                      if (userGoalsData) {
+                        const userGoals = JSON.parse(userGoalsData);
+                        const goalIndex = userGoals.findIndex((g: any) => g.id === goalId);
+
+                        if (goalIndex !== -1) {
+                          // Update currentStepIndex to mark this level as completed
+                          // currentStepIndex is 0-indexed: level 1 completed = 0, level 2 completed = 1, etc.
+                          const newStepIndex = level.number - 1;
+                          userGoals[goalIndex].currentStepIndex = newStepIndex;
+
+                          // Also update progress percentage
+                          const totalSteps = userGoals[goalIndex].numberOfSteps || 4;
+                          userGoals[goalIndex].progressPercentage = Math.round(((newStepIndex + 1) / totalSteps) * 100);
+
+                          await AsyncStorage.setItem('userGoals', JSON.stringify(userGoals));
+
+                          // Save step completion for this level
+                          const storageKey = `stepCompletion_${goalId}_${level.number}`;
+                          await AsyncStorage.setItem(storageKey, JSON.stringify(Array.from(completedSteps)));
+                          await trackLevelCompletionEvent(goalId, goalName, level.number);
+
+                          // Close modal
+                          onClose();
+
+                          // Trigger unlock animation for next level
+                          if (onLevelComplete) {
+                            onLevelComplete(level.number);
+                          }
                         }
                       }
+                    } catch (error) {
+                      console.error('Error saving level completion:', error);
+                      // Still close modal even if save fails
+                      onClose();
                     }
-                  } catch (error) {
-                    console.error('Error saving level completion:', error);
-                    // Still close modal even if save fails
-                    onClose();
                   }
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.completeLevelBtnText}>
-                {progress === 100 ? tr('Complete this level 🎉', 'Завершить этот уровень 🎉') : tr('Complete all steps to finish', 'Заверши все шаги, чтобы закончить')}
-              </Text>
-            </TouchableOpacity>
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.completeLevelBtnText}>
+                  {progress === 100 ? tr('Complete this level 🎉', 'Завершить этот уровень 🎉') : tr('Complete all steps to finish', 'Заверши все шаги, чтобы закончить')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </ImageBackground>
       </View>
@@ -2958,6 +3111,9 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 20,
   },
+  levelModalBodyContent: {
+    flexGrow: 1,
+  },
   stepsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -3070,6 +3226,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'AnonymousPro-Regular',
   },
+  levelModalFooter: {
+    marginTop: 8,
+  },
   completeLevelBtn: {
     width: '100%',
     minHeight: 50,
@@ -3081,6 +3240,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     marginBottom: 25,
+  },
+  completeLevelBtnTablet: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   completeLevelBtnText: {
     ...BodyStyle,
@@ -3118,6 +3281,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1.5,
     borderColor: '#a592b0',
+  },
+  chatAtlasCardTablet: {
+    marginBottom: 24,
   },
   chatAtlasAvatar: {
     width: 48,

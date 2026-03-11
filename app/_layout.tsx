@@ -68,6 +68,10 @@ const screenOptions = {
   gestureEnabled: false,
 };
 
+export const unstable_settings = {
+  initialRouteName: 'landing',
+};
+
 export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);

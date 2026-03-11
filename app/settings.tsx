@@ -78,6 +78,7 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [reminderHour, setReminderHour] = useState(9);
   const [reminderMinute, setReminderMinute] = useState(0);
+  const profileDisplayName = userName.trim() || userEmail.trim().split('@')[0] || '';
 
   const currentLang = i18n.language?.startsWith('ru') ? 'ru' : 'en';
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -364,7 +365,7 @@ export default function SettingsScreen() {
               <Text style={styles.avatarText}>{initial}</Text>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{userName || t('home.user')}</Text>
+              <Text style={styles.profileName}>{profileDisplayName}</Text>
               {userEmail ? <Text style={styles.profileEmail}>{userEmail}</Text> : null}
             </View>
           </View>

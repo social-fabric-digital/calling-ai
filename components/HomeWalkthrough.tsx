@@ -2,16 +2,14 @@ import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Dimensions,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export type WalkthroughTargetRect = {
   x: number;
@@ -48,26 +46,28 @@ export default function HomeWalkthrough({
   onDone,
 }: HomeWalkthroughProps) {
   const { i18n } = useTranslation();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   if (!step) return null;
 
   const isLastStep = stepIndex === totalSteps - 1;
-  const tooltipWidth = Math.min(280, SCREEN_WIDTH - 32);
+  const tooltipMaxWidth = screenWidth >= 900 ? 360 : 280;
+  const tooltipWidth = Math.min(tooltipMaxWidth, screenWidth - 32);
   const tooltipHeight = 124;
   const targetPaddingHorizontal = 18;
   const targetPaddingVertical = 10;
 
-  let tooltipTop = SCREEN_HEIGHT * 0.6;
-  let tooltipLeft = (SCREEN_WIDTH - tooltipWidth) / 2;
+  let tooltipTop = screenHeight * 0.6;
+  let tooltipLeft = (screenWidth - tooltipWidth) / 2;
 
   if (targetRect) {
     const targetBottom = targetRect.y + targetRect.height;
     const preferredTop = targetBottom + 14;
     const fallbackTop = targetRect.y - tooltipHeight - 14;
-    tooltipTop = preferredTop + tooltipHeight < SCREEN_HEIGHT - 24 ? preferredTop : Math.max(24, fallbackTop);
+    tooltipTop = preferredTop + tooltipHeight < screenHeight - 24 ? preferredTop : Math.max(24, fallbackTop);
     tooltipLeft = Math.min(
-      SCREEN_WIDTH - tooltipWidth - 16,
+      screenWidth - tooltipWidth - 16,
       Math.max(16, targetRect.x + targetRect.width / 2 - tooltipWidth / 2)
     );
   }
@@ -75,10 +75,10 @@ export default function HomeWalkthrough({
   const holeLeft = targetRect ? Math.max(0, targetRect.x - targetPaddingHorizontal) : 0;
   const holeTop = targetRect ? Math.max(0, targetRect.y - targetPaddingVertical) : 0;
   const holeRight = targetRect
-    ? Math.min(SCREEN_WIDTH, targetRect.x + targetRect.width + targetPaddingHorizontal)
+    ? Math.min(screenWidth, targetRect.x + targetRect.width + targetPaddingHorizontal)
     : 0;
   const holeBottom = targetRect
-    ? Math.min(SCREEN_HEIGHT, targetRect.y + targetRect.height + targetPaddingVertical)
+    ? Math.min(screenHeight, targetRect.y + targetRect.height + targetPaddingVertical)
     : 0;
   const holeWidth = Math.max(0, holeRight - holeLeft);
   const holeHeight = Math.max(0, holeBottom - holeTop);

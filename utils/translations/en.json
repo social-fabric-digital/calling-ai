@@ -222,6 +222,144 @@
     "createYourGoal": "CREATE YOUR GOAL",
     "defineYourSuccess": "Define how success looks for you",
     "buildYourRoute": "Build your route with stages you choose",
+    "yazioFlow": {
+      "letsBegin": "Let's Begin",
+      "welcomeAtlasHeading": "NICE TO MEET YOU",
+      "welcomeAtlasText": "Nice to meet you, {{name}}! I'm Atlas, and I'll be your guide.",
+      "whyHereQuestion": "What's bringing you to Calling today?",
+      "whyHereOptions": {
+        "lost": "I feel lost and don't know my purpose",
+        "consistency": "I want to achieve my goals but struggle with consistency",
+        "transition": "I'm going through a major life transition",
+        "fulfilled": "I want to feel more fulfilled and motivated",
+        "curious": "I'm curious about self-discovery"
+      },
+      "currentFeelingQuestion": "How are you feeling about your life right now?",
+      "currentFeelingOptions": {
+        "stuck": "Stuck and uncertain",
+        "missing": "Okay, but something's missing",
+        "motivated": "Motivated but need direction",
+        "overwhelmed": "Overwhelmed by choices",
+        "freshStart": "Ready for a fresh start"
+      },
+      "whatHeldBackQuestion": "What's been holding you back from feeling fulfilled?",
+      "selectAllThatApply": "Select all that apply",
+      "whatHeldBackOptions": {
+        "clarity": "I don't know what I truly want",
+        "fear": "Fear of failure",
+        "motivation": "Lack of motivation or energy",
+        "responsibilities": "Too many responsibilities",
+        "selfTalk": "Negative self-talk",
+        "finish": "I keep starting but never finish"
+      },
+      "atlasEncouragementTitle": "YOU'RE NOT DOING THIS ALONE",
+      "atlasEncouragementText": "Don't worry, I'm here to make this easier for you. We'll take it one clear step at a time.",
+      "pastAttemptsQuestion": "What have you tried before to find direction?",
+      "pastAttemptsOptions": {
+        "journaling": "Journaling or self-reflection",
+        "mindfulness": "Meditation or mindfulness apps",
+        "therapy": "Therapy or coaching",
+        "goalApps": "Goal-setting apps",
+        "nothingYet": "Nothing yet — this is my first step",
+        "other": "Other methods that didn't stick"
+      },
+      "insightStatText": "Studies show that people who reflect daily are 42% more likely to achieve their goals and report higher life satisfaction.",
+      "pastChallengesPersonalizedHeader": "{{name}}, we'll help you through it.",
+      "pastChallengesQuestion": "What challenges did you face in the past?",
+      "pastChallengesOptions": {
+        "motivation": "I lost motivation quickly",
+        "life": "Life got in the way",
+        "plan": "I didn't have a clear plan",
+        "alone": "I felt alone in my journey",
+        "belief": "I didn't believe in myself"
+      },
+      "whyDifferentQuestion": "Think back to your last attempt at change. What's different this time?",
+      "whyDifferentOptions": {
+        "committed": "I'm more committed now",
+        "vision": "I have a clearer vision",
+        "honest": "I'm ready to be honest with myself",
+        "smallSteps": "I'm willing to take small steps",
+        "atlas": "I have Atlas to guide me 🦌"
+      },
+      "successInspirationQuestion": "Think about someone you know who achieved their goals. What was the key to their success?",
+      "successInspirationOptions": {
+        "consistency": "Consistency and discipline",
+        "vision": "A clear vision",
+        "support": "Support from others",
+        "belief": "Self-belief",
+        "daily": "Taking it one day at a time",
+        "resilience": "Bouncing back after setbacks",
+        "planning": "Having a solid plan and sticking to it"
+      },
+      "futureSelfQuestion": "Imagine you've reached your goal. What is your future self most excited about?",
+      "futureSelfOptions": {
+        "peace": "Feeling confident and at peace",
+        "purpose": "Waking up with purpose every day",
+        "proud": "Being proud of who I've become",
+        "inspire": "Inspiring others around me",
+        "regret": "Living without regret"
+      },
+      "futureSelfAtlasTitle": "KEEP THAT VISION CLOSE",
+      "futureSelfAtlasText": "Hold that future-self image in your mind. When things get hard, let it guide your next step.",
+      "motivationEventQuestion": "Do you have something coming up that's motivating you?",
+      "motivationEventOptions": {
+        "birthday": "A birthday or milestone",
+        "career": "A career change",
+        "relationship": "A relationship goal",
+        "deadline": "A personal deadline",
+        "health": "A health or fitness goal",
+        "trip": "An upcoming trip or event",
+        "family": "A promise to myself or my family",
+        "none": "No specific event — just ready for change"
+      },
+      "challengeTime": "Challenge time! 🎯",
+      "commitmentChallengeQuestion": "How many days in a row can you commit to checking in?",
+      "commitmentChallengeOptions": {
+        "3days": "3 days",
+        "7days": "7 days",
+        "14days": "14 days",
+        "30days": "30 days",
+        "flexible": "Let's see how it goes"
+      },
+      "distractionsQuestion": "What usually distracts you from your goals?",
+      "distractionsOptions": {
+        "social": "Social media and phone",
+        "work": "Work stress",
+        "thoughts": "Negative thoughts",
+        "opinions": "Other people's opinions",
+        "energy": "Lack of energy"
+      },
+      "consistencyPlanQuestion": "How do you plan to stay consistent?",
+      "consistencyPlanOptions": {
+        "reminders": "Daily reminders",
+        "smallSteps": "Small, manageable steps",
+        "accountability": "Accountability from the app",
+        "wins": "Celebrating small wins",
+        "reflection": "Reflecting on my progress"
+      },
+      "setbackPlanQuestion": "What will help you stay motivated during setbacks?",
+      "setbackPlanOptions": {
+        "why": "Remembering my 'why'",
+        "trust": "Talking to someone I trust",
+        "progress": "Looking at how far I've come",
+        "restart": "Taking a break and restarting",
+        "atlas": "Atlas cheering me on 🦌",
+        "routine": "Returning to a simple daily routine",
+        "microGoal": "Focusing on one small win at a time"
+      },
+      "thankYouAtlasTitle": "IT'S GOOD TO BE PREPARED",
+      "thankYouAtlasText": "Thank you for trusting me, {{name}}. You're ready to turn this clarity into action.",
+      "createMyJourney": "Create My Journey",
+      "personalizedPlanHeader": "Your Personalized Journey",
+      "personalizedPlanText": "Based on your answers, {{name}}, we estimate you'll start feeling more clarity and purpose within 30 days.",
+      "personalizedPlanBenefits": {
+        "insights": "Daily personalized insights",
+        "tracking": "Goal tracking with milestones",
+        "reflections": "Reflections tailored to your journey",
+        "atlas": "Atlas guiding you every step"
+      },
+      "startMyJourney": "Start My Journey"
+    },
     "formulateSpecifically": "Formulate as specifically as possible",
     "oneWeek": "ONE WEEK",
     "oneMonth": "ONE MONTH",

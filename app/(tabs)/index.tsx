@@ -76,6 +76,7 @@ export default function HomeScreen() {
   const [moodSelected, setMoodSelected] = useState<string | null>(null);
   const [dailyAnswer, setDailyAnswer] = useState('');
   const [userName, setUserName] = useState<string>('');
+  const trimmedUserName = userName.trim();
   const [goalTitle, setGoalTitle] = useState<string>('');
   const [goalStepLabel, setGoalStepLabel] = useState<string>('');
   const [goalStepNumber, setGoalStepNumber] = useState<number | undefined>(undefined);
@@ -2049,7 +2050,9 @@ export default function HomeScreen() {
         </Text>
 
         {/* Greeting - Left Aligned - Fixed position below date */}
-        <Text style={styles.greeting}>{t('home.hello')}, {userName || t('home.user')}</Text>
+        <Text style={styles.greeting}>
+          {trimmedUserName ? `${t('home.hello')}, ${trimmedUserName}` : t('home.hello')}
+        </Text>
 
         {/* Dividing Bar */}
         <View style={styles.dividingBar} />
@@ -2182,14 +2185,18 @@ export default function HomeScreen() {
             {/* Four sections grid */}
             <View style={styles.gridContainer}>
               {/* Row 1 */}
-              <View style={styles.gridRow}>
+              <View style={[styles.gridRow, isTabletLayout && styles.gridRowTablet]}>
                 <Animated.View
                   ref={cosmicInsightRef as any}
                   collapsable={false}
-                  style={[styles.gridButtonLeft, { transform: [{ scale: cosmicInsightScale }] }]}
+                  style={[
+                    styles.gridButtonLeft,
+                    isTabletLayout && styles.gridButtonColumnTablet,
+                    { transform: [{ scale: cosmicInsightScale }] },
+                  ]}
                 >
                   <TouchableOpacity 
-                    style={styles.gridButton} 
+                    style={[styles.gridButton, isTabletLayout && styles.gridButtonTablet]} 
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(cosmicInsightScale, handleCosmicInsightClick)}
                   >
@@ -2208,10 +2215,14 @@ export default function HomeScreen() {
                 <Animated.View
                   ref={clarityMapRef as any}
                   collapsable={false}
-                  style={[styles.gridButtonRight, { transform: [{ scale: clarityMapScale }] }]}
+                  style={[
+                    styles.gridButtonRight,
+                    isTabletLayout && styles.gridButtonColumnTablet,
+                    { transform: [{ scale: clarityMapScale }] },
+                  ]}
                 >
                   <TouchableOpacity 
-                    style={styles.gridButton} 
+                    style={[styles.gridButton, isTabletLayout && styles.gridButtonTablet]} 
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(clarityMapScale, handleClarityMapPress)}
                   >
@@ -2229,14 +2240,18 @@ export default function HomeScreen() {
               </View>
 
               {/* Row 2 */}
-              <View style={styles.gridRow}>
+              <View style={[styles.gridRow, isTabletLayout && styles.gridRowTablet]}>
                 <Animated.View
                   ref={progressRef as any}
                   collapsable={false}
-                  style={[styles.gridButtonLeft, { transform: [{ scale: progressScale }] }]}
+                  style={[
+                    styles.gridButtonLeft,
+                    isTabletLayout && styles.gridButtonColumnTablet,
+                    { transform: [{ scale: progressScale }] },
+                  ]}
                 >
                   <TouchableOpacity
-                    style={styles.gridButton}
+                    style={[styles.gridButton, isTabletLayout && styles.gridButtonTablet]}
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(progressScale, () => router.push('/progress'))}
                   >
@@ -2255,10 +2270,14 @@ export default function HomeScreen() {
                 <Animated.View
                   ref={ikigaiRef as any}
                   collapsable={false}
-                  style={[styles.gridButtonRight, { transform: [{ scale: ikigaiScale }] }]}
+                  style={[
+                    styles.gridButtonRight,
+                    isTabletLayout && styles.gridButtonColumnTablet,
+                    { transform: [{ scale: ikigaiScale }] },
+                  ]}
                 >
                   <TouchableOpacity 
-                    style={styles.gridButton} 
+                    style={[styles.gridButton, isTabletLayout && styles.gridButtonTablet]} 
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(ikigaiScale, () => router.push('/ikigai-compass'))}
                   >
@@ -2716,6 +2735,9 @@ const styles = StyleSheet.create({
   },
   homeAnsweredContentTablet: {
     justifyContent: 'flex-start',
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
   },
   settingsButton: {
     position: 'absolute',
@@ -2906,9 +2928,15 @@ const styles = StyleSheet.create({
   },
   moodCardTablet: {
     marginBottom: 0,
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
   },
   moodLoggedCardTablet: {
     marginBottom: 0,
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
   },
   moodCardImage: {
     borderRadius: 12,
@@ -2956,6 +2984,9 @@ const styles = StyleSheet.create({
   },
   feelingAnxiousSectionTablet: {
     marginTop: 30,
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
   },
   feelingAnxiousContent: {
     flexDirection: 'row',
@@ -3101,6 +3132,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 24, // Increased gap from 16 to 24 for more spacing between cards
   },
+  gridRowTablet: {
+    justifyContent: 'center',
+    gap: 16,
+  },
   gridButton: {
     width: (((width - 50 - 24) / 2) + 50) * 0.9 * 0.8 * 1.1, // Width increased by 10% (multiply by 1.1) - fixed width for all rectangles (25px padding on each side)
     height: ((72 * 1.4) + 45) * 0.75, // Original height (146px) decreased by 25% = ~110px - fixed height for all rectangles
@@ -3110,6 +3145,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 20,
     elevation: 12, // For Android
+  },
+  gridButtonTablet: {
+    width: 320,
+    maxWidth: '100%',
+  },
+  gridButtonColumnTablet: {
+    marginLeft: 0,
   },
   gridButtonLeft: {
     marginLeft: -5, // Move left column 5px to the left

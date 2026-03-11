@@ -4,6 +4,7 @@ import { generatePathContent } from '@/utils/claudeApi';
 import { hapticMedium } from '@/utils/haptics';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -62,6 +63,8 @@ interface GoalData {
   icon: string;
   isRecommended?: boolean;
 }
+
+const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
 
 // ============================================
 // Animated Aura Component (behind path icon)
@@ -198,7 +201,7 @@ function PathIcon({ pathName }: PathIconProps) {
           colors={[COLORS.primary, '#4a3a5c']}
           style={styles.pathIconGradient}
         >
-          <MaterialIcons name={getIcon() as any} size={40} color={COLORS.white} />
+          <MaterialIcons name={getIcon() as any} size={40} color="#FFFFFF" />
         </LinearGradient>
       </Animated.View>
     </View>
@@ -296,10 +299,9 @@ function WhyItFitsCard({ userName, whatYouLove, whatYouGoodAt, pathName, whyItFi
       ]}
     >
       <LinearGradient
-        colors={['rgba(52, 40, 70, 0.8)', 'rgba(61, 48, 80, 0.8)']}
+        colors={['#342846', '#3D3050']}
         style={styles.whyItFitsGradient}
       >
-        <FrostedCardLayer />
         <View style={styles.whyItFitsHeader}>
           <MaterialIcons name="lightbulb" size={20} color={COLORS.white} />
           <Text style={styles.whyItFitsLabel}>{t('clarityMap.whyThisFitsYou')}</Text>
@@ -327,7 +329,7 @@ function WhyItFitsCard({ userName, whatYouLove, whatYouGoodAt, pathName, whyItFi
                 },
               ]}
             >
-              <View style={[styles.insightIcon, { backgroundColor: insight.color + '30' }]}>
+              <View style={[styles.insightIcon, { backgroundColor: toOpaqueColor(insight.color) }]}>
                 <MaterialIcons name={insight.icon as any} size={18} color={COLORS.white} />
               </View>
               <Text style={styles.insightText}>{insight.text}</Text>
@@ -494,7 +496,7 @@ export default function PathExplorationStep({
   customBottomActionDisabled = false,
   onCustomBottomActionPress,
 }: PathExplorationStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [goals, setGoals] = useState<GoalData[]>([]);
   const [whyItFits, setWhyItFits] = useState<string[]>([]);
   const [isInitialContentLoading, setIsInitialContentLoading] = useState(true);
@@ -538,24 +540,92 @@ export default function PathExplorationStep({
 
   // Generate AI content on mount and explicit goal regeneration.
   useEffect(() => {
+    const buildInputSignature = () =>
+      JSON.stringify({
+        language: i18n.language || 'en',
+        pathName: pathName || '',
+        pathDescription: pathDescription || '',
+        birthMonth: birthMonth || '',
+        birthDate: birthDate || '',
+        birthYear: birthYear || '',
+        birthCity: birthCity || '',
+        birthHour: birthHour || '',
+        birthMinute: birthMinute || '',
+        birthPeriod: birthPeriod || '',
+        whatYouLove: whatYouLove || '',
+        whatYouGoodAt: whatYouGoodAt || '',
+        whatWorldNeeds: whatWorldNeeds || '',
+        whatCanBePaidFor: whatCanBePaidFor || '',
+        fear: fear || '',
+        whatExcites: whatExcites || '',
+      });
+
+    const persistCache = async (signature: string, nextGoals: GoalData[], nextWhyFits: string[]) => {
+      try {
+        await AsyncStorage.setItem(
+          PATH_EXPLORATION_CACHE_KEY,
+          JSON.stringify({
+            signature,
+            goals: nextGoals,
+            whyItFits: nextWhyFits,
+          })
+        );
+      } catch {
+        // Non-blocking cache write.
+      }
+    };
+
     const generateContent = async () => {
       // Check if we have at least pathName and some user data (Ikigai or birth data)
       const hasIkigaiData = whatYouLove || whatYouGoodAt || whatWorldNeeds || whatCanBePaidFor;
       const hasBirthData = birthMonth && birthDate && birthYear;
       const isGoalOnlyRegeneration = regenerateGoalsTrigger > 0;
+      const inputSignature = buildInputSignature();
       if (!isGoalOnlyRegeneration) {
         setIsInitialContentLoading(true);
+      }
+
+      // Reuse cached output for identical onboarding inputs to avoid regenerating
+      // when returning from paywall/back navigation.
+      if (!isGoalOnlyRegeneration) {
+        try {
+          const cachedRaw = await AsyncStorage.getItem(PATH_EXPLORATION_CACHE_KEY);
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw);
+            const cachedGoals = Array.isArray(cached?.goals) ? (cached.goals as GoalData[]) : [];
+            const cachedWhyFits = Array.isArray(cached?.whyItFits) ? (cached.whyItFits as string[]) : [];
+            if (cached?.signature === inputSignature && cachedGoals.length > 0) {
+              setGoals(cachedGoals);
+              setWhyItFits(cachedWhyFits);
+              setIsInitialContentLoading(false);
+              return;
+            }
+            // If we already generated once in this onboarding and user returns (e.g. from paywall),
+            // reuse the latest generated content even if a non-critical prop changed.
+            if (cachedGoals.length > 0) {
+              setGoals(cachedGoals);
+              setWhyItFits(cachedWhyFits);
+              setIsInitialContentLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // Ignore cache read failures and continue with generation.
+        }
       }
       
       if (!pathName || (!hasIkigaiData && !hasBirthData)) {
         // Use defaults only if we have no path or no user data at all
-        setGoals(defaultGoals.slice(0, 3));
+        const fallbackGoals = defaultGoals.slice(0, 3);
+        setGoals(fallbackGoals);
         if (!isGoalOnlyRegeneration) {
-          setWhyItFits([
+          const fallbackWhyFits = [
             t('clarityMap.yourStrengthsAlign'),
             t('clarityMap.directionMatchesValues'),
             t('clarityMap.yourProfileSupports'),
-          ]);
+          ];
+          setWhyItFits(fallbackWhyFits);
+          await persistCache(inputSignature, fallbackGoals, fallbackWhyFits);
         }
         if (!isGoalOnlyRegeneration) {
           setIsInitialContentLoading(false);
@@ -605,17 +675,25 @@ export default function PathExplorationStep({
           isRecommended: index === 0,
         }));
 
-        setGoals(aiGoals.length > 0 ? aiGoals : defaultGoals.slice(0, 3));
+        const nextGoals = aiGoals.length > 0 ? aiGoals : defaultGoals.slice(0, 3);
+        setGoals(nextGoals);
+        const nextWhyFits = !isGoalOnlyRegeneration
+          ? (content.whyFitsYou || [])
+          : whyItFits;
+        await persistCache(inputSignature, nextGoals, nextWhyFits);
       } catch (error) {
         // Error generating path content - continue with fallback
         // Fallback to defaults on error
-        setGoals(defaultGoals.slice(0, 3));
+        const fallbackGoals = defaultGoals.slice(0, 3);
+        setGoals(fallbackGoals);
         if (!isGoalOnlyRegeneration) {
-          setWhyItFits([
+          const fallbackWhyFits = [
             t('clarityMap.yourStrengthsAlign'),
             t('clarityMap.directionMatchesValues'),
             t('clarityMap.yourProfileSupports'),
-          ]);
+          ];
+          setWhyItFits(fallbackWhyFits);
+          await persistCache(inputSignature, fallbackGoals, fallbackWhyFits);
         }
       } finally {
         if (!isGoalOnlyRegeneration) {
@@ -625,7 +703,7 @@ export default function PathExplorationStep({
     };
 
     generateContent();
-  }, [pathName, pathDescription, birthMonth, birthDate, birthYear, birthCity, birthHour, birthMinute, birthPeriod, whatYouLove, whatYouGoodAt, whatWorldNeeds, whatCanBePaidFor, fear, whatExcites, regenerateGoalsTrigger]);
+  }, [pathName, pathDescription, birthMonth, birthDate, birthYear, birthCity, birthHour, birthMinute, birthPeriod, whatYouLove, whatYouGoodAt, whatWorldNeeds, whatCanBePaidFor, fear, whatExcites, regenerateGoalsTrigger, i18n.language, t]);
 
   useEffect(() => {
     Animated.parallel([
@@ -668,7 +746,6 @@ export default function PathExplorationStep({
           style={[
             styles.headerSection,
             {
-              opacity: headerFadeAnim,
               transform: [{ translateY: headerSlideAnim }],
             },
           ]}
@@ -871,6 +948,7 @@ const styles = StyleSheet.create({
   },
   pathIconContainer: {
     zIndex: 10,
+    opacity: 1,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -888,6 +966,7 @@ const styles = StyleSheet.create({
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 26,
     color: '#FFFFFF',
+    opacity: 1,
     textAlign: 'center',
     marginBottom: 4,
   },
@@ -931,7 +1010,7 @@ const styles = StyleSheet.create({
   whyItFitsLabel: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 12,
-    color: COLORS.accent2,
+    color: COLORS.white,
   },
   whyItFitsName: {
     fontFamily: 'BricolageGrotesque-Bold',
@@ -964,7 +1043,7 @@ const styles = StyleSheet.create({
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
     color: COLORS.white,
-    opacity: 0.9,
+    opacity: 1,
     lineHeight: 22,
   },
 

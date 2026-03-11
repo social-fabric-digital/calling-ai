@@ -2,21 +2,40 @@ import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import {
     AboutYouForm,
     CallingAwaitsStep,
+    CommitmentChallengeStep,
+    ConsistencyPlanStep,
     CityData,
+    CurrentFeelingStep,
+    AtlasEncouragementStep,
     CurrentLifeContextStep,
     CustomPathDreamForm,
     CustomPathForm,
+    DistractionsStep,
+    FutureSelfStep,
+    FutureSelfAtlasStep,
     ForgeYourOwnPathStep,
     getOnboardingSteps,
     IkigaiForm,
+    InsightStatStep,
     JourneyLoadingStep,
     LoadingStep,
+    MotivationEventStep,
     PathChallengeStep,
     PathExplorationStep,
+    PastAttemptsStep,
+    PastChallengesStep,
+    PastChallengesAtlasStep,
+    PersonalizedPlanStep,
     PathsAlignedStep,
     PledgeStep,
+    SetbackPlanStep,
+    SuccessInspirationStep,
+    ThankYouAtlasStep,
+    WelcomeAtlasStep,
+    WhatHeldBackStep,
+    WhyDifferentStep,
+    WhyHereStep,
     styles,
-    width
 } from '@/components/onboarding';
 import PaywallStep from '@/components/onboarding/PaywallStep';
 import { checkSubscriptionStatus } from '@/utils/superwall';
@@ -33,14 +52,63 @@ import {
 import { BodyStyle } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, Image, Keyboard, Modal, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, Keyboard, Modal, NativeModules, Platform, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
+
+const USE_YAZIO_FLOW = true;
+const YAZIO_FLOW_STEPS = [
+  'aboutYou',
+  'welcomeAtlas',
+  'whyHere',
+  'currentFeeling',
+  'currentLifeContext',
+  'whatHeldBack',
+  'atlasEncouragement',
+  'pastAttempts',
+  'insightStat',
+  'pastChallenges',
+  'pastChallengesAtlas',
+  'whyDifferent',
+  'ikigai',
+  'customPathDream',
+  'successInspiration',
+  'futureSelf',
+  'futureSelfAtlas',
+  'motivationEvent',
+  'commitmentChallenge',
+  'distractions',
+  'consistencyPlan',
+  'setbackPlan',
+  'pledge',
+  'thankYouAtlas',
+  'personalizedPlan',
+  'journeyLoading',
+  'pathExploration',
+  'paywall',
+] as const;
+type YazioFlowStepKey = (typeof YAZIO_FLOW_STEPS)[number];
 
 export default function OnboardingScreen() {
   const { t, i18n } = useTranslation();
+  const { width: screenWidth } = useWindowDimensions();
+  const iosConstants = (Platform.constants as { interfaceIdiom?: string } | undefined);
+  const nativePlatformConstants = NativeModules?.PlatformConstants as { interfaceIdiom?: string } | undefined;
+  const interfaceIdiom = iosConstants?.interfaceIdiom || nativePlatformConstants?.interfaceIdiom;
+  const deviceName = String(Constants.deviceName || '').toLowerCase();
+  const iosModelFromConstants = String(Constants.platform?.ios?.model || '').toLowerCase();
+  const screen = Dimensions.get('screen');
+  const isLikelyIpadDevice = Platform.OS === 'ios' && (
+    Platform.isPad ||
+    interfaceIdiom === 'pad' ||
+    deviceName.includes('ipad') ||
+    iosModelFromConstants.includes('ipad') ||
+    Math.max(screen.width, screen.height) >= 1000
+  );
+  const onboardingCardInset = isLikelyIpadDevice ? 16 : undefined;
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const localeText = (english: string, russian: string) => (isRussian ? russian : english);
   const router = useRouter();
@@ -63,22 +131,26 @@ export default function OnboardingScreen() {
   
   // Check if we should navigate to a specific step (e.g., from new-goal screen)
   useEffect(() => {
-    if (params.step) {
-      const targetStep = parseInt(params.step as string, 10);
-      if (targetStep >= 1 && targetStep <= ONBOARDING_STEPS.length) {
-        // Convert step ID to index (step 9 = index 8)
-        const stepIndex = ONBOARDING_STEPS.findIndex(s => s.id === targetStep);
-        if (stepIndex !== -1) {
-          setCurrentStep(stepIndex);
-          Animated.timing(slideAnim, {
-            toValue: -stepIndex * width,
-            duration: 300,
-            useNativeDriver: true,
-          }).start();
-        }
-      }
-    }
-  }, [params.step, width]);
+    if (!params.step) return;
+    // In the YAZIO onboarding flow, always begin at welcomeAtlas unless this is the add-goal flow.
+    if (USE_YAZIO_FLOW && !isAddGoalFlow) return;
+
+    const targetStep = parseInt(params.step as string, 10);
+    const maxStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.length - 1 : ONBOARDING_STEPS.length;
+    if (targetStep < 1 || targetStep > maxStep) return;
+
+    const stepIndex = USE_YAZIO_FLOW
+      ? targetStep - 1
+      : ONBOARDING_STEPS.findIndex(s => s.id === targetStep);
+    if (stepIndex === -1) return;
+
+    setCurrentStep(stepIndex);
+    Animated.timing(slideAnim, {
+      toValue: -stepIndex * screenWidth,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [params.step, screenWidth, ONBOARDING_STEPS, slideAnim, isAddGoalFlow]);
   
   // Form state for About You step
   const [name, setName] = useState('');
@@ -194,6 +266,59 @@ export default function OnboardingScreen() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState('');
   const [showExistingUserLoginButton, setShowExistingUserLoginButton] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [whyHereAnswer, setWhyHereAnswer] = useState('');
+  const [currentFeelingAnswer, setCurrentFeelingAnswer] = useState('');
+  const [whatHeldBackAnswers, setWhatHeldBackAnswers] = useState<string[]>([]);
+  const [pastAttemptsAnswers, setPastAttemptsAnswers] = useState<string[]>([]);
+  const [pastChallengesAnswers, setPastChallengesAnswers] = useState<string[]>([]);
+  const [whyDifferentAnswer, setWhyDifferentAnswer] = useState('');
+  const [successInspirationAnswer, setSuccessInspirationAnswer] = useState<string[]>([]);
+  const [futureSelfAnswer, setFutureSelfAnswer] = useState('');
+  const [motivationEventAnswer, setMotivationEventAnswer] = useState('');
+  const [commitmentChallengeAnswer, setCommitmentChallengeAnswer] = useState('');
+  const [distractionsAnswers, setDistractionsAnswers] = useState<string[]>([]);
+  const [consistencyPlanAnswers, setConsistencyPlanAnswers] = useState<string[]>([]);
+  const [setbackPlanAnswers, setSetbackPlanAnswers] = useState<string[]>([]);
+  const [canShowFinalPaywall, setCanShowFinalPaywall] = useState(false);
+  const [canSubmitAboutYou, setCanSubmitAboutYou] = useState(false);
+  const isAdvancingStepRef = useRef(false);
+
+  const clarityEstimateDays = useMemo(() => {
+    const baseDaysByCommitment: Record<string, number> = {
+      '3days': 18,
+      '7days': 22,
+      '14days': 30,
+      '30days': 42,
+      'flexible': 55,
+    };
+
+    let score = baseDaysByCommitment[commitmentChallengeAnswer] ?? 30;
+
+    // Positive drivers that usually accelerate clarity.
+    if (motivationEventAnswer && motivationEventAnswer !== 'none') score -= 4;
+    score -= Math.min(consistencyPlanAnswers.length, 4) * 2;
+    score -= Math.min(setbackPlanAnswers.length, 5) * 1.5;
+    if (futureSelfAnswer.trim().length > 0) score -= 2;
+    if (successInspirationAnswer.length > 0) score -= 1;
+
+    // Friction signals that can slow early momentum.
+    score += Math.min(distractionsAnswers.length, 4) * 2;
+    score += Math.min(whatHeldBackAnswers.length, 4) * 1;
+    score += Math.min(pastChallengesAnswers.length, 4) * 1;
+
+    return Math.max(14, Math.min(75, Math.round(score)));
+  }, [
+    commitmentChallengeAnswer,
+    consistencyPlanAnswers,
+    distractionsAnswers,
+    futureSelfAnswer,
+    motivationEventAnswer,
+    pastChallengesAnswers,
+    setbackPlanAnswers,
+    successInspirationAnswer,
+    whatHeldBackAnswers,
+  ]);
 
   const isTransientNetworkError = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
@@ -238,6 +363,23 @@ export default function OnboardingScreen() {
     };
     initOnboarding();
   }, [isAddGoalFlow]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAddGoalFlow) return;
@@ -700,18 +842,21 @@ export default function OnboardingScreen() {
         setSignupLoading(false);
         void hapticSuccess();
         
-        if (route === 'premium') {
+        if (USE_YAZIO_FLOW) {
+          await markJustFinishedOnboarding();
+          router.replace('/(tabs)');
+        } else if (route === 'premium') {
           setUserIsPremium(true);
           setCurrentStep(7);
           Animated.timing(slideAnim, {
-            toValue: -7 * width,
+            toValue: -7 * screenWidth,
             duration: 300,
             useNativeDriver: true,
           }).start();
         } else {
           setUserIsPremium(false);
           setCurrentStep(7);
-          slideAnim.setValue(-7 * width);
+          slideAnim.setValue(-7 * screenWidth);
         }
       }
     } catch (err) {
@@ -725,10 +870,161 @@ export default function OnboardingScreen() {
   
   // Update refs when state changes
   currentStepRef.current = currentStep;
+  const currentFlowStepKey: YazioFlowStepKey | null = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS[currentStep] : null;
+  const totalStepCount = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.length : ONBOARDING_STEPS.length;
 
-  const goToNext = async () => {
+  const goToNext = async (options?: { userInitiated?: boolean; showAboutYouValidationAlert?: boolean }) => {
+    const userInitiated = options?.userInitiated ?? false;
+    const showAboutYouValidationAlert = options?.showAboutYouValidationAlert ?? false;
+    if (isAdvancingStepRef.current) {
+      return;
+    }
+    isAdvancingStepRef.current = true;
     const step = currentStepRef.current;
-    console.log('goToNext called - step:', step);
+
+    if (USE_YAZIO_FLOW) {
+      const stepKey = YAZIO_FLOW_STEPS[step];
+
+      if (stepKey === 'aboutYou') {
+        const missingCore =
+          !name.trim() ||
+          !birthMonth.trim() ||
+          !birthDate.trim() ||
+          !birthYear.trim() ||
+          !birthCity.trim();
+        if (missingCore) {
+          if (userInitiated && showAboutYouValidationAlert) {
+            void hapticWarning();
+            Alert.alert('', t('onboarding.fillRequiredFields'));
+          }
+          isAdvancingStepRef.current = false;
+          return;
+        }
+        if (!hideBirthTimeFields && (!birthHour.trim() || !birthMinute.trim())) {
+          if (userInitiated && showAboutYouValidationAlert) {
+            void hapticWarning();
+            Alert.alert('', t('onboarding.fillBirthTime'));
+          }
+          isAdvancingStepRef.current = false;
+          return;
+        }
+      }
+
+      if (stepKey === 'pledge') {
+        if (!signature || signature.trim() === '') {
+          void hapticWarning();
+          Alert.alert('', isRussian ? 'Пожалуйста, поставьте подпись, чтобы продолжить.' : 'Please sign to continue.');
+          isAdvancingStepRef.current = false;
+          return;
+        }
+      }
+
+      try {
+        if (stepKey === 'aboutYou') {
+          await AsyncStorage.multiSet([
+            ['userName', name.trim()],
+            ['birthMonth', birthMonth.trim()],
+            ['birthDate', birthDate.trim()],
+            ['birthYear', birthYear.trim()],
+            ['birthCity', birthCity.trim()],
+            ['birthLatitude', birthLatitude || ''],
+            ['birthLongitude', birthLongitude || ''],
+            ['birthTimezone', birthTimezone || ''],
+            ['currentTimezone', currentTimezone || ''],
+          ]);
+          if (!hideBirthTimeFields && birthHour.trim() && birthMinute.trim()) {
+            await AsyncStorage.multiSet([
+              ['birthHour', birthHour.trim()],
+              ['birthMinute', birthMinute.trim()],
+              ['birthPeriod', birthAmPm.trim()],
+            ]);
+          }
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('profiles').update({
+              name: name.trim() || null,
+              birth_date: `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}`,
+              birth_time: (!hideBirthTimeFields && birthHour && birthMinute)
+                ? `${birthHour.trim()}:${birthMinute.trim()} ${birthAmPm}`
+                : null,
+              birth_place: birthCity.trim() || null,
+            }).eq('id', user.id);
+          }
+        }
+
+        if (stepKey === 'ikigai') {
+          await AsyncStorage.multiSet([
+            ['ikigaiWhatYouLove', whatYouLove.trim()],
+            ['ikigaiWhatYouGoodAt', whatYouGoodAt.trim()],
+            ['ikigaiWhatWorldNeeds', whatWorldNeeds.trim()],
+            ['ikigaiWhatCanBePaidFor', whatCanBePaidFor.trim()],
+          ]);
+        }
+
+        if (stepKey === 'currentLifeContext') {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: existingOnboarding } = await supabase
+              .from('onboarding_data')
+              .select('id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (existingOnboarding) {
+              await supabase.from('onboarding_data').update({
+                current_situation: currentSituation,
+                biggest_constraint: biggestConstraint,
+                selected_values: whatMattersMost,
+              }).eq('user_id', user.id);
+            } else {
+              await supabase.from('onboarding_data').insert({
+                user_id: user.id,
+                current_situation: currentSituation,
+                biggest_constraint: biggestConstraint,
+                selected_values: whatMattersMost,
+              });
+            }
+          }
+        }
+
+        if (stepKey === 'pledge') {
+          await AsyncStorage.setItem('pledgeSignature', signature);
+        }
+      } catch (error) {
+        console.error('Error in Yazio flow save step:', error);
+      }
+
+      if (step < totalStepCount - 1) {
+        const nextStep = step + 1;
+        const nextStepKey = YAZIO_FLOW_STEPS[nextStep];
+        if (nextStepKey === 'paywall' && !canShowFinalPaywall) {
+          isAdvancingStepRef.current = false;
+          return;
+        }
+        if (nextStepKey === 'journeyLoading' && journeyLoadingItems.length === 0) {
+          setJourneyLoadingItems([
+            localeText('Analyzing your strengths', 'Анализируем твои сильные стороны'),
+            localeText('Building your path to the goal', 'Строим путь к твоей цели'),
+            localeText('Preparing your personalized roadmap', 'Собираем персональную дорожную карту'),
+            localeText('Getting your journey ready', 'Готовим твое путешествие'),
+          ]);
+        }
+        Animated.timing(slideAnim, {
+          toValue: -nextStep * screenWidth,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+        setCurrentStep(nextStep);
+        isAdvancingStepRef.current = false;
+        return;
+      }
+
+      await markJustFinishedOnboarding();
+      router.replace('/(tabs)');
+      isAdvancingStepRef.current = false;
+      return;
+    }
 
     // ── Validation (outside try-catch so errors can never bypass a return) ──
 
@@ -740,8 +1036,11 @@ export default function OnboardingScreen() {
         !birthYear.trim() ||
         !birthCity.trim();
       if (missingCore) {
-        void hapticWarning();
-        Alert.alert('', t('onboarding.fillRequiredFields'));
+        if (userInitiated) {
+          void hapticWarning();
+          Alert.alert('', t('onboarding.fillRequiredFields'));
+        }
+        isAdvancingStepRef.current = false;
         return;
       }
 
@@ -767,8 +1066,11 @@ export default function OnboardingScreen() {
       }
 
       if (!hideBirthTimeFields && (!birthHour.trim() || !birthMinute.trim())) {
-        void hapticWarning();
-        Alert.alert('', t('onboarding.fillBirthTime'));
+        if (userInitiated) {
+          void hapticWarning();
+          Alert.alert('', t('onboarding.fillBirthTime'));
+        }
+        isAdvancingStepRef.current = false;
         return;
       }
     }
@@ -933,7 +1235,7 @@ export default function OnboardingScreen() {
       const nextStep = step + 1;
       // Proceed with navigation - NO VALIDATION
       Animated.timing(slideAnim, {
-        toValue: -nextStep * width,
+        toValue: -nextStep * screenWidth,
         duration: 300,
         useNativeDriver: true,
       }).start();
@@ -969,6 +1271,8 @@ export default function OnboardingScreen() {
     } catch (error) {
       console.error('Error in goToNext:', error);
       void hapticError();
+    } finally {
+      isAdvancingStepRef.current = false;
     }
   };
 
@@ -999,7 +1303,7 @@ export default function OnboardingScreen() {
     if (step > 0) {
       const prevStep = step - 1;
       Animated.timing(slideAnim, {
-        toValue: -prevStep * width,
+        toValue: -prevStep * screenWidth,
         duration: 300,
         useNativeDriver: true,
       }).start();
@@ -1015,6 +1319,16 @@ export default function OnboardingScreen() {
     setShowAccountCreation(false);
     if (isAddGoalFlow) {
       goToPrevious();
+    } else if (USE_YAZIO_FLOW) {
+      const paywallStepIndex = YAZIO_FLOW_STEPS.indexOf('paywall');
+      if (paywallStepIndex >= 0) {
+        setCurrentStep(paywallStepIndex);
+        Animated.timing(slideAnim, {
+          toValue: -paywallStepIndex * screenWidth,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
     } else {
       // Return to the paywall screen when backing out of account creation.
       setShowPaywall(true);
@@ -1032,19 +1346,70 @@ export default function OnboardingScreen() {
     }
   };
 
-  const goToNextFromUser = async () => {
+  const goToNextFromUser = async (options?: { showAboutYouValidationAlert?: boolean }) => {
+    if (USE_YAZIO_FLOW && currentFlowStepKey === 'aboutYou' && !canSubmitAboutYou) {
+      return;
+    }
     void hapticMedium();
-    await goToNext();
+    await goToNext({
+      userInitiated: true,
+      showAboutYouValidationAlert: options?.showAboutYouValidationAlert ?? false,
+    });
   };
 
   const currentStepId = ONBOARDING_STEPS[currentStep]?.id;
+  const currentYazioStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS[currentStep] : null;
+  useEffect(() => {
+    if (!USE_YAZIO_FLOW || currentYazioStep !== 'aboutYou') {
+      setCanSubmitAboutYou(true);
+      return;
+    }
+
+    setCanSubmitAboutYou(false);
+    const timer = setTimeout(() => {
+      setCanSubmitAboutYou(true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [currentYazioStep]);
+
+  useEffect(() => {
+    if (!USE_YAZIO_FLOW) return;
+    if (currentYazioStep !== 'paywall') return;
+    if (canShowFinalPaywall) return;
+
+    const personalizedPlanIndex = YAZIO_FLOW_STEPS.indexOf('personalizedPlan');
+    if (personalizedPlanIndex >= 0) {
+      setCurrentStep(personalizedPlanIndex);
+      Animated.timing(slideAnim, {
+        toValue: -personalizedPlanIndex * screenWidth,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [canShowFinalPaywall, currentYazioStep, screenWidth, slideAnim]);
+
   const shouldShowOnboardingBackground =
     !showJourneyLoading &&
     !showPaywall &&
     !showAccountCreation &&
-    (currentStep <= 4 || currentStepId === 7 || currentStepId === 8 || currentStepId === 9);
+    (
+      USE_YAZIO_FLOW
+        ? currentYazioStep !== 'paywall'
+        : (currentStep <= 4 || currentStepId === 7 || currentStepId === 8 || currentStepId === 9)
+    );
   const onboardingBackgroundSource =
-    currentStepId === 9
+    USE_YAZIO_FLOW
+      ? (
+          currentYazioStep === 'aboutYou'
+            ? require('../assets/images/about.png')
+            : currentYazioStep === 'pathExploration'
+              ? require('../assets/images/direction.png')
+              : currentYazioStep === 'welcomeAtlas' || currentYazioStep === 'atlasEncouragement' || currentYazioStep === 'pastChallengesAtlas' || currentYazioStep === 'futureSelfAtlas' || currentYazioStep === 'thankYouAtlas'
+                ? require('../assets/images/ikigaion.png')
+                : require('../assets/images/onboarding.png')
+        )
+      : currentStepId === 9
       ? require('../assets/images/own.png')
       : currentStepId === 8
         ? require('../assets/images/direction.png')
@@ -1093,12 +1458,12 @@ export default function OnboardingScreen() {
                 <View 
                   style={[
                     styles.headerProgressFill, 
-                    { width: `${Math.min(((currentStep + 1) / ONBOARDING_STEPS.length) * 100, 100)}%` }
+                    { width: `${Math.min(((currentStep + 1) / totalStepCount) * 100, 100)}%` }
                   ]} 
                 />
               </View>
             </View>
-            {currentStep === 3 && (
+            {((USE_YAZIO_FLOW && currentFlowStepKey === 'ikigai') || (!USE_YAZIO_FLOW && currentStep === 3)) && (
               <TouchableOpacity 
                 style={styles.ikigaiHelpButton} 
                 onPressIn={() => {
@@ -1112,7 +1477,7 @@ export default function OnboardingScreen() {
                 <MaterialIcons name="help-outline" size={24} color="#342846" />
               </TouchableOpacity>
             )}
-            {currentStep === 4 && (
+            {((USE_YAZIO_FLOW && currentFlowStepKey === 'currentLifeContext') || (!USE_YAZIO_FLOW && currentStep === 4)) && (
               <TouchableOpacity 
                 style={styles.ikigaiHelpButton} 
                 onPressIn={() => {
@@ -1147,7 +1512,7 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      {showPaywall && !isAddGoalFlow ? (
+      {!USE_YAZIO_FLOW && showPaywall && !isAddGoalFlow ? (
         <PaywallStep
           onSubscribe={() => {
             void hapticHeavy();
@@ -1156,7 +1521,7 @@ export default function OnboardingScreen() {
             setShowPaywall(false);
             setShowAccountCreation(true);
           }}
-          onContinueFree={(meta) => {
+          onBack={(meta) => {
             void hapticMedium();
             // If user backs out of paywall page 1, return to Calling Awaits (step 7),
             // not to Create Account. Mark free route so paywall does not reopen instantly.
@@ -1167,11 +1532,18 @@ export default function OnboardingScreen() {
             const nextStep = 7; // Step id 8 (Paths Aligned)
             setCurrentStep(nextStep);
             Animated.timing(slideAnim, {
-              toValue: -nextStep * width,
+              toValue: -nextStep * screenWidth,
               duration: 300,
               useNativeDriver: true,
             }).start();
             void meta;
+          }}
+          onContinueFree={async () => {
+            void hapticMedium();
+            setPendingRoute('free');
+            setUserIsPremium(false);
+            await markJustFinishedOnboarding();
+            router.replace('/(tabs)');
           }}
         />
       ) : showAccountCreation ? (
@@ -1256,7 +1628,18 @@ export default function OnboardingScreen() {
               ) : null}
             </View>
             
-              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingHorizontal: 40, paddingBottom: 40, zIndex: 1000 }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: Platform.isPad && keyboardHeight > 0 ? keyboardHeight : 0,
+                  left: 0,
+                  right: 0,
+                  padding: 24,
+                  paddingHorizontal: 40,
+                  paddingBottom: 40,
+                  zIndex: 1000,
+                }}
+              >
                 <TouchableOpacity
                   style={{ backgroundColor: '#342846', borderRadius: 30, paddingVertical: 16, alignItems: 'center', opacity: signupLoading ? 0.7 : 1 }}
                   onPressIn={() => {
@@ -1279,12 +1662,307 @@ export default function OnboardingScreen() {
             styles.slider,
             {
               transform: [{ translateX: slideAnim }],
-              width: width * ONBOARDING_STEPS.length,
+              width: screenWidth * totalStepCount,
             },
           ]}
         >
-          {ONBOARDING_STEPS.map((step, index) => (
-          <View key={step.id} style={[styles.stepContainer, { width }]}>
+          {USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.map((stepKey, index) => (
+            <View key={`${stepKey}-${index}`} style={[styles.stepContainer, { width: screenWidth }]}>
+              {stepKey === 'welcomeAtlas' ? (
+                <WelcomeAtlasStep name={name} onContinue={goToNextFromUser} />
+              ) : stepKey === 'aboutYou' ? (
+                <AboutYouForm
+                  name={name}
+                  setName={setName}
+                  birthMonth={birthMonth}
+                  setBirthMonth={setBirthMonth}
+                  birthDate={birthDate}
+                  setBirthDate={setBirthDate}
+                  birthYear={birthYear}
+                  setBirthYear={setBirthYear}
+                  birthHour={birthHour}
+                  setBirthHour={setBirthHour}
+                  birthMinute={birthMinute}
+                  setBirthMinute={setBirthMinute}
+                  birthAmPm={birthAmPm}
+                  setBirthAmPm={setBirthAmPm}
+                  dontKnowTime={dontKnowTime}
+                  setDontKnowTime={setDontKnowTime}
+                  birthCity={birthCity}
+                  setBirthCity={setBirthCity}
+                  setBirthLatitude={setBirthLatitude}
+                  setBirthLongitude={setBirthLongitude}
+                  citySuggestions={citySuggestions}
+                  setCitySuggestions={setCitySuggestions}
+                  showCityDropdown={showCityDropdown}
+                  setShowCityDropdown={setShowCityDropdown}
+                  showAmPmDropdown={showAmPmDropdown}
+                  setShowAmPmDropdown={setShowAmPmDropdown}
+                  hideBirthTimeFields={hideBirthTimeFields}
+                  birthMonthRef={birthMonthRef}
+                  birthDateRef={birthDateRef}
+                  birthYearRef={birthYearRef}
+                  birthHourRef={birthHourRef}
+                  birthMinuteRef={birthMinuteRef}
+                  setShowDontKnowTimeModal={setShowDontKnowTimeModal}
+                />
+              ) : stepKey === 'whyHere' ? (
+                <WhyHereStep onContinue={(value) => { setWhyHereAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'currentFeeling' ? (
+                <CurrentFeelingStep onContinue={(value) => { setCurrentFeelingAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'currentLifeContext' ? (
+                <CurrentLifeContextStep
+                  currentSituation={currentSituation}
+                  setCurrentSituation={setCurrentSituation}
+                  biggestConstraint={biggestConstraint}
+                  setBiggestConstraint={setBiggestConstraint}
+                  whatMattersMost={whatMattersMost}
+                  setWhatMattersMost={setWhatMattersMost}
+                  onContinue={() => goToNextFromUser()}
+                  birthMonth={birthMonth}
+                  birthDate={birthDate}
+                  birthYear={birthYear}
+                  birthCity={birthCity}
+                  birthHour={birthHour}
+                  birthMinute={birthMinute}
+                  birthPeriod={birthAmPm}
+                  whatYouLove={whatYouLove}
+                  whatYouGoodAt={whatYouGoodAt}
+                  whatWorldNeeds={whatWorldNeeds}
+                  whatCanBePaidFor={whatCanBePaidFor}
+                  fear={fearOrBarrier}
+                  whatExcites={dreamGoal}
+                />
+              ) : stepKey === 'whatHeldBack' ? (
+                <WhatHeldBackStep onContinue={(values) => { setWhatHeldBackAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'atlasEncouragement' ? (
+                <AtlasEncouragementStep
+                  currentSituation={currentSituation}
+                  onContinue={goToNextFromUser}
+                />
+              ) : stepKey === 'pastAttempts' ? (
+                <PastAttemptsStep onContinue={(values) => { setPastAttemptsAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'insightStat' ? (
+                <InsightStatStep onContinue={goToNextFromUser} />
+              ) : stepKey === 'pastChallenges' ? (
+                <PastChallengesStep name={name} onContinue={(values) => { setPastChallengesAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'pastChallengesAtlas' ? (
+                <PastChallengesAtlasStep onContinue={goToNextFromUser} />
+              ) : stepKey === 'whyDifferent' ? (
+                <WhyDifferentStep onContinue={(value) => { setWhyDifferentAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'ikigai' ? (
+                <IkigaiForm
+                  whatYouLove={whatYouLove}
+                  setWhatYouLove={setWhatYouLove}
+                  whatYouGoodAt={whatYouGoodAt}
+                  setWhatYouGoodAt={setWhatYouGoodAt}
+                  whatWorldNeeds={whatWorldNeeds}
+                  setWhatWorldNeeds={setWhatWorldNeeds}
+                  whatCanBePaidFor={whatCanBePaidFor}
+                  setWhatCanBePaidFor={setWhatCanBePaidFor}
+                  onPageChange={setIkigaiCurrentPage}
+                  onContinue={goToNextFromUser}
+                />
+              ) : stepKey === 'customPathDream' ? (
+                <PathsAlignedStep
+                  forceTabletLayout={isLikelyIpadDevice}
+                  cardHorizontalInset={onboardingCardInset}
+                  hideCustomPathOption
+                  birthMonth={birthMonth}
+                  birthDate={birthDate}
+                  birthYear={birthYear}
+                  birthCity={birthCity}
+                  birthHour={birthHour}
+                  birthMinute={birthMinute}
+                  birthPeriod={birthAmPm}
+                  whatYouLove={whatYouLove}
+                  whatYouGoodAt={whatYouGoodAt}
+                  whatWorldNeeds={whatWorldNeeds}
+                  whatCanBePaidFor={whatCanBePaidFor}
+                  fear={fearOrBarrier}
+                  whatExcites={dreamGoal}
+                  onPathsGenerated={(paths) => {
+                    setGeneratedPaths(paths);
+                  }}
+                  onExplorePath={(pathId) => {
+                    void hapticLight();
+                    const path = generatedPaths.find(p => p.id === pathId);
+                    const pathTitle = path?.title || localeText('Your path', 'Твой путь');
+                    setSelectedGoalTitle(pathTitle);
+                    void goToNextFromUser();
+                  }}
+                  onWorkOnDreamGoal={() => {
+                    // Hidden in this branch via hideCustomPathOption.
+                  }}
+                />
+              ) : stepKey === 'successInspiration' ? (
+                <SuccessInspirationStep onContinue={(values) => { setSuccessInspirationAnswer(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'futureSelf' ? (
+                <FutureSelfStep onContinue={(value) => { setFutureSelfAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'futureSelfAtlas' ? (
+                <FutureSelfAtlasStep onContinue={goToNextFromUser} />
+              ) : stepKey === 'motivationEvent' ? (
+                <MotivationEventStep onContinue={(value) => { setMotivationEventAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'pathExploration' ? (
+                currentStep === index ? (
+                  showCustomPathForm ? (
+                    <CustomPathForm
+                      cardHorizontalInset={onboardingCardInset}
+                      currentStep={index}
+                      totalSteps={totalStepCount}
+                      onBack={() => {
+                        void hapticMedium();
+                        setShowCustomPathForm(false);
+                      }}
+                      onComplete={async (pathData) => {
+                        void hapticMedium();
+                        setShowCustomPathForm(false);
+                        setSelectedGoalTitle(pathData.goalTitle || selectedGoalTitle || localeText('My Goal', 'Моя цель'));
+                        setDreamGoal(pathData.description || dreamGoal);
+                        if (pathData.challenge) {
+                          setFearOrBarrier(pathData.challenge);
+                          setSelectedGoalFear(pathData.challenge);
+                        }
+                        void goToNextFromUser();
+                      }}
+                    />
+                  ) : (
+                    <PathExplorationStep
+                      pathName={selectedGoalTitle || localeText('Your personalized path', 'Твой персональный путь')}
+                      pathDescription={dreamGoal || localeText('A path crafted from your onboarding answers.', 'Путь, созданный на основе твоих ответов в онбординге.')}
+                      userName={name}
+                      birthMonth={birthMonth}
+                      birthDate={birthDate}
+                      birthYear={birthYear}
+                      birthCity={birthCity}
+                      birthHour={birthHour}
+                      birthMinute={birthMinute}
+                      birthPeriod={birthAmPm}
+                      whatYouLove={whatYouLove}
+                      whatYouGoodAt={whatYouGoodAt}
+                      whatWorldNeeds={whatWorldNeeds}
+                      whatCanBePaidFor={whatCanBePaidFor}
+                      fear={fearOrBarrier}
+                      whatExcites={dreamGoal}
+                      onWorkOnDreamGoal={() => {
+                        void hapticLight();
+                        setShowCustomPathForm(true);
+                      }}
+                      onStartJourney={(_goalId, goalTitle, goalFear) => {
+                        setSelectedGoalTitle(goalTitle || selectedGoalTitle || localeText('My Goal', 'Моя цель'));
+                        setSelectedGoalFear(goalFear || '');
+                        setCanShowFinalPaywall(true);
+                        const paywallIndex = YAZIO_FLOW_STEPS.indexOf('paywall');
+                        if (paywallIndex >= 0) {
+                          setCurrentStep(paywallIndex);
+                          Animated.timing(slideAnim, {
+                            toValue: -paywallIndex * screenWidth,
+                            duration: 300,
+                            useNativeDriver: true,
+                          }).start();
+                        }
+                      }}
+                    />
+                  )
+                ) : (
+                  <View style={styles.stepContent} />
+                )
+              ) : stepKey === 'commitmentChallenge' ? (
+                <CommitmentChallengeStep onContinue={(value) => { setCommitmentChallengeAnswer(value); void goToNextFromUser(); }} />
+              ) : stepKey === 'distractions' ? (
+                <DistractionsStep onContinue={(values) => { setDistractionsAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'consistencyPlan' ? (
+                <ConsistencyPlanStep onContinue={(values) => { setConsistencyPlanAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'setbackPlan' ? (
+                <SetbackPlanStep onContinue={(values) => { setSetbackPlanAnswers(values); void goToNextFromUser(); }} />
+              ) : stepKey === 'pledge' ? (
+                <PledgeStep name={name} signature={signature} setSignature={setSignature} onNext={goToNextFromUser} />
+              ) : stepKey === 'thankYouAtlas' ? (
+                <ThankYouAtlasStep name={name} onContinue={goToNextFromUser} />
+              ) : stepKey === 'journeyLoading' ? (
+                currentStep === index ? (
+                  <JourneyLoadingStep
+                    loadingItems={journeyLoadingItems}
+                    onComplete={() => {
+                      const pathExplorationIndex = YAZIO_FLOW_STEPS.indexOf('pathExploration');
+                      if (pathExplorationIndex >= 0) {
+                        setCurrentStep(pathExplorationIndex);
+                        Animated.timing(slideAnim, {
+                          toValue: -pathExplorationIndex * screenWidth,
+                          duration: 300,
+                          useNativeDriver: true,
+                        }).start();
+                      }
+                    }}
+                  />
+                ) : (
+                  <View style={styles.stepContent} />
+                )
+              ) : stepKey === 'personalizedPlan' ? (
+                <PersonalizedPlanStep
+                  name={name}
+                  clarityEstimateDays={clarityEstimateDays}
+                  onContinue={async () => {
+                    setCanShowFinalPaywall(true);
+                    if (journeyLoadingItems.length === 0) {
+                      setJourneyLoadingItems([
+                        localeText('Analyzing your strengths', 'Анализируем твои сильные стороны'),
+                        localeText('Building your path to the goal', 'Строим путь к твоей цели'),
+                        localeText('Preparing your personalized roadmap', 'Собираем персональную дорожную карту'),
+                        localeText('Getting your journey ready', 'Готовим твое путешествие'),
+                      ]);
+                    }
+                    const journeyLoadingIndex = YAZIO_FLOW_STEPS.indexOf('journeyLoading');
+                    if (journeyLoadingIndex >= 0) {
+                      setCurrentStep(journeyLoadingIndex);
+                      Animated.timing(slideAnim, {
+                        toValue: -journeyLoadingIndex * screenWidth,
+                        duration: 300,
+                        useNativeDriver: true,
+                      }).start();
+                    }
+                  }}
+                />
+              ) : (
+                canShowFinalPaywall && currentStep === index ? (
+                  <PaywallStep
+                    onSubscribe={() => {
+                      void hapticHeavy();
+                      setPendingRoute('premium');
+                      setUserIsPremium(true);
+                      setShowAccountCreation(true);
+                    }}
+                    onBack={async () => {
+                      void hapticMedium();
+                      setPendingRoute('free');
+                      setUserIsPremium(false);
+                      setCanShowFinalPaywall(false);
+                      const pathExplorationIndex = YAZIO_FLOW_STEPS.indexOf('pathExploration');
+                      if (pathExplorationIndex >= 0) {
+                        setCurrentStep(pathExplorationIndex);
+                        Animated.timing(slideAnim, {
+                          toValue: -pathExplorationIndex * screenWidth,
+                          duration: 300,
+                          useNativeDriver: true,
+                        }).start();
+                      }
+                    }}
+                    onContinueFree={async () => {
+                      void hapticMedium();
+                      setPendingRoute('free');
+                      setUserIsPremium(false);
+                      await markJustFinishedOnboarding();
+                      router.replace('/(tabs)');
+                    }}
+                  />
+                ) : (
+                  <View style={styles.stepContent} />
+                )
+              )}
+            </View>
+          )) : (
+          ONBOARDING_STEPS.map((step, index) => (
+          <View key={step.id} style={[styles.stepContainer, { width: screenWidth }]}>
             {step.isForm ? (
               <AboutYouForm
                 name={name}
@@ -1490,6 +2168,7 @@ export default function OnboardingScreen() {
                 // Only show CustomPathForm on step 8 (Paths Aligned), not on other steps
                 // Step 8 is at index 7 (0-indexed), so pass 7 to maintain progress
                 <CustomPathForm
+                  cardHorizontalInset={onboardingCardInset}
                   currentStep={7}
                   totalSteps={ONBOARDING_STEPS.length}
                   onBack={() => {
@@ -1590,6 +2269,8 @@ export default function OnboardingScreen() {
                 />
               ) : (
                 <PathsAlignedStep 
+                  forceTabletLayout={isLikelyIpadDevice}
+                  cardHorizontalInset={onboardingCardInset}
                   birthMonth={birthMonth}
                   birthDate={birthDate}
                   birthYear={birthYear}
@@ -1675,7 +2356,7 @@ export default function OnboardingScreen() {
               </View>
             )}
           </View>
-        ))}
+        )))}
       </Animated.View>
       )}
 
@@ -1805,20 +2486,32 @@ export default function OnboardingScreen() {
       )}
 
       {/* Hide global footer on pledge step so it cannot steal signature touches. */}
-      {!showJourneyLoading && !showAccountCreation && currentStep !== 2 && (
-        <View style={styles.footer} pointerEvents="box-none">
-          {currentStep !== 3 && currentStep !== 4 && currentStep !== 5 && currentStep !== 6 && currentStep !== 7 && currentStep !== 8 && exploringPathId === null && !showCustomPathForm && (
+      {((!USE_YAZIO_FLOW && !showJourneyLoading && !showAccountCreation && currentStep !== 2) ||
+        (USE_YAZIO_FLOW && !showJourneyLoading && !showAccountCreation && currentFlowStepKey === 'aboutYou')) && (
+        <View
+          style={[
+            styles.footer,
+            Platform.isPad && currentStep === 1 && keyboardHeight > 0
+              ? { paddingBottom: keyboardHeight + 16 }
+              : null,
+          ]}
+          pointerEvents="box-none"
+        >
+          {(USE_YAZIO_FLOW || (currentStep !== 3 && currentStep !== 4 && currentStep !== 5 && currentStep !== 6 && currentStep !== 7 && currentStep !== 8 && exploringPathId === null && !showCustomPathForm)) && (
             <TouchableOpacity 
               style={styles.continueButton} 
               onPressIn={() => {
                 void hapticMedium();
               }}
               onPress={async () => {
-                await goToNextFromUser();
+                await goToNextFromUser({
+                  showAboutYouValidationAlert: USE_YAZIO_FLOW && currentFlowStepKey === 'aboutYou',
+                });
               }}
+              disabled={USE_YAZIO_FLOW && currentFlowStepKey === 'aboutYou' && !canSubmitAboutYou}
             >
               <Text style={styles.continueButtonText}>
-                {currentStep === ONBOARDING_STEPS.length - 1 ? t('common.getStarted') : t('common.continue')}
+                {currentStep === totalStepCount - 1 ? t('common.getStarted') : t('common.continue')}
               </Text>
             </TouchableOpacity>
           )}

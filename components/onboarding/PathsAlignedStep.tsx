@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     Animated,
     Dimensions,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -123,10 +124,11 @@ interface PathCardProps {
   path: PathData;
   index: number;
   isVisible: boolean;
+  isTabletLayout: boolean;
   onSelect: () => void;
 }
 
-function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
+function PathCard({ path, index, isVisible, isTabletLayout, onSelect }: PathCardProps) {
   const { t } = useTranslation();
   // Animations
   const cardAnim = useRef(new Animated.Value(0)).current;
@@ -214,6 +216,7 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
     <Animated.View
       style={[
         styles.cardWrapper,
+        isTabletLayout && styles.cardWrapperTablet,
         {
           opacity: cardAnim,
           transform: [
@@ -228,6 +231,7 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
         <Animated.View
           style={[
             styles.recommendedGlow,
+            isTabletLayout && styles.recommendedGlowTablet,
             {
               opacity: glowAnim,
               backgroundColor: path.accentColor,
@@ -236,18 +240,19 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
         />
       )}
 
-      <Animated.View style={styles.card}>
+      <Animated.View style={[styles.card, isTabletLayout && styles.cardTablet]}>
         <LinearGradient
           colors={['rgba(255,255,255,0.6)', 'rgba(255,255,255,0.6)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.cardGradient}
+          style={[styles.cardGradient, isTabletLayout && styles.cardGradientTablet]}
         >
           <FrostedCardLayer />
           {/* Shimmer overlay */}
           <Animated.View
             style={[
               styles.shimmer,
+              isTabletLayout && styles.shimmerTablet,
               { transform: [{ translateX: shimmerTranslate }] },
             ]}
           >
@@ -262,15 +267,15 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
             colors={['rgba(52,40,70,0.14)', 'rgba(52,40,70,0.05)', 'transparent']}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
-            style={styles.cardTopGlow}
+            style={[styles.cardTopGlow, isTabletLayout && styles.cardTopGlowTablet]}
             pointerEvents="none"
           />
 
           {/* Recommended badge */}
           {path.isRecommended && (
-            <View style={[styles.recommendedBadge, { backgroundColor: path.accentColor }]}>
+            <View style={[styles.recommendedBadge, isTabletLayout && styles.recommendedBadgeTablet, { backgroundColor: path.accentColor }]}>
               <MaterialIcons name="auto-awesome" size={12} color="#FFFFFF" />
-              <Text style={styles.recommendedText}>{t('clarityMap.bestMatch')}</Text>
+              <Text style={[styles.recommendedText, isTabletLayout && styles.recommendedTextTablet]}>{t('clarityMap.bestMatch')}</Text>
             </View>
           )}
 
@@ -280,32 +285,33 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
             <View
               style={[
                 styles.cardHeaderTouchable,
+                isTabletLayout && styles.cardHeaderTouchableTablet,
                 path.isRecommended && { marginTop: 35 }
               ]}
             >
               <View style={styles.cardHeader}>
-                <View style={styles.iconCircle}>
+                <View style={[styles.iconCircle, isTabletLayout && styles.iconCircleTablet]}>
                   <MaterialIcons name={iconName} size={28} color="#342846" />
                 </View>
                 <View style={styles.headerText}>
-                  <Text style={styles.pathTitle}>{path.title}</Text>
-                  <Text style={styles.pathSubtitle}>{path.subtitle}</Text>
+                  <Text style={[styles.pathTitle, isTabletLayout && styles.pathTitleTablet]}>{path.title}</Text>
+                  <Text style={[styles.pathSubtitle, isTabletLayout && styles.pathSubtitleTablet]}>{path.subtitle}</Text>
                 </View>
               </View>
             </View>
 
             {/* Why it fits - always visible but subtle */}
-            <View style={styles.whyItFitsContainer}>
+            <View style={[styles.whyItFitsContainer, isTabletLayout && styles.whyItFitsContainerTablet]}>
               <MaterialIcons name="favorite" size={14} color="#342846" />
-              <Text style={styles.whyItFitsText}>{path.whyItFits}</Text>
+              <Text style={[styles.whyItFitsText, isTabletLayout && styles.whyItFitsTextTablet]}>{path.whyItFits}</Text>
             </View>
           </View>
 
           {/* CTA Button - Always visible at bottom */}
-          <View style={styles.cardFooter}>
+          <View style={[styles.cardFooter, isTabletLayout && styles.cardFooterTablet]}>
             {/* CTA Button */}
             <TouchableOpacity
-              style={[styles.exploreButton, { backgroundColor: 'rgba(255,255,255,0.7)' }]}
+              style={[styles.exploreButton, isTabletLayout && styles.exploreButtonTablet, { backgroundColor: 'rgba(255,255,255,0.7)' }]}
               onPress={(e) => {
                 e.stopPropagation();
                 void hapticMedium();
@@ -313,7 +319,7 @@ function PathCard({ path, index, isVisible, onSelect }: PathCardProps) {
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.exploreButtonText, { color: '#342846' }]}>{t('clarityMap.explore')}</Text>
+              <Text style={[styles.exploreButtonText, isTabletLayout && styles.exploreButtonTextTablet, { color: '#342846' }]}>{t('clarityMap.explore')}</Text>
               <View style={{ marginLeft: 6 }}>
                 <MaterialIcons name="arrow-forward" size={16} color="#342846" />
               </View>
@@ -430,6 +436,8 @@ export default function PathsAlignedStep({
   onPathsGenerated,
   onExplorePath,
   onWorkOnDreamGoal,
+  forceTabletLayout,
+  cardHorizontalInset,
   hideCustomPathOption = false,
   headerTopMargin = 0,
   headerExtraContent,
@@ -438,6 +446,9 @@ export default function PathsAlignedStep({
   const [isVisible, setIsVisible] = useState(false);
   const [paths, setPaths] = useState<PathData[]>([]);
   const [isLoadingPaths, setIsLoadingPaths] = useState(true);
+  // Keep risky card-style overrides off for now; use explicit iPad flag only for safe spacing.
+  const isTabletLayout = false;
+  const isTabletMarginsOnly = Boolean(forceTabletLayout);
 
   // Header animations
   const headerFade = useRef(new Animated.Value(0)).current;
@@ -603,9 +614,19 @@ export default function PathsAlignedStep({
   return (
     <View style={styles.container}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.scrollView, isTabletLayout && styles.scrollViewTablet]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          styles.scrollContentWithRoom,
+          isTabletMarginsOnly && styles.scrollContentTabletMarginsOnly,
+          typeof cardHorizontalInset === 'number' ? { paddingHorizontal: cardHorizontalInset } : null,
+        ]}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        alwaysBounceVertical
+        directionalLockEnabled
+        scrollEnabled
       >
         {/* Header */}
         <Animated.View
@@ -618,7 +639,9 @@ export default function PathsAlignedStep({
             },
           ]}
         >
-          <Text style={styles.headerTitle}>{t('onboarding.whichDirectionCallsYou').replace('{newline}', '\n')}</Text>
+          <Text style={styles.headerTitle}>
+            {t('onboarding.whichDirectionCallsYou').replace('{newline}', '\n')}
+          </Text>
           <Text style={styles.headerSubtitle}>
             {t('clarityMap.chooseDirectionThatResonates')}
           </Text>
@@ -633,6 +656,7 @@ export default function PathsAlignedStep({
               path={path}
               index={index}
               isVisible={isVisible}
+              isTabletLayout={isTabletLayout}
               onSelect={() => onExplorePath?.(path.id)}
             />
           ))}
@@ -661,10 +685,21 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollViewTablet: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 40,
+  },
+  scrollContentWithRoom: {
+    flexGrow: 1,
+    paddingBottom: 120,
+  },
+  scrollContentTabletMarginsOnly: {
+    paddingHorizontal: 24,
   },
 
   // Header
@@ -674,7 +709,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
     fontSize: 24,
-    color: '#FFFFFF',
+    color: '#342846',
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 30,
@@ -682,7 +717,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#342846',
     textAlign: 'center',
     opacity: 1,
     lineHeight: 17.6,
@@ -698,6 +733,9 @@ const styles = StyleSheet.create({
   cardWrapper: {
     position: 'relative',
   },
+  cardWrapperTablet: {
+    marginBottom: 0,
+  },
   recommendedGlow: {
     position: 'absolute',
     top: -6,
@@ -706,6 +744,12 @@ const styles = StyleSheet.create({
     bottom: -6,
     borderRadius: 24,
     opacity: 0.3,
+  },
+  recommendedGlowTablet: {
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
   },
   cardTouchable: {
     borderRadius: 20,
@@ -721,6 +765,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.65)',
   },
+  cardTablet: {
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderColor: 'rgba(52, 40, 70, 0.08)',
+  },
   cardGradient: {
     paddingTop: 24, // Increased padding for better spacing
     paddingLeft: 20,
@@ -728,6 +779,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24, // Increased padding for better spacing
     flexDirection: 'column',
     justifyContent: 'space-between', // Distribute content evenly, push footer to bottom
+  },
+  cardGradientTablet: {
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   cardContent: {
     flexShrink: 1, // Allow content to wrap naturally
@@ -750,6 +805,9 @@ const styles = StyleSheet.create({
     right: 0,
     height: '42%',
   },
+  cardTopGlowTablet: {
+    height: '36%',
+  },
 
   // Recommended Badge
   recommendedBadge: {
@@ -766,6 +824,14 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     marginBottom: 15,
   },
+  recommendedBadgeTablet: {
+    left: 20,
+    right: undefined,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 0,
+    marginBottom: 0,
+  },
   recommendedText: {
     fontFamily: 'AnonymousPro-Bold',
     fontSize: 11,
@@ -773,10 +839,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  recommendedTextTablet: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 12,
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
 
   // Card Header
   cardHeaderTouchable: {
     marginBottom: 12,
+  },
+  cardHeaderTouchableTablet: {
+    marginBottom: 10,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -791,6 +866,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
+  iconCircleTablet: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
   headerText: {
     flex: 1,
   },
@@ -801,12 +881,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     lineHeight: 28, // Increased line spacing
   },
+  pathTitleTablet: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
   pathSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: '#342846',
     opacity: 0.9,
     lineHeight: 20, // Increased line spacing
+  },
+  pathSubtitleTablet: {
+    fontSize: 14,
+    opacity: 0.5,
   },
 
   // Description
@@ -830,6 +918,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 8,
   },
+  whyItFitsContainerTablet: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    marginBottom: 16,
+  },
   whyItFitsText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
@@ -837,6 +932,11 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1, // Allow text to wrap properly
     lineHeight: 20, // Increased line spacing
+  },
+  whyItFitsTextTablet: {
+    fontSize: 14,
+    opacity: 0.7,
+    lineHeight: 22,
   },
 
   // Milestones
@@ -891,6 +991,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Align button to the right since duration is removed
     marginTop: 16, // Add spacing above footer to ensure it's always visible
   },
+  cardFooterTablet: {
+    marginTop: 12,
+  },
   exploreButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -906,10 +1009,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.22)',
   },
+  exploreButtonTablet: {
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
   exploreButtonText: {
     ...BodyStyle,
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  exploreButtonTextTablet: {
+    fontFamily: 'AnonymousPro-Regular',
   },
 
   // Custom Path Card

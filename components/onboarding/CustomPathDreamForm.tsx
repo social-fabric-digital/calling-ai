@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   StyleSheet,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -153,21 +154,12 @@ function Step1NameYourDream({ isActive, value, onChange, onNext, onBack }: Step1
         </Animated.View>
       ))}
 
-      <View style={styles.stepContent}>
-        <View style={styles.stepIconContainer}>
-          <LinearGradient
-            colors={['#342846', '#4a3a5c']}
-            style={styles.stepIconGradient}
-          >
-            <MaterialIcons name="stars" size={32} color="#FFFFFF" />
-          </LinearGradient>
-        </View>
-
-        <Text style={styles.stepTitle}>{isRussian ? 'НАЗОВИ СВОЮ МЕЧТУ' : 'NAME YOUR DREAM'}</Text>
+      <View style={[styles.stepContent, styles.step1ContentOffset]}>
+        <Text style={[styles.stepTitle, styles.step1Title]}>{isRussian ? 'КАКОЕ НАПРАВЛЕНИЕ ТЕБЯ ЗОВЁТ?' : 'WHICH DIRECTION CALLS YOU?'}</Text>
         <Text style={styles.stepSubtitle}>
           {isRussian
-            ? 'Кем ты хочешь стать? Дай своему пути название, которое тебя вдохновляет.'
-            : 'Who do you want to become? Give your path a name that inspires you.'}
+            ? 'Какой путь ты хочешь пройти? Дай ему название, которое тебя вдохновляет.'
+            : 'What path do you want to follow? Give it a name that inspires you.'}
         </Text>
 
         <View style={styles.inputContainer}>
@@ -270,16 +262,9 @@ function Step2PaintThePicture({ isActive, value, onChange, onNext, onBack, pathN
       ]}
     >
       <View style={styles.stepContent}>
-        <View style={styles.stepIconContainer}>
-          <LinearGradient
-            colors={['#5c4a6e', '#7a6890']}
-            style={styles.stepIconGradient}
-          >
-            <MaterialIcons name="brush" size={32} color="#FFFFFF" />
-          </LinearGradient>
-        </View>
-
-        <Text style={styles.stepTitle}>{isRussian ? 'ОПИШИ КАРТИНУ' : 'PAINT THE PICTURE'}</Text>
+        <Text style={[styles.stepTitle, styles.step2Title]}>
+          {isRussian ? 'ОПИШИ КАРТИНУ' : 'PAINT THE PICTURE'}
+        </Text>
         <Text style={[styles.stepSubtitle, styles.step2Subtitle]}>
           {isRussian
             ? `Опиши, как выглядит успех в роли ${pathName || 'на этом пути'}. Чем ты будешь заниматься?`
@@ -305,19 +290,18 @@ function Step2PaintThePicture({ isActive, value, onChange, onNext, onBack, pathN
           <Text style={styles.characterCount}>{value.length}/300</Text>
         </View>
 
+        <Text style={[styles.suggestionLabel, styles.step2PromptLabel]}>
+          {isRussian ? 'Подумай о:' : 'Think about:'}
+        </Text>
         <View style={[styles.promptContainer, styles.step2PromptContainer]}>
-          <Text style={styles.promptTitle}>{isRussian ? 'Подумай о:' : 'Think about:'}</Text>
           <View style={[styles.promptRow, styles.step2PromptRow]}>
             <View style={[styles.promptItem, styles.step2PromptItem]}>
-              <MaterialIcons name="wb-sunny" size={18} color="#bfacca" />
               <Text style={styles.promptText}>{isRussian ? 'Твоей повседневной жизни' : 'Your daily life'}</Text>
             </View>
             <View style={[styles.promptItem, styles.step2PromptItem]}>
-              <MaterialIcons name="people" size={18} color="#bfacca" />
               <Text style={styles.promptText}>{isRussian ? 'Кому ты помогаешь' : 'Who you help'}</Text>
             </View>
             <View style={[styles.promptItem, styles.step2PromptItem]}>
-              <MaterialIcons name="emoji-emotions" size={18} color="#bfacca" />
               <Text style={styles.promptText}>{isRussian ? 'Тем, как ты себя чувствуешь' : 'How you feel'}</Text>
             </View>
           </View>
@@ -346,12 +330,40 @@ interface Step3Props extends StepProps {
   onChange: (value: string) => void;
 }
 
+const getStartingPointOptions = (isRussian: boolean) => [
+  {
+    id: 'discipline',
+    label: isRussian ? 'Я умею быть последовательным(ой)' : 'I can stay consistent',
+    description: isRussian ? 'Довожу начатое до конца даже в загруженные дни' : 'I follow through even on busy days',
+  },
+  {
+    id: 'learning',
+    label: isRussian ? 'Я быстро учусь' : 'I learn quickly',
+    description: isRussian ? 'Быстро превращаю новую информацию в реальные действия' : 'I turn new knowledge into action fast',
+  },
+  {
+    id: 'support',
+    label: isRussian ? 'У меня есть поддержка' : 'I have support around me',
+    description: isRussian ? 'Рядом есть люди, к которым я могу обратиться за помощью' : 'I have people I can lean on when needed',
+  },
+  {
+    id: 'experience',
+    label: isRussian ? 'У меня уже есть опыт' : 'I already have relevant experience',
+    description: isRussian ? 'У меня уже есть навыки и прошлые результаты в этой сфере' : 'I already have skills and prior wins in this area',
+  },
+  {
+    id: 'motivation',
+    label: isRussian ? 'Я действительно мотивирован(а)' : 'I am deeply motivated',
+    description: isRussian ? 'У меня есть сильная причина начать прямо сейчас' : 'I have a strong reason to start now',
+  },
+];
+
 function Step3StartingPoint({ isActive, value, onChange, onNext, onBack }: Step3Props) {
   const { i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const options = getStartingPointOptions(Boolean(isRussian));
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const pathAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isActive) {
@@ -368,17 +380,10 @@ function Step3StartingPoint({ isActive, value, onChange, onNext, onBack }: Step3
           useNativeDriver: true,
         }),
       ]).start();
-
-      // Animate the path illustration
-      Animated.timing(pathAnim, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: true,
-      }).start();
     }
   }, [isActive]);
 
-  const canProceed = value.trim().length >= 5;
+  const canProceed = value.trim().length > 0;
 
   return (
     <Animated.View
@@ -391,79 +396,35 @@ function Step3StartingPoint({ isActive, value, onChange, onNext, onBack }: Step3
       ]}
     >
       <View style={styles.stepContent}>
-        <View style={styles.stepIconContainer}>
-          <LinearGradient
-            colors={['#6b5b7a', '#8a7a9a']}
-            style={styles.stepIconGradient}
-          >
-            <MaterialIcons name="my-location" size={32} color="#FFFFFF" />
-          </LinearGradient>
-        </View>
-
-        {/* Path illustration */}
-        <View style={styles.pathIllustration}>
-          <Animated.View
-            style={[
-              styles.pathDot,
-              styles.pathDotStart,
-              {
-                opacity: pathAnim,
-                transform: [{ scale: pathAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.pathDotLabel}>{isRussian ? 'ТЫ' : 'YOU'}</Text>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.pathLine,
-              {
-                opacity: pathAnim,
-                transform: [
-                  {
-                    scaleX: pathAnim,
-                  },
-                ],
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.pathDot,
-              styles.pathDotEnd,
-              {
-                opacity: pathAnim,
-                transform: [{ scale: pathAnim }],
-              },
-            ]}
-          >
-            <MaterialIcons name="flag" size={16} color="#FFFFFF" />
-          </Animated.View>
-        </View>
-
-        <Text style={styles.stepTitle}>{isRussian ? 'ТВОЯ СТАРТОВАЯ ТОЧКА' : 'YOUR STARTING POINT'}</Text>
+        <Text style={[styles.stepTitle, styles.step3Title]}>
+          {isRussian ? 'ТВОЯ СТАРТОВАЯ ТОЧКА' : 'YOUR STARTING POINT'}
+        </Text>
         <Text style={styles.stepSubtitle}>
           {isRussian
             ? 'Какие важные навыки, опыт или ресурсы у тебя уже есть?'
             : 'What important skills, experience, or resources do you already have?'}
         </Text>
 
-        <View style={styles.textAreaContainer}>
-          <TextInput
-            style={styles.textArea}
-            placeholder={
-              isRussian
-                ? 'У меня есть опыт в... Я хорошо умею... Я уже знаю...'
-                : 'I have experience in... I am good at... I already know...'
-            }
-            placeholderTextColor="rgba(52, 40, 70, 0.4)"
-            value={value}
-            onChangeText={onChange}
-            multiline
-            maxLength={250}
-            textAlignVertical="top"
-          />
-          <Text style={styles.characterCount}>{value.length}/250</Text>
+        <View style={styles.step3OptionsContainer}>
+          {options.map((option) => {
+            const isSelected = value === option.label;
+            return (
+              <TouchableOpacity
+                key={option.id}
+                style={[styles.step3OptionCard, isSelected && styles.step3OptionCardSelected]}
+                onPress={() => {
+                  void hapticLight();
+                  onChange(option.label);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.step3OptionTitle, isSelected && styles.step3OptionTitleSelected]}>
+                  {option.label}
+                </Text>
+                <Text style={styles.step3OptionDescription}>{option.description}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -548,17 +509,8 @@ function Step4Challenge({ isActive, value, onChange, onNext, onBack }: Step4Prop
       ]}
     >
       <View style={styles.stepContent}>
-        <View style={styles.stepIconContainer}>
-          <LinearGradient
-            colors={['#7a6a8a', '#9a8aaa']}
-            style={styles.stepIconGradient}
-          >
-            <MaterialIcons name="terrain" size={32} color="#FFFFFF" />
-          </LinearGradient>
-        </View>
-
-        <Text style={[styles.stepTitle, { color: '#FFFFFF' }]}>{isRussian ? 'ТВОЯ ПРОБЛЕМА' : 'YOUR CHALLENGE'}</Text>
-        <Text style={[styles.stepSubtitle, { color: '#FFFFFF', opacity: 1 }]}>
+        <Text style={[styles.stepTitle, styles.step3Title]}>{isRussian ? 'ТВОЯ ПРОБЛЕМА' : 'YOUR CHALLENGE'}</Text>
+        <Text style={styles.stepSubtitle}>
           {isRussian
             ? 'Какое главное препятствие стоит между тобой и твоей мечтой?'
             : "What's the biggest obstacle standing between you and your dream?"}
@@ -590,23 +542,7 @@ function Step4Challenge({ isActive, value, onChange, onNext, onBack }: Step4Prop
                   onPress={() => onChange(challenge.id)}
                   activeOpacity={0.8}
                 >
-                  <FrostedCardLayer />
-                  <View style={[styles.challengeIconContainer, isSelected && styles.challengeIconSelected]}>
-                    <MaterialIcons
-                      name={challenge.icon as any}
-                      size={24}
-                      color={isSelected ? '#FFFFFF' : '#342846'}
-                    />
-                  </View>
-                  <View style={styles.challengeLabelContainer}>
-                    <Text 
-                      style={[styles.challengeLabel, isSelected && styles.challengeLabelSelected]}
-                      numberOfLines={2}
-                      allowFontScaling={false}
-                    >
-                      {challenge.label}
-                    </Text>
-                  </View>
+                  <Text style={styles.challengeOptionText}>{challenge.description}</Text>
                 </TouchableOpacity>
               </Animated.View>
             );
@@ -704,18 +640,9 @@ function Step5Timeline({ isActive, value, onChange, onNext, onBack }: Step5Props
       ]}
     >
       <View style={styles.stepContent}>
-        <View style={styles.stepIconContainer}>
-          <LinearGradient
-            colors={['#8a7a9a', '#aa9aba']}
-            style={styles.stepIconGradient}
-          >
-            <MaterialIcons name="event" size={32} color="#FFFFFF" />
-          </LinearGradient>
-        </View>
-
-        <Text style={styles.stepTitle}>{isRussian ? 'ТВОЙ СРОК' : 'YOUR TIMELINE'}</Text>
+        <Text style={[styles.stepTitle, styles.step3Title]}>{isRussian ? 'ТВОЙ СРОК' : 'YOUR TIMELINE'}</Text>
         <Text style={styles.stepSubtitle}>
-          {isRussian ? 'Когда ты хочешь увидеть ощутимый прогресс?' : 'When do you want to see meaningful progress?'}
+          {isRussian ? 'Какой для тебя идеальный срок, чтобы завершить одну цель?' : 'What is the ideal time for you to complete one goal?'}
         </Text>
 
         <View style={styles.timelineContainer}>
@@ -732,35 +659,18 @@ function Step5Timeline({ isActive, value, onChange, onNext, onBack }: Step5Props
                 <TouchableOpacity
                   style={[
                     styles.timelineCard,
-                    isSelected && [styles.timelineCardSelected, { borderColor: '#342846' }],
+                    isSelected && styles.timelineCardSelected,
                   ]}
                   onPress={() => onChange(timeline.id)}
                   activeOpacity={0.8}
                 >
                   <FrostedCardLayer />
-                  <View
-                    style={[
-                      styles.timelineIconContainer,
-                      { backgroundColor: isSelected ? '#342846' : 'rgba(52, 40, 70, 0.08)' },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name={timeline.icon as any}
-                      size={24}
-                      color={isSelected ? '#FFFFFF' : '#342846'}
-                    />
-                  </View>
                   <View style={styles.timelineTextContainer}>
                     <Text style={[styles.timelineLabel, isSelected && { color: '#342846' }]}>
                       {timeline.label}
                     </Text>
                     <Text style={styles.timelineDescription}>{timeline.description}</Text>
                   </View>
-                  {isSelected && (
-                    <View style={[styles.timelineCheck, { backgroundColor: '#342846' }]}>
-                      <MaterialIcons name="check" size={16} color="#FFFFFF" />
-                    </View>
-                  )}
                 </TouchableOpacity>
               </Animated.View>
             );
@@ -775,8 +685,119 @@ function Step5Timeline({ isActive, value, onChange, onNext, onBack }: Step5Props
           disabled={!canProceed}
           activeOpacity={0.8}
         >
+          <Text style={styles.continueButtonText}>{isRussian ? 'Продолжить' : 'Continue'}</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ============================================
+// Step 6: Timeline Encouragement
+// ============================================
+interface Step6Props extends StepProps {
+  timeline: string;
+}
+
+function getTimelineEncouragement(timeline: string, isRussian: boolean) {
+  if (isRussian) {
+    switch (timeline) {
+      case '1-3':
+        return 'Я, Атлас, вижу твою решимость. Отличный темп - я помогу тебе каждый день удерживать фокус и двигаться к цели.';
+      case '3-6':
+        return 'Мне нравится этот баланс. Я помогу тебе выстроить устойчивый ритм, чтобы ты уверенно завершил(а) свою цель.';
+      case '6-12':
+        return 'Это сильный, зрелый выбор. Я помогу разбить большую цель на понятные шаги и поддержу тебя на всем пути.';
+      case '1+':
+        return 'Долгосрочное мышление - твоя суперсила. Я буду рядом, чтобы ты двигался(лась) вперед стабильно и без перегрузки.';
+      default:
+        return 'Отличный старт. Я рядом, чтобы помочь тебе сохранить фокус и уверенно довести первую цель до результата.';
+    }
+  }
+
+  switch (timeline) {
+    case '1-3':
+      return "I'm Atlas, and I can already see your momentum. Great choice - I'll help you stay focused and move forward every day.";
+    case '3-6':
+      return "I love this balance. I'll help you build a steady rhythm so you can finish your goal with confidence.";
+    case '6-12':
+      return "This is a wise and ambitious timeline. I'll help you break your big goal into clear, doable steps.";
+    case '1+':
+      return "Long-term thinking is powerful. I'll stay by your side so you keep progressing without burnout.";
+    default:
+      return "Great start. I'm here to help you stay focused and complete your first goal with confidence.";
+  }
+}
+
+function Step6TimelineEncouragement({ isActive, timeline, onNext, onBack }: Step6Props) {
+  const { i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    if (isActive) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isActive]);
+
+  const encouragementText = getTimelineEncouragement(timeline, Boolean(isRussian));
+
+  return (
+    <Animated.View
+      style={[
+        styles.stepContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.stepContent}>
+        <Text style={[styles.stepTitle, styles.step3Title]}>
+          {isRussian ? 'ТЫ НА ВЕРНОМ ПУТИ' : 'YOU ARE ON THE RIGHT PATH'}
+        </Text>
+        <Text style={styles.timelineEncouragementSubtitle}>
+          {isRussian
+            ? 'Каждый шаг приближает тебя к цели. Не сравнивай себя с другими - двигайся в своем темпе.'
+            : "Every step brings you closer to your goal. Don't worry about others - move at your own pace."}
+        </Text>
+
+        <View style={styles.timelineSpeechWrap}>
+          <View style={styles.timelineEncouragementCard}>
+            <Text style={styles.timelineEncouragementText}>{encouragementText}</Text>
+          </View>
+          <View style={styles.timelineBubbleTailWrap}>
+            <View style={styles.timelineBubbleTailLarge} />
+            <View style={styles.timelineBubbleTailSmall} />
+          </View>
+        </View>
+
+        <View style={styles.timelineAtlasWrap}>
+          <Image
+            source={require('../../assets/images/deer.face.png')}
+            style={styles.timelineAtlasImage}
+            resizeMode="contain"
+          />
+        </View>
+      </View>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={styles.continueButton} onPress={onNext} activeOpacity={0.8}>
           <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
-          <Text style={styles.continueButtonText}>{isRussian ? 'Сгенерировать мои цели' : 'Generate my goals'}</Text>
+          <Text style={styles.continueButtonText}>{isRussian ? 'Продолжить' : 'Continue'}</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -823,7 +844,7 @@ function ProgressIndicator({ currentStep, totalSteps }: ProgressIndicatorProps) 
 // ============================================
 // Main Component
 // ============================================
-export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDreamFormProps) {
+export default function CustomPathDreamForm({ onComplete, onBack, backRequestId }: CustomPathDreamFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [pathData, setPathData] = useState<PathData>({
     pathName: '',
@@ -834,7 +855,8 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
     timeline: '',
   });
 
-  const totalSteps = 5;
+  const totalSteps = 6;
+  const lastHandledBackRequestRef = useRef<number | undefined>(backRequestId);
 
   const handleNext = () => {
     void hapticMedium();
@@ -861,6 +883,13 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
     }
   };
 
+  useEffect(() => {
+    if (backRequestId === undefined) return;
+    if (backRequestId === lastHandledBackRequestRef.current) return;
+    lastHandledBackRequestRef.current = backRequestId;
+    handleBack();
+  }, [backRequestId]);
+
   const updatePathData = (key: keyof PathData, value: string) => {
     setPathData(prev => ({ ...prev, [key]: value }));
   };
@@ -869,6 +898,7 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.isPad ? 24 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
@@ -922,6 +952,14 @@ export default function CustomPathDreamForm({ onComplete, onBack }: CustomPathDr
                   void hapticLight();
                   updatePathData('timeline', v);
                 }}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            )}
+            {currentStep === 5 && (
+              <Step6TimelineEncouragement
+                isActive={currentStep === 5}
+                timeline={pathData.timeline}
                 onNext={handleNext}
                 onBack={handleBack}
               />
@@ -1038,9 +1076,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 10,
   },
+  step1Title: {
+    fontSize: 20,
+    lineHeight: 24,
+    marginBottom: 10,
+  },
+  step1ContentOffset: {
+    marginTop: 30,
+  },
 
   // Inputs
   inputContainer: {
+    marginTop: 50,
     marginBottom: 24,
   },
   mainInput: {
@@ -1052,7 +1099,7 @@ const styles = StyleSheet.create({
     paddingTop: 12, // Increased by 4px to move text down
     paddingBottom: 16, // Decreased by 4px to maintain spacing
     fontFamily: 'AnonymousPro-Regular',
-    fontSize: 18,
+    fontSize: 16,
     lineHeight: 20, // Reduced lineHeight to match fontSize more closely
     color: '#342846',
     textAlign: 'center',
@@ -1089,12 +1136,13 @@ const styles = StyleSheet.create({
 
   // Suggestions
   suggestionContainer: {
+    marginTop: 20,
     marginBottom: 20,
   },
   suggestionLabel: {
     fontFamily: 'AnonymousPro-Regular',
-    fontSize: 10,
-    color: 'rgba(52, 40, 70, 0.5)',
+    fontSize: 14,
+    color: '#FFFFFF',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -1104,7 +1152,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   suggestionChip: {
-    backgroundColor: 'rgba(52, 40, 70, 0.08)',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.24)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -1141,18 +1191,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#342846',
     opacity: 0.7,
+    textAlign: 'center',
   },
   step2Subtitle: {
     paddingHorizontal: 10,
     marginBottom: 20,
+  },
+  step2Title: {
+    fontSize: 20,
+    lineHeight: 24,
+    marginBottom: 10,
+  },
+  step3Title: {
+    fontSize: 20,
+    lineHeight: 24,
+    marginBottom: 10,
   },
   step2TextAreaContainer: {
     marginBottom: 16,
     paddingHorizontal: 0,
   },
   step2PromptContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  step2PromptLabel: {
+    marginTop: 60,
+    marginBottom: 12,
+    transform: [{ translateY: -20 }],
   },
   step2PromptRow: {
     justifyContent: 'center',
@@ -1161,6 +1230,43 @@ const styles = StyleSheet.create({
   step2PromptItem: {
     flex: 1,
     paddingHorizontal: 6,
+  },
+
+  // Step 3 options
+  step3OptionsContainer: {
+    gap: 15,
+    marginTop: -2,
+  },
+  step3OptionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(52, 40, 70, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  step3OptionCardSelected: {
+    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    borderColor: '#342846',
+  },
+  step3OptionTitle: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    textAlign: 'left',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  step3OptionTitleSelected: {
+    color: '#342846',
+  },
+  step3OptionDescription: {
+    ...BodyStyle,
+    color: '#342846',
+    opacity: 0.75,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'left',
   },
 
   // Path illustration
@@ -1199,62 +1305,32 @@ const styles = StyleSheet.create({
 
   // Challenge cards
   challengeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    justifyContent: 'center',
+    gap: 15,
   },
   challengeCard: {
-    width: (width - 72) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(52, 40, 70, 0.1)',
-    padding: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    alignItems: 'center',
-    height: 130,
-    justifyContent: 'flex-start',
-    overflow: 'hidden',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(52, 40, 70, 0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   challengeCardSelected: {
+    backgroundColor: 'rgba(186, 172, 202, 0.45)',
     borderColor: '#342846',
-    backgroundColor: 'rgba(52, 40, 70, 0.03)',
   },
-  challengeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(52, 40, 70, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  challengeIconSelected: {
-    backgroundColor: '#342846',
-  },
-  challengeLabelContainer: {
-    width: '100%',
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  challengeLabel: {
-    fontFamily: 'AnonymousPro-Regular',
-    fontSize: 16,
+  challengeOptionText: {
+    ...BodyStyle,
     color: '#342846',
-    textAlign: 'center',
+    fontSize: 15,
     lineHeight: 20,
-    maxWidth: (width - 72) / 2 - 32, // Card width minus padding (16px * 2)
-  },
-  challengeLabelSelected: {
-    fontWeight: '600',
+    textAlign: 'left',
   },
 
   // Timeline cards
   timelineContainer: {
-    gap: 12,
+    gap: 15,
   },
   timelineCard: {
     flexDirection: 'row',
@@ -1267,7 +1343,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   timelineCardSelected: {
-    backgroundColor: 'rgba(52, 40, 70, 0.03)',
+    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    borderColor: '#342846',
   },
   timelineIconContainer: {
     width: 48,
@@ -1285,11 +1362,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#342846',
     marginBottom: 2,
+    textTransform: 'uppercase',
   },
   timelineDescription: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: 'rgba(52, 40, 70, 0.6)',
+  },
+  timelineSpeechWrap: {
+    width: '100%',
+    marginTop: 8,
+    transform: [{ translateY: 140 }],
+  },
+  timelineEncouragementCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  timelineEncouragementText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  timelineEncouragementSubtitle: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginTop: 4,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+  },
+  timelineBubbleTailWrap: {
+    alignItems: 'flex-end',
+    marginTop: -2,
+    paddingRight: 42,
+  },
+  timelineBubbleTailLarge: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+  },
+  timelineBubbleTailSmall: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+    marginTop: 4,
+    marginRight: 12,
+  },
+  timelineAtlasWrap: {
+    alignItems: 'flex-end',
+    marginTop: -6,
+    paddingRight: 8,
+    transform: [{ translateY: 140 }],
+  },
+  timelineAtlasImage: {
+    width: 154,
+    height: 154,
   },
   timelineCheck: {
     width: 28,

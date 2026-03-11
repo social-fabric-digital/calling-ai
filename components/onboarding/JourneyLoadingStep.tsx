@@ -362,8 +362,26 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
   const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(-1);
   const [completedItems, setCompletedItems] = useState<Set<number>>(new Set());
-  const hasStartedRef = useRef(false);
+  const runIdRef = useRef(0);
   const onCompleteRef = useRef(onComplete);
+  const defaultLoadingItems = React.useMemo(
+    () => [
+      t('onboarding.loadingItems.analyzingStrengths', { defaultValue: 'Analyzing your strengths' }),
+      t('onboarding.loadingItems.buildingPath', { defaultValue: 'Building your path to the goal' }),
+      t('onboarding.loadingItems.preparingRoadmap', { defaultValue: 'Preparing your personalized roadmap' }),
+      t('onboarding.loadingItems.gettingReady', { defaultValue: 'Getting your journey ready' }),
+    ],
+    [t]
+  );
+  const sanitizedLoadingItems = React.useMemo(
+    () =>
+      (Array.isArray(loadingItems) ? loadingItems : [])
+        .map((item) => String(item ?? '').trim())
+        .filter((item) => item.length > 0),
+    [loadingItems]
+  );
+  const effectiveLoadingItems = sanitizedLoadingItems.length >= 2 ? sanitizedLoadingItems : defaultLoadingItems;
+  const loadingSequenceKey = effectiveLoadingItems.join('|');
   
   // Deer entrance animation
   const deerScale = useRef(new Animated.Value(0.85)).current;
@@ -374,12 +392,14 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
   }, [onComplete]);
 
   useEffect(() => {
-    if (hasStartedRef.current) {
-      return;
-    }
-    hasStartedRef.current = true;
-    
+    runIdRef.current += 1;
+    const currentRunId = runIdRef.current;
+    setActiveIndex(-1);
+    setCompletedItems(new Set());
+
     // Animate deer entrance
+    deerScale.setValue(0.85);
+    deerOpacity.setValue(0);
     Animated.parallel([
       Animated.spring(deerScale, {
         toValue: 1,
@@ -394,40 +414,44 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
       }),
     ]).start();
 
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    
-    // Start first item immediately
-    setActiveIndex(0);
-    
-    loadingItems.forEach((_, index) => {
-      // Complete current item
-      const completeTimer = setTimeout(() => {
-        setCompletedItems(prev => new Set(prev).add(index));
-        
-        // Start next item after a short pause
-        if (index < loadingItems.length - 1) {
-          setTimeout(() => {
-            setActiveIndex(index + 1);
-          }, 250);
-        }
-      }, (index + 1) * 1500);
-      
-      timers.push(completeTimer);
-    });
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      });
 
-    // Final completion callback
-    const finalTimer = setTimeout(() => {
-      if (onCompleteRef.current) {
+    const runSequence = async () => {
+      if (effectiveLoadingItems.length === 0) {
+        if (runIdRef.current === currentRunId && onCompleteRef.current) {
+          onCompleteRef.current();
+        }
+        return;
+      }
+
+      for (let index = 0; index < effectiveLoadingItems.length; index += 1) {
+        if (runIdRef.current !== currentRunId) return;
+        setActiveIndex(index);
+        await sleep(1300);
+        if (runIdRef.current !== currentRunId) return;
+        setCompletedItems((prev) => {
+          const next = new Set(prev);
+          next.add(index);
+          return next;
+        });
+        await sleep(220);
+      }
+
+      await sleep(550);
+      if (runIdRef.current === currentRunId && onCompleteRef.current) {
         onCompleteRef.current();
       }
-    }, loadingItems.length * 1500 + 700);
-    timers.push(finalTimer);
+    };
+
+    void runSequence();
 
     return () => {
-      timers.forEach(timer => clearTimeout(timer));
-      hasStartedRef.current = false;
+      runIdRef.current += 1;
     };
-  }, []);
+  }, [deerOpacity, deerScale, loadingSequenceKey]);
 
   return (
     <View style={styles.journeyLoadingContainer}>
@@ -447,7 +471,7 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
       </Animated.View>
 
       <View style={styles.journeyLoadingList}>
-        {loadingItems.map((item, index) => (
+        {effectiveLoadingItems.map((item, index) => (
           <LoadingItemRow
             key={index}
             text={item}
@@ -508,7 +532,7 @@ const loaderStyles = StyleSheet.create({
   itemText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
-    color: '#342846',
+    color: '#FFFFFF',
     flex: 1,
   },
 });
