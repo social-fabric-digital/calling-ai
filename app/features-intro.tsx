@@ -1,5 +1,6 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
+import { FEATURES_INTRO_TOTAL_CARDS, FULL_ONBOARDING_JOURNEY_UNITS } from '@/constants/progress';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -604,8 +605,11 @@ export default function FeaturesIntroScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<any>>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [showHeaderTooltip, setShowHeaderTooltip] = useState(false);
+  const [headerTooltipText, setHeaderTooltipText] = useState('');
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const features = getFeatures(Boolean(isRussian));
+  const headerTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copy = {
     skip: isRussian ? 'Пропустить' : 'Skip',
     heading: isRussian ? 'УПРАВЛЯЙ СВОИМ ПУТЕМ' : 'OWN YOUR JOURNEY',
@@ -710,6 +714,39 @@ export default function FeaturesIntroScreen() {
     setCurrentCardIndex(index);
   };
 
+  const topInset = Math.max(insets.top, 20);
+
+  const handleHeaderBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/landing');
+  };
+
+  const handleHeaderInfo = () => {
+    const tooltipText = isRussian
+      ? 'Пролистай карточки, чтобы понять, как работает твой путь. Это поможет осознанно начать.'
+      : 'Swipe these cards to understand how your journey works and why each step matters.';
+    setHeaderTooltipText(tooltipText);
+    setShowHeaderTooltip(true);
+    if (headerTooltipTimerRef.current) {
+      clearTimeout(headerTooltipTimerRef.current);
+    }
+    headerTooltipTimerRef.current = setTimeout(() => {
+      setShowHeaderTooltip(false);
+      headerTooltipTimerRef.current = null;
+    }, 2600);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (headerTooltipTimerRef.current) {
+        clearTimeout(headerTooltipTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <PaperTextureBackground>
       <View style={styles.container}>
@@ -719,17 +756,41 @@ export default function FeaturesIntroScreen() {
           style={styles.backgroundImage}
           resizeMode="cover"
         />
-        {/* Skip Button */}
-        <TouchableOpacity 
-          style={[styles.skipButton, { top: Math.max(insets.top, 20) + 10 }]} 
-          onPress={handleSkip}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.skipButtonText}>{copy.skip}</Text>
-        </TouchableOpacity>
+        <View style={[styles.headerRow, { paddingTop: topInset + 8 }]}>
+          <TouchableOpacity style={styles.headerIconButton} onPress={handleHeaderBack} activeOpacity={0.7}>
+            <MaterialIcons name="arrow-back" size={24} color="#342846" />
+          </TouchableOpacity>
+          <View style={styles.headerProgressContainer}>
+            <View style={styles.headerProgressBar}>
+              <View
+                style={[
+                  styles.headerProgressFill,
+                  {
+                    width: `${Math.min(
+                      ((Math.min(currentCardIndex + 1, FEATURES_INTRO_TOTAL_CARDS)) /
+                        FULL_ONBOARDING_JOURNEY_UNITS) *
+                        100,
+                      100
+                    )}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+          <TouchableOpacity style={styles.headerIconButton} onPress={handleHeaderInfo} activeOpacity={0.7}>
+            <MaterialIcons name="help-outline" size={24} color="#342846" />
+          </TouchableOpacity>
+        </View>
+        {showHeaderTooltip && (
+          <View pointerEvents="none" style={styles.headerTooltipContainer}>
+            <View style={styles.headerTooltipBubble}>
+              <Text style={styles.headerTooltipText}>{headerTooltipText}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Header Section */}
-        <View style={[styles.headerSection, { paddingTop: Math.max(insets.top, 20) + 50 }]}>
+        <View style={styles.headerSection}>
           <Animated.Text 
             style={[
               styles.mainHeading,
@@ -889,19 +950,65 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  skipButton: {
-    position: 'absolute',
-    right: 20,
-    zIndex: 10,
-    paddingVertical: 6.4, // Reduced by 20% from 8 (8 * 0.8 = 6.4)
-    paddingHorizontal: 12.8, // Reduced by 20% from 16 (16 * 0.8 = 12.8)
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 0,
+    zIndex: 12,
   },
-  skipButtonText: {
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProgressContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  headerProgressBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  headerProgressFill: {
+    height: '100%',
+    backgroundColor: '#342846',
+    borderRadius: 2,
+  },
+  headerTooltipContainer: {
+    position: 'absolute',
+    top: 108,
+    right: 20,
+    zIndex: 1400,
+    elevation: 1400,
+    maxWidth: 230,
+  },
+  headerTooltipBubble: {
+    backgroundColor: 'rgba(52, 40, 70, 0.95)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTooltipText: {
     ...BodyStyle,
     color: '#FFFFFF',
-    fontSize: 12, // Reduced by 20% from 15 (15 * 0.8 = 12)
+    fontSize: 12,
+    lineHeight: 16,
   },
   headerSection: {
+    paddingTop: 12,
     paddingHorizontal: 28,
     alignItems: 'center',
   },

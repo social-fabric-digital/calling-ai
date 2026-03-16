@@ -143,7 +143,6 @@ export default function AnimatedSplashScreen({
     <Animated.View style={[styles.container, overlayAnimatedStyle]}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND_PURPLE} />
       <Image source={FOREST_BG} style={styles.background} resizeMode="cover" />
-      <View style={styles.gradientOverlay} />
 
       <Animated.View style={[styles.cloudWrapper, cloudAnimatedStyle]}>
         <Image source={CLOUD_IMG} style={styles.cloudImage} resizeMode="contain" />
@@ -194,14 +193,6 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: "absolute",
-  },
-  gradientOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SCREEN_HEIGHT * 0.4,
-    backgroundColor: "rgba(52, 40, 70, 0.45)",
   },
   cloudWrapper: {
     position: "absolute",

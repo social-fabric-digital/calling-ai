@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, StyleSheet, View, Animated } from 'react-native';
+import { Platform, StyleSheet, View, Animated, Text } from 'react-native';
 import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -142,9 +142,6 @@ const TabBarIcon = ({
 
   return (
     <View style={styles.iconWrapper}>
-      {/* Active indicator dot */}
-      {focused && <View style={styles.activeIndicator} />}
-      
       {/* Icon container with background for active state */}
       <View style={[
         styles.iconContainer,
@@ -166,6 +163,11 @@ export default function TabLayout() {
   const { i18n } = useTranslation();
   const isRussian = i18n.language === 'ru' || i18n.language?.startsWith('ru');
   const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
+  const getTabLabelStyle = (focused: boolean) => [
+    styles.tabLabelBase,
+    focused ? styles.tabLabelActive : styles.tabLabelInactive,
+    isTabletLayout && (focused ? styles.tabLabelTabletActive : styles.tabLabelTabletInactive),
+  ];
 
   return (
     <Tabs
@@ -189,10 +191,6 @@ export default function TabLayout() {
           paddingBottom: Platform.OS === 'ios' ? 20 : 8,
           paddingHorizontal: 16,
         },
-        tabBarLabelStyle: {
-          ...styles.tabLabelBase,
-          ...(isTabletLayout ? styles.tabLabelTablet : null),
-        },
         tabBarLabelPosition: isTabletLayout ? 'beside-icon' : undefined,
         tabBarIconStyle: isTabletLayout ? styles.tabIconTablet : undefined,
         tabBarItemStyle: {
@@ -203,6 +201,11 @@ export default function TabLayout() {
         name="index"
         options={{
           title: isRussian ? 'Главная' : 'Home',
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[...getTabLabelStyle(focused), { color }]}>
+              {isRussian ? 'Главная' : 'Home'}
+            </Text>
+          ),
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               focused={focused} 
@@ -216,6 +219,11 @@ export default function TabLayout() {
         name="focus"
         options={{
           title: isRussian ? 'Фокус' : 'Focus',
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[...getTabLabelStyle(focused), { color }]}>
+              {isRussian ? 'Фокус' : 'Focus'}
+            </Text>
+          ),
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               focused={focused} 
@@ -229,6 +237,11 @@ export default function TabLayout() {
         name="goals"
         options={{
           title: isRussian ? 'Цели' : 'Goals',
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[...getTabLabelStyle(focused), { color }]}>
+              {isRussian ? 'Цели' : 'Goals'}
+            </Text>
+          ),
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               focused={focused} 
@@ -242,6 +255,11 @@ export default function TabLayout() {
         name="me"
         options={{
           title: isRussian ? 'Я' : 'Me',
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[...getTabLabelStyle(focused), { color }]}>
+              {isRussian ? 'Я' : 'Me'}
+            </Text>
+          ),
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               focused={focused} 
@@ -271,30 +289,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  activeIndicator: {
-    position: 'absolute',
-    top: -2,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#a592b0',
-  },
   iconContainer: {
     width: 40,
-    height: 32,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 20,
   },
   iconContainerActive: {
-    backgroundColor: '#a592b0',
+    backgroundColor: 'rgba(165, 146, 176, 0.38)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(90, 67, 105, 0.85)',
+    shadowColor: '#5f4a70',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
   tabLabelBase: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 11,
+  },
+  tabLabelActive: {
+    marginTop: 10,
+  },
+  tabLabelInactive: {
     marginTop: 4,
   },
-  tabLabelTablet: {
+  tabLabelTabletActive: {
+    marginTop: 6,
+  },
+  tabLabelTabletInactive: {
     marginTop: 0,
   },
   tabIconTablet: {

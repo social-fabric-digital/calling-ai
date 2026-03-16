@@ -3,10 +3,12 @@ import { SubscriptionProvider } from '@/components/SubscriptionProvider';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Asset } from 'expo-asset';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { DMSans_700Bold } from '@expo-google-fonts/dm-sans';
+import * as Linking from 'expo-linking';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
 import '@/utils/i18n';
@@ -73,6 +75,8 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const router = useRouter();
+  const lastHandledRecoveryUrlRef = useRef<string | null>(null);
   const [splashDone, setSplashDone] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
 
@@ -81,6 +85,8 @@ export default function RootLayout() {
     'AnonymousPro-Bold': require('../assets/fonts/AnonymousPro-Bold.ttf'),
     'AnonymousPro-Italic': require('../assets/fonts/AnonymousPro-Italic.ttf'),
     'AnonymousPro-BoldItalic': require('../assets/fonts/AnonymousPro-BoldItalic.ttf'),
+    'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
+    DMSans_700Bold,
     'BricolageGrotesque-Regular': require('../assets/fonts/BricolageGrotesque-Regular.ttf'),
     'BricolageGrotesque-Bold': require('../assets/fonts/BricolageGrotesque-Bold.ttf'),
     'BricolageGrotesque-Medium': require('../assets/fonts/BricolageGrotesque-Medium.ttf'),
@@ -151,6 +157,78 @@ export default function RootLayout() {
   const handleSplashFinish = useCallback(() => {
     setSplashDone(true);
   }, []);
+
+  useEffect(() => {
+    const extractAuthParams = (url: string | null) => {
+      if (!url) return null;
+      const parsed = Linking.parse(url);
+      const normalizedPath = (parsed.path || '').replace(/^\/+/, '').replace(/^--\//, '');
+      const isResetPasswordPath = normalizedPath === 'reset-password' || normalizedPath.endsWith('/reset-password');
+      if (!isResetPasswordPath) return null;
+
+      const extractParts = (candidate: string) => {
+        const queryPart = candidate.includes('?')
+          ? candidate.split('?')[1]?.split('#')[0] || ''
+          : '';
+        const hashPart = candidate.includes('#') ? candidate.split('#')[1] : '';
+        return { queryPart, hashPart };
+      };
+
+      const rawParts = extractParts(url);
+      const decodedUrl = decodeURIComponent(url);
+      const decodedParts = decodedUrl === url ? rawParts : extractParts(decodedUrl);
+      const queryParams = new URLSearchParams([rawParts.queryPart, decodedParts.queryPart].filter(Boolean).join('&'));
+      const fragmentParams = new URLSearchParams([rawParts.hashPart, decodedParts.hashPart].filter(Boolean).join('&'));
+      const pick = (key: string) => fragmentParams.get(key) || queryParams.get(key) || '';
+
+      const params = {
+        access_token: pick('access_token'),
+        refresh_token: pick('refresh_token'),
+        type: pick('type'),
+        code: pick('code'),
+        token_hash: pick('token_hash'),
+        token: pick('token') || pick('otp'),
+      };
+
+      const hasRecoveryMarkers = Boolean(
+        params.access_token ||
+          params.refresh_token ||
+          params.code ||
+          params.token_hash ||
+          params.token ||
+          params.type === 'recovery'
+      );
+
+      return hasRecoveryMarkers ? params : null;
+    };
+
+    const routeToResetPasswordIfNeeded = (url: string | null) => {
+      if (!url) return;
+      if (lastHandledRecoveryUrlRef.current === url) return;
+      const recoveryParams = extractAuthParams(url);
+      if (!recoveryParams) return;
+      lastHandledRecoveryUrlRef.current = url;
+
+      router.replace({
+        pathname: '/reset-password',
+        params: recoveryParams,
+      });
+    };
+
+    Linking.getInitialURL()
+      .then((url) => {
+        routeToResetPasswordIfNeeded(url);
+      })
+      .catch(() => {});
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      routeToResetPasswordIfNeeded(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   if (!fontsLoaded) {
     return null;

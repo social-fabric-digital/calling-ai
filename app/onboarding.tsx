@@ -50,6 +50,10 @@ import {
   hapticWarning,
 } from '@/utils/haptics';
 import { BodyStyle } from '@/constants/theme';
+import {
+  FEATURES_INTRO_TOTAL_CARDS,
+  FULL_ONBOARDING_JOURNEY_UNITS,
+} from '@/constants/progress';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -122,6 +126,9 @@ export default function OnboardingScreen() {
   const [showLifeContextModal, setShowLifeContextModal] = useState(false);
   const [ikigaiModalIconFailed, setIkigaiModalIconFailed] = useState(false);
   const [ikigaiCurrentPage, setIkigaiCurrentPage] = useState(0);
+  const [showHeaderTooltip, setShowHeaderTooltip] = useState(false);
+  const [headerTooltipText, setHeaderTooltipText] = useState('');
+  const headerTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Get onboarding steps with translations - recalculate when language changes
   const ONBOARDING_STEPS = useMemo(() => getOnboardingSteps(t), [t, i18n.language]);
@@ -1359,6 +1366,71 @@ export default function OnboardingScreen() {
 
   const currentStepId = ONBOARDING_STEPS[currentStep]?.id;
   const currentYazioStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS[currentStep] : null;
+  const onboardingProgressPercent = Math.min(
+    ((FEATURES_INTRO_TOTAL_CARDS + currentStep + 1) / FULL_ONBOARDING_JOURNEY_UNITS) * 100,
+    100
+  );
+  const getHeaderTooltipMessage = () => {
+    if (USE_YAZIO_FLOW) {
+      switch (currentFlowStepKey) {
+        case 'aboutYou':
+          return localeText(
+            'Your profile details help tailor insights to your unique context.',
+            'Детали профиля помогают точнее адаптировать инсайты под твою ситуацию.'
+          );
+        case 'currentFeeling':
+          return localeText(
+            'Your current feeling helps us set the right starting pace for your journey.',
+            'Текущее состояние помогает задать подходящий стартовый темп пути.'
+          );
+        case 'currentLifeContext':
+          return localeText(
+            'Your real-life context helps us suggest practical next steps you can actually follow.',
+            'Твой жизненный контекст помогает предлагать реалистичные следующие шаги.'
+          );
+        case 'ikigai':
+          return localeText(
+            'These answers reveal what energizes you, so goals stay meaningful and sustainable.',
+            'Эти ответы показывают, что тебя наполняет, чтобы цели оставались значимыми и устойчивыми.'
+          );
+        case 'pledge':
+          return localeText(
+            'A commitment moment increases follow-through and keeps you accountable to your goal.',
+            'Момент обязательства усиливает доведение до результата и укрепляет ответственность.'
+          );
+        default:
+          return localeText(
+            'This step helps personalize your path so guidance feels relevant and useful.',
+            'Этот шаг персонализирует твой путь, чтобы рекомендации были точными и полезными.'
+          );
+      }
+    }
+
+    return localeText(
+      'This step helps personalize your path so guidance feels relevant and useful.',
+      'Этот шаг персонализирует твой путь, чтобы рекомендации были точными и полезными.'
+    );
+  };
+  const handleHeaderInfoPress = () => {
+    void hapticLight();
+    const nextTooltipText = getHeaderTooltipMessage();
+    setHeaderTooltipText(nextTooltipText);
+    setShowHeaderTooltip(true);
+    if (headerTooltipTimerRef.current) {
+      clearTimeout(headerTooltipTimerRef.current);
+    }
+    headerTooltipTimerRef.current = setTimeout(() => {
+      setShowHeaderTooltip(false);
+      headerTooltipTimerRef.current = null;
+    }, 2600);
+  };
+  useEffect(() => {
+    return () => {
+      if (headerTooltipTimerRef.current) {
+        clearTimeout(headerTooltipTimerRef.current);
+      }
+    };
+  }, []);
   useEffect(() => {
     if (!USE_YAZIO_FLOW || currentYazioStep !== 'aboutYou') {
       setCanSubmitAboutYou(true);
@@ -1453,44 +1525,18 @@ export default function OnboardingScreen() {
           >
             <MaterialIcons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
-            <View style={styles.headerProgressContainer}>
-              <View style={styles.headerProgressBar}>
-                <View 
-                  style={[
-                    styles.headerProgressFill, 
-                    { width: `${Math.min(((currentStep + 1) / totalStepCount) * 100, 100)}%` }
-                  ]} 
-                />
-              </View>
+          <View style={styles.headerProgressContainer}>
+            <View style={styles.headerProgressBar}>
+              <View style={[styles.headerProgressFill, { width: `${onboardingProgressPercent}%` as any }]} />
             </View>
-            {((USE_YAZIO_FLOW && currentFlowStepKey === 'ikigai') || (!USE_YAZIO_FLOW && currentStep === 3)) && (
-              <TouchableOpacity 
-                style={styles.ikigaiHelpButton} 
-                onPressIn={() => {
-                  void hapticLight();
-                }}
-                onPress={() => {
-                  setShowIkigaiModal(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="help-outline" size={24} color="#342846" />
-              </TouchableOpacity>
-            )}
-            {((USE_YAZIO_FLOW && currentFlowStepKey === 'currentLifeContext') || (!USE_YAZIO_FLOW && currentStep === 4)) && (
-              <TouchableOpacity 
-                style={styles.ikigaiHelpButton} 
-                onPressIn={() => {
-                  void hapticLight();
-                }}
-                onPress={() => {
-                  setShowLifeContextModal(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="help-outline" size={24} color="#342846" />
-              </TouchableOpacity>
-            )}
+          </View>
+          <TouchableOpacity
+            style={styles.ikigaiHelpButton}
+            onPress={handleHeaderInfoPress}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="help-outline" size={24} color="#342846" />
+          </TouchableOpacity>
         </View>
       )}
       {showAccountCreation && (
@@ -1507,7 +1553,25 @@ export default function OnboardingScreen() {
             >
               <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
-            <View style={{ flex: 1 }} />
+            <View style={styles.headerProgressContainer}>
+              <View style={styles.headerProgressBar}>
+                <View style={[styles.headerProgressFill, { width: `${onboardingProgressPercent}%` as any }]} />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.ikigaiHelpButton}
+              onPress={handleHeaderInfoPress}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="help-outline" size={24} color="#342846" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {showHeaderTooltip && !showJourneyLoading && (
+        <View pointerEvents="none" style={styles.headerTooltipContainer}>
+          <View style={styles.headerTooltipBubble}>
+            <Text style={styles.headerTooltipText}>{headerTooltipText}</Text>
           </View>
         </View>
       )}

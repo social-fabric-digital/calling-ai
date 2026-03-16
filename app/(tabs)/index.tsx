@@ -4,7 +4,7 @@ import { MoodLoggedCard } from '@/components/MoodLoggedCard';
 import { MoodSelector } from '@/components/MoodSelector';
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import AtlasChat from '@/components/screens/ChatScreen';
-import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { trackReflectionEvent } from '@/utils/appTracking';
 import { ChatMessage } from '@/utils/claudeApi';
@@ -287,7 +287,7 @@ export default function HomeScreen() {
       startY: Math.random() * (height * 0.3) + height * 0.1,
     }))
   ).current;
-  
+
   // Debounce timer for detecting when user finishes typing
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMountedDailyQuestionLayoutRef = useRef(false);
@@ -2695,6 +2695,12 @@ export default function HomeScreen() {
   );
 }
 
+const HomeHeadingStyle = {
+  ...HeadingStyle,
+  textTransform: 'none' as const,
+  fontFamily: 'DMSans_700Bold',
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2777,7 +2783,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   guideButtonText: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
@@ -2802,7 +2808,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   greeting: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     textAlign: 'left',
     marginBottom: 16,
@@ -2814,7 +2820,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   sectionHeading: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     fontSize: 18,
     marginBottom: 16,
@@ -2823,15 +2829,15 @@ const styles = StyleSheet.create({
   questionCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 0,
+    borderColor: 'transparent',
     padding: 20,
     marginBottom: 24,
     overflow: 'hidden',
-    shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.34,
-    shadowRadius: 22,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
     elevation: 14,
   },
   dailyQuestionSection: {
@@ -2857,6 +2863,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginBottom: 16,
     minHeight: 100,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 10,
   },
   answerInputCard: {
     ...BodyStyle,
@@ -2899,7 +2910,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   exploreCardTitle: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     fontSize: 18,
     textAlign: 'left',
@@ -2943,7 +2954,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   moodCardTitle: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     fontSize: 18,
     marginBottom: 16,
@@ -2998,7 +3009,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   feelingAnxiousHeading: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     fontSize: 18,
     marginBottom: 8,
@@ -3185,7 +3196,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   buttonTitle: {
-    ...HeadingStyle,
+    ...ButtonHeadingStyle,
     color: '#342846',
     fontSize: 16, // Reduced from 18
     textAlign: 'center',
@@ -3453,7 +3464,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   queueHeading: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#fff',
     fontSize: 28,
     marginBottom: 10,
@@ -3512,7 +3523,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   modalTitle: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     fontSize: 24,
     color: '#342846',
   },
@@ -3577,7 +3588,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   reportDateHeading: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#fff',
     fontSize: 24,
     marginBottom: 14,
@@ -3611,7 +3622,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   reportSectionHeading: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#fff',
     fontSize: 17,
     marginTop: 0,
@@ -3663,7 +3674,7 @@ const styles = StyleSheet.create({
     // paddingTop will be set dynamically via inline style to account for safe area
   },
   chatHeaderText: {
-    ...HeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
     fontSize: 20,
   },

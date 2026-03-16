@@ -1223,7 +1223,7 @@ const styles = StyleSheet.create({
   daysActiveLabel: {
     ...BodyStyle,
     fontSize: 13,
-    color: 'rgba(52, 40, 70, 0.78)',
+    color: '#342846',
   },
   engagementProgressTrack: {
     flexDirection: 'row',
@@ -1332,7 +1332,7 @@ const styles = StyleSheet.create({
   currentGoalLabel: {
     ...BodyStyle,
     fontSize: 13,
-    color: '#7A8A9A',
+    color: '#342846',
   },
   currentGoalName: {
     color: '#342846',
@@ -1349,7 +1349,7 @@ const styles = StyleSheet.create({
   levelText: {
     ...BodyStyle,
     fontSize: 12,
-    color: '#7A8A9A',
+    color: '#342846',
   },
   levelPercent: {
     ...HeadingStyle,
@@ -1445,7 +1445,7 @@ const styles = StyleSheet.create({
   reflectionLabel: {
     ...BodyStyle,
     fontSize: 12,
-    color: '#7A8A9A',
+    color: '#342846',
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -1512,7 +1512,7 @@ const styles = StyleSheet.create({
   moodCount: {
     ...BodyStyle,
     fontSize: 13,
-    color: '#7A8A9A',
+    color: '#342846',
   },
 
   // Wins Card

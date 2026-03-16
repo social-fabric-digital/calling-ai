@@ -182,6 +182,20 @@ export default function ResetPasswordScreen() {
           return;
         }
 
+        // Guard against stale deep-link route state on app reloads.
+        // This screen should be entered only with recovery credentials in the URL.
+        if (
+          !accessToken &&
+          !refreshToken &&
+          !authCode &&
+          !tokenHash &&
+          !recoveryToken &&
+          flowType !== 'recovery'
+        ) {
+          router.replace('/landing');
+          return;
+        }
+
         if (accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -212,18 +226,12 @@ export default function ResetPasswordScreen() {
             throw verifyError;
           }
         } else {
-          const { data: sessionData, error: getSessionError } = await supabase.auth.getSession();
-          if (getSessionError) {
-            throw getSessionError;
-          }
-          if (!sessionData.session) {
-            if (!hasRecoveryContext) {
-              router.replace('/landing');
-              return;
-            }
-            setError(t('resetPassword.errors.missingTokens'));
+          if (!hasRecoveryContext) {
+            router.replace('/landing');
             return;
           }
+          setError(t('resetPassword.errors.missingTokens'));
+          return;
         }
       } catch (e: any) {
         setError(e?.message || t('resetPassword.errors.validateLinkFailed'));

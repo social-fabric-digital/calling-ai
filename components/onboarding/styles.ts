@@ -739,6 +739,28 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTooltipContainer: {
+    position: 'absolute',
+    top: 108,
+    right: 20,
+    zIndex: 1400,
+    elevation: 1400,
+    maxWidth: 230,
+  },
+  headerTooltipBubble: {
+    backgroundColor: 'rgba(52, 40, 70, 0.95)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTooltipText: {
+    ...BodyStyle,
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 16,
+  },
   ikigaiModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

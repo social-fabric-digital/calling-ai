@@ -5,7 +5,6 @@ import {
   Animated,
   Easing,
   PanResponder,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,6 +32,9 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
   const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
+  const isSmallPhone = height < 760;
+  const isVerySmallPhone = height < 700;
+  const isTablet = width >= 768;
   const [displayName, setDisplayName] = useState(name || '');
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState('');
@@ -171,18 +173,34 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
   );
 
   return (
-    <View style={[styles.pledgeContainer, styles.pledgeContentContainer]}>
-      <ScrollView
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          localStyles.scrollContent,
-          { paddingBottom: 100 + safeAreaInsets.bottom },
+    <View
+      style={[
+        styles.pledgeContainer,
+        styles.pledgeContentContainer,
+        {
+          paddingHorizontal: isTablet ? 64 : isSmallPhone ? 20 : 30,
+          paddingTop: isSmallPhone ? 12 : 25,
+          paddingBottom: isSmallPhone ? 16 : 40,
+        },
+      ]}
+    >
+      <View
+        style={[
+          localStyles.contentContainer,
+          { paddingBottom: (isSmallPhone ? 12 : 32) + safeAreaInsets.bottom },
         ]}
       >
-        <Text style={styles.pledgeTitle}>{t('onboarding.step3Title')}</Text>
-        <View style={styles.pledgeContent}>
-          <Text style={styles.pledgeText}>
+        <Text
+          style={[
+            styles.pledgeTitle,
+            isSmallPhone && localStyles.pledgeTitleSmall,
+            isTablet && localStyles.pledgeTitleTablet,
+          ]}
+        >
+          {t('onboarding.step3Title')}
+        </Text>
+        <View style={[styles.pledgeContent, isTablet && localStyles.pledgeContentTablet]}>
+          <Text style={[styles.pledgeText, isSmallPhone && localStyles.pledgeTextSmall]}>
             {t('onboarding.pledgeText', {
               name: (name && name.trim())
                 ? name.trim()
@@ -191,14 +209,28 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
                     : t('onboarding.pledgeNamePlaceholder'))
             })}
           </Text>
-          <Text style={styles.pledgeSubtext}>
+          <Text style={[styles.pledgeSubtext, isSmallPhone && localStyles.pledgeSubtextSmall]}>
             {t('onboarding.pledgeSubtext')}
           </Text>
           
           {/* Signature Field */}
-          <View style={styles.signatureContainer}>
+          <View
+            style={[
+              styles.signatureContainer,
+              {
+                marginTop: isSmallPhone ? 20 : 32,
+              },
+            ]}
+          >
             <View
-              style={[styles.signatureWrapper, localStyles.signaturePad]}
+              style={[
+                styles.signatureWrapper,
+                localStyles.signaturePad,
+                {
+                  height: isVerySmallPhone ? 132 : isSmallPhone ? 152 : isTablet ? 240 : 212.5,
+                  maxWidth: isTablet ? 620 : 495,
+                },
+              ]}
               pointerEvents="auto"
               {...panResponder.panHandlers}
             >
@@ -254,7 +286,16 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         </View>
 
         {/* Step-local CTA avoids z-index/footer overlay conflicts on iOS. */}
-        <View style={[localStyles.ctaContainer, { paddingBottom: 40 + safeAreaInsets.bottom }]}>
+        <View
+          style={[
+            localStyles.ctaContainer,
+            {
+              paddingHorizontal: isTablet ? 80 : isSmallPhone ? 20 : 40,
+              paddingTop: isSmallPhone ? 12 : 24,
+              paddingBottom: (isSmallPhone ? 8 : 24) + safeAreaInsets.bottom,
+            },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.continueButton, localStyles.iVowButton]}
             onPressIn={() => {
@@ -267,7 +308,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
             <Text style={styles.continueButtonText}>{t('common.iVow')}</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
 
       {fireworkBursts.length > 0 ? (
         <View pointerEvents="none" style={localStyles.celebrationLayer}>
@@ -379,11 +420,30 @@ const localStyles = StyleSheet.create({
     paddingTop: 24,
     zIndex: 2,
   },
-  scrollContent: {
+  contentContainer: {
     flexGrow: 1,
   },
+  pledgeTitleSmall: {
+    marginBottom: 16,
+  },
+  pledgeTitleTablet: {
+    marginBottom: 28,
+    fontSize: 46,
+  },
+  pledgeContentTablet: {
+    maxWidth: 700,
+  },
+  pledgeTextSmall: {
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 16,
+  },
+  pledgeSubtextSmall: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
   iVowButton: {
-    marginBottom: 50,
+    marginBottom: 0,
   },
   celebrationLayer: {
     ...StyleSheet.absoluteFillObject,

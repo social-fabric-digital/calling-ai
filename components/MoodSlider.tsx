@@ -5,6 +5,7 @@ import Animated, {
   Extrapolation,
   interpolate,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -96,10 +97,10 @@ export function MoodSlider({
   }, []);
 
   // Update emoji when progress changes
-  const updateEmoji = (value: number) => {
-    const roundedValue = Math.round(value);
-    const emoji = getMoodEmoji(value);
-    const text = getMoodText(value, Boolean(isRussian));
+  const updateEmoji = (roundedValue: number) => {
+    const safeValue = Math.max(0, Math.min(100, roundedValue));
+    const emoji = getMoodEmoji(safeValue);
+    const text = getMoodText(safeValue, Boolean(isRussian));
 
     // Skip duplicate notifications to keep dragging smooth on JS thread.
     if (emoji === lastNotifiedEmojiRef.current && roundedValue === lastNotifiedValueRef.current) {
@@ -152,19 +153,22 @@ export function MoodSlider({
     return withSpring(balloonVisible.value ? 1 : 0);
   });
 
-  // Update emoji reactively
-  useDerivedValue(() => {
-    runOnJS(updateEmoji)(progress.value);
-  });
+  // Notify JS only when rounded value changes (avoids per-frame bridge churn).
+  useAnimatedReaction(
+    () => Math.round(progress.value),
+    (nextRounded, prevRounded) => {
+      if (nextRounded !== prevRounded) {
+        runOnJS(updateEmoji)(nextRounded);
+      }
+    }
+  );
 
   // Create PanResponder for better gesture handling
   // Use refs to access current values in PanResponder callbacks
   const isReadyRef = useRef(isReady);
   const sliderWidthRef = useRef(sliderWidth);
-  const sliderPageXRef = useRef(0);
   const gestureGrantedRef = useRef(false);
   const panStartKnobXRef = useRef(0);
-  const touchOffsetFromKnobCenterRef = useRef(0);
   
   useEffect(() => {
     isReadyRef.current = isReady;
@@ -175,6 +179,9 @@ export function MoodSlider({
   }, [sliderWidth]);
 
   const updateFromTouchX = (touchX: number) => {
+    if (!Number.isFinite(touchX)) {
+      return;
+    }
     const currentWidth = sliderWidthRef.current;
     const knobHalf = layout.knobSize / 2;
     const minX = knobHalf;
@@ -218,33 +225,17 @@ export function MoodSlider({
         hasUserInteracted.value = true;
         notifyInteractionStart();
 
-        // Prefer local coordinates so slider remains responsive inside transformed carousels.
-        const localTouchX = evt.nativeEvent.locationX;
-        if (typeof localTouchX === 'number') {
-          const knobHalf = layout.knobSize / 2;
-          const currentKnobX = x.value;
-          const isTouchOnKnob = Math.abs(localTouchX - currentKnobX) <= knobHalf;
+        panStartKnobXRef.current = x.value;
 
-          // Preserve the in-knob finger offset during drag. For track taps, snap center to touch.
-          touchOffsetFromKnobCenterRef.current = isTouchOnKnob ? localTouchX - currentKnobX : 0;
-          updateFromTouchX(localTouchX - touchOffsetFromKnobCenterRef.current);
-          panStartKnobXRef.current = localTouchX - touchOffsetFromKnobCenterRef.current;
-          return;
+        // Snap immediately to tap location when available.
+        const localTouchX = evt.nativeEvent?.locationX;
+        if (typeof localTouchX === 'number' && Number.isFinite(localTouchX)) {
+          updateFromTouchX(localTouchX);
+          panStartKnobXRef.current = localTouchX;
         }
-
-        // Fallback for unusual event payloads.
-        const absoluteTouchX = evt.nativeEvent.pageX - sliderPageXRef.current;
-        updateFromTouchX(absoluteTouchX);
-        panStartKnobXRef.current = absoluteTouchX;
-        touchOffsetFromKnobCenterRef.current = 0;
       },
       onPanResponderMove: (evt, gestureState) => {
         if (!isReadyRef.current || sliderWidthRef.current === 0) return;
-        const localTouchX = evt.nativeEvent?.locationX;
-        if (typeof localTouchX === 'number') {
-          updateFromTouchX(localTouchX - touchOffsetFromKnobCenterRef.current);
-          return;
-        }
         const nextX = panStartKnobXRef.current + gestureState.dx;
         updateFromTouchX(nextX);
       },
@@ -339,11 +330,6 @@ export function MoodSlider({
     if (width > 0) {
       setSliderWidth(width);
     }
-    requestAnimationFrame(() => {
-      sliderRef.current?.measureInWindow?.((pageX: number) => {
-        sliderPageXRef.current = pageX;
-      });
-    });
   };
 
   if (!isReady) {
