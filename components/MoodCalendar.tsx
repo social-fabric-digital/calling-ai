@@ -44,6 +44,11 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
     loadWeekMoods();
   }, []);
   
+  // Initial load on mount
+  useEffect(() => {
+    loadWeekMoods();
+  }, []);
+  
   // Reload moods when screen comes into focus
   useFocusEffect(
     useCallback(() => {
