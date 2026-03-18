@@ -213,6 +213,7 @@ export default function MeScreen() {
   const [savedInsights, setSavedInsights] = useState<SavedInsight[]>([]);
   const [newlyAddedBadgeId, setNewlyAddedBadgeId] = useState<string | null>(null);
   const [selectedInsight, setSelectedInsight] = useState<SavedInsight | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSavedInsightsModal, setShowSavedInsightsModal] = useState(false);
   const [showAnswersCalendarModal, setShowAnswersCalendarModal] = useState(false);
   const [showJournalEntryModal, setShowJournalEntryModal] = useState(false);
@@ -948,7 +949,7 @@ export default function MeScreen() {
           </View>
           <TouchableOpacity
             style={styles.helperButton}
-            onPress={() => {}}
+            onPress={() => setShowHelpModal(true)}
             activeOpacity={0.7}
           >
             <MaterialIcons name="help-outline" size={20} color="#342846" />
@@ -1692,6 +1693,82 @@ export default function MeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Your Activity Help Modal */}
+      <Modal
+        visible={showHelpModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowHelpModal(false)}
+      >
+        <View style={styles.helpModalOverlay}>
+          <TouchableOpacity
+            style={styles.helpModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowHelpModal(false)}
+          />
+          <View style={styles.helpModalContent}>
+            <TouchableOpacity
+              onPress={() => setShowHelpModal(false)}
+              style={[styles.helperButton, styles.helpModalCloseButton]}
+            >
+              <MaterialIcons name="close" size={22} color="#342846" />
+            </TouchableOpacity>
+            <View style={styles.helpModalHeader}>
+              <View style={styles.helpModalTitleContainer}>
+                <Text style={styles.helpModalTitle}>{tr('Your Activity', 'Твоя активность')}</Text>
+                <Text style={styles.helpModalSubtitle}>
+                  {tr(
+                    'Everything you need to reflect on your journey and celebrate your growth.',
+                    'Всё необходимое, чтобы осмыслить свой путь и отметить свой рост.'
+                  )}
+                </Text>
+              </View>
+            </View>
+            <ScrollView
+              style={styles.helpModalScroll}
+              contentContainerStyle={styles.helpModalScrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              <View style={styles.helpQuickGrid}>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickTitle}>{tr('Daily quote', 'Цитата дня')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('A fresh reflection to inspire your day.', 'Свежая мысль, чтобы вдохновить тебя на день.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickTitle}>{tr('Badges', 'Награды')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('View badges earned from your weekly progress.', 'Смотри награды, заработанные за недельный прогресс.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickTitle}>{tr('Completed goals', 'Завершённые цели')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('Browse every goal you have finished.', 'Просмотри все цели, которые ты завершил.')}
+                  </Text>
+                </View>
+                <View style={styles.helpQuickCard}>
+                  <Text style={styles.helpQuickTitle}>{tr('Saved insights', 'Сохранённые инсайты')}</Text>
+                  <Text style={styles.helpQuickText}>
+                    {tr('Revisit your clarity maps and reflections.', 'Возвращайся к своим картам ясности и рефлексиям.')}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.helpLimitCard}>
+                <Text style={styles.helpLimitTitle}>{tr('Your personal record', 'Твоя личная история')}</Text>
+                <Text style={styles.helpLimitText}>
+                  {tr(
+                    'This screen grows with you. The more you engage — goals, focus sessions, reflections — the richer your activity record becomes.',
+                    'Этот экран растёт вместе с тобой. Чем больше ты занимаешься — цели, сессии фокуса, рефлексии — тем богаче становится твоя история активности.'
+                  )}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </PaperTextureBackground>
   );
 }
@@ -1763,6 +1840,127 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
     marginBottom: 20,
+  },
+  helpModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  helpModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  helpModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    minHeight: 720,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  helpModalCloseButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    zIndex: 2,
+  },
+  helpModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    paddingTop: 24,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
+  },
+  helpModalTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    paddingHorizontal: 20,
+  },
+  helpModalTitle: {
+    ...HeadingStyle,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#342846',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  helpModalSubtitle: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#7A8A9A',
+    textAlign: 'center',
+    lineHeight: 20,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 4,
+  },
+  helpModalScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  helpModalScrollContent: {
+    padding: 24,
+    paddingTop: 18,
+    paddingBottom: 24,
+    gap: 14,
+  },
+  helpQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  helpQuickCard: {
+    width: '48%',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    minHeight: 132,
+  },
+  helpQuickTitle: {
+    ...HeadingStyle,
+    fontSize: 14,
+    color: '#342846',
+    marginBottom: 6,
+  },
+  helpQuickText: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#5B536B',
+    lineHeight: 18,
+  },
+  helpLimitCard: {
+    backgroundColor: '#FFF8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFE8D6',
+    padding: 14,
+  },
+  helpLimitTitle: {
+    ...HeadingStyle,
+    fontSize: 14,
+    color: '#342846',
+    marginBottom: 6,
+    textAlign: 'left',
+  },
+  helpLimitText: {
+    ...BodyStyle,
+    fontSize: 13,
+    color: '#5B536B',
+    lineHeight: 20,
   },
   portfolioCard: {
     ...ME_CARD_SURFACE,

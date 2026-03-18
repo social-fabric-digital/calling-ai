@@ -65,7 +65,7 @@ interface GoalData {
 }
 
 const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
-const PATH_EXPLORATION_CONTENT_VERSION = 2;
+const PATH_EXPLORATION_CONTENT_VERSION = 3;
 
 // ============================================
 // Animated Aura Component (behind path icon)

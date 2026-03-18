@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, FlatList, Keyboard, KeyboardAvoidingView, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -289,7 +289,7 @@ const WorldNeedsVisual = () => {
     </View>
   );
 };
-const IkigaiVisualSwitcher = ({ scrollX }: { scrollX: Animated.Value }) => {
+const IkigaiVisualSwitcher = ({ scrollX, containerWidth }: { scrollX: Animated.Value; containerWidth: number }) => {
   const visuals = [
     <LoveVisual key="love" />,
     <GoodAtVisual key="good" />,
@@ -301,9 +301,9 @@ const IkigaiVisualSwitcher = ({ scrollX }: { scrollX: Animated.Value }) => {
     <View style={styles.ikigaiVisualSwitcher}>
       {visuals.map((visual, index) => {
         const inputRange = [
-          (index - 1) * width,
-          index * width,
-          (index + 1) * width,
+          (index - 1) * containerWidth,
+          index * containerWidth,
+          (index + 1) * containerWidth,
         ];
 
         const opacity = scrollX.interpolate({
@@ -343,6 +343,7 @@ const IkigaiQuestionCard = ({
   inputContainerRef,
   onInputFocus,
   onInputLayout,
+  containerWidth,
 }: { 
   item: { id: string; question: string; description: string; placeholder: string; color: string; icon: any; storageKey: string }; 
   index: number;
@@ -353,11 +354,12 @@ const IkigaiQuestionCard = ({
   inputContainerRef: React.RefObject<View>;
   onInputFocus: () => void;
   onInputLayout: (event: any) => void;
+  containerWidth: number;
 }) => {
   const inputRange = [
-    (index - 1) * width,
-    index * width,
-    (index + 1) * width,
+    (index - 1) * containerWidth,
+    index * containerWidth,
+    (index + 1) * containerWidth,
   ];
 
   const scale = scrollX.interpolate({
@@ -373,11 +375,11 @@ const IkigaiQuestionCard = ({
   });
 
   return (
-    <View style={styles.ikigaiCardWrapper}>
+    <View style={[styles.ikigaiCardWrapper, { width: containerWidth }]}>
       <Animated.View 
         style={[
           styles.ikigaiQuestionCard, 
-          { transform: [{ scale }], opacity }
+          { transform: [{ scale }], opacity, width: containerWidth - 40 }
         ]}
       >
         <FrostedCardLayer />
@@ -430,8 +432,14 @@ function IkigaiForm({
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(width);
   const inputRefs = useRef<{ [key: string]: React.RefObject<View> }>({});
   const inputPositions = useRef<Record<string, number>>({});
+
+  const handleCarouselLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setContainerWidth(w);
+  }, []);
 
   // Questions array with translations
   const questions = [
@@ -577,7 +585,7 @@ function IkigaiForm({
 
   // Dynamic progress bar width
   const progressWidth = scrollX.interpolate({
-    inputRange: [0, width * (questions.length - 1)],
+    inputRange: [0, containerWidth * (questions.length - 1)],
     outputRange: ['25%', '100%'],
     extrapolate: 'clamp',
   });
@@ -627,7 +635,7 @@ function IkigaiForm({
   );
 
   const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+    const index = Math.round(event.nativeEvent.contentOffset.x / containerWidth);
     setCurrentIndex(index);
     if (onPageChange) {
       onPageChange(index);
@@ -695,16 +703,16 @@ function IkigaiForm({
 
         {/* Dynamic Visual */}
         <Animated.View style={[styles.ikigaiVisualArea, { opacity: fadeAnim }]}>
-          <IkigaiVisualSwitcher scrollX={scrollX} />
+          <IkigaiVisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
         </Animated.View>
 
         {/* Step Indicator */}
         <View style={styles.ikigaiStepIndicator}>
           {questions.map((q, idx) => {
             const inputRange = [
-              (idx - 1) * width,
-              idx * width,
-              (idx + 1) * width,
+              (idx - 1) * containerWidth,
+              idx * containerWidth,
+              (idx + 1) * containerWidth,
             ];
 
             const dotWidth = scrollX.interpolate({
@@ -744,6 +752,7 @@ function IkigaiForm({
               transform: [{ translateY: slideAnim }],
             }
           ]}
+          onLayout={handleCarouselLayout}
         >
           <FlatList
             ref={flatListRef}
@@ -759,6 +768,7 @@ function IkigaiForm({
                 inputContainerRef={inputRefs.current[item.id]}
                 onInputFocus={handleInputFocus(item.id)}
                 onInputLayout={handleInputLayout(item.id)}
+                containerWidth={containerWidth}
               />
             )}
             keyExtractor={(item) => item.id}
@@ -769,13 +779,13 @@ function IkigaiForm({
             onMomentumScrollEnd={handleMomentumScrollEnd}
             scrollEventThrottle={16}
             decelerationRate="fast"
-            snapToInterval={width}
+            snapToInterval={containerWidth}
             snapToAlignment="center"
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled={true}
             getItemLayout={(data, index) => ({
-              length: width,
-              offset: width * index,
+              length: containerWidth,
+              offset: containerWidth * index,
               index,
             })}
           />

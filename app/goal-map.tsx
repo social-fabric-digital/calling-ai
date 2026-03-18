@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Path, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
+// On iPad the app is constrained to 74% of window width; use this for level positioning.
+const effectiveWidth = Platform.isPad ? Math.round(width * 0.74) : width;
 
 // File-level fallback translator to avoid runtime ReferenceError in nested scopes.
 const tr = (en: string, ru: string) =>
@@ -364,7 +366,8 @@ export default function GoalMapScreen() {
                     tr('Mastery', 'Мастерство'),
                   ];
                   const stepIndex = (step.order || step.number || index + 1) - 1;
-                  stepName = fallbackNames[stepIndex] || `Level ${step.order || step.number || index + 1}`;
+                  const levelNum = step.order || step.number || index + 1;
+                  stepName = fallbackNames[stepIndex] || tr(`Level ${levelNum}`, `Уровень ${levelNum}`);
                 }
                 
                 return stepName;
@@ -377,9 +380,15 @@ export default function GoalMapScreen() {
                 
                 // If no description, try to create one from the name
                 if (!desc && step.name) {
-                  desc = `Complete ${step.name.toLowerCase()} to progress`;
+                  desc = tr(
+                    `Complete ${step.name.toLowerCase()} to progress`,
+                    `Выполни «${step.name}» для продвижения`
+                  );
                 } else if (!desc && step.text && !step.text.match(/^(Level|Step)\s*\d+/i)) {
-                  desc = `Complete ${step.text.toLowerCase()} to progress`;
+                  desc = tr(
+                    `Complete ${step.text.toLowerCase()} to progress`,
+                    `Выполни «${step.text}» для продвижения`
+                  );
                 }
                 
                 const words = desc.split(' ');
@@ -475,7 +484,7 @@ export default function GoalMapScreen() {
   const level4CircleTopFinal = level4CardCenter - (otherCircleHeight / 2) + 37; // Moved icon down by 37px total
   
   // Right side position
-  const rightSideLeft = width - horizontalPadding - otherCircleHeight;
+  const rightSideLeft = effectiveWidth - horizontalPadding - otherCircleHeight;
   
   // Calculate card left positions
   const cardMinWidth = scaleLevelCard(140); // iPad cards are 50% larger
@@ -494,10 +503,10 @@ export default function GoalMapScreen() {
   
   // Levels 2-4 numbered circles
   // Move circles left by 50px to match card movement, maintaining 15px spacing
-  const level2CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50; // Moved left 50px to match card
+  const level2CircleLeft = effectiveWidth - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50;
   const level2CardLeft = level2CircleLeft + otherCircleHeight + cardMargin;
-  
-  const level4CircleLeft = width - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50; // Moved left 50px to match card
+
+  const level4CircleLeft = effectiveWidth - horizontalPadding - cardMinWidth - cardMargin - otherCircleHeight - 40 + 37 - 50;
   const level4CardLeft = level4CircleLeft + otherCircleHeight + cardMargin;
 
   // Generate stage positions dynamically based on number of stages
@@ -685,8 +694,8 @@ export default function GoalMapScreen() {
             if (status !== 'locked') {
               const levelData = {
                 number: scrollToLevelParam,
-                name: stageNames[levelIndex] || `Stage ${scrollToLevelParam}`,
-                description: stageDescriptions[levelIndex] || stageNames[levelIndex] || `Complete this stage to progress`,
+                name: stageNames[levelIndex] || tr(`Stage ${scrollToLevelParam}`, `Этап ${scrollToLevelParam}`),
+                description: stageDescriptions[levelIndex] || stageNames[levelIndex] || tr('Complete this stage to progress', 'Выполни этот этап для продвижения'),
                 status,
               };
               setShowLevelDetail(levelData);
@@ -727,7 +736,7 @@ export default function GoalMapScreen() {
     if (stageToShow > numberOfStages) return null;
     return {
       stageNumber: stageToShow,
-      stageName: stageNames[stageToShow - 1] || `Stage ${stageToShow}`,
+      stageName: stageNames[stageToShow - 1] || tr(`Stage ${stageToShow}`, `Этап ${stageToShow}`),
     };
   };
 
@@ -754,8 +763,8 @@ export default function GoalMapScreen() {
     
     const levelData = {
       number: stageNumber,
-      name: stageNames[stageNumber - 1] || `Stage ${stageNumber}`,
-      description: stageDescriptions[stageNumber - 1] || stageNames[stageNumber - 1] || `Complete this stage to progress`,
+      name: stageNames[stageNumber - 1] || tr(`Stage ${stageNumber}`, `Этап ${stageNumber}`),
+      description: stageDescriptions[stageNumber - 1] || stageNames[stageNumber - 1] || tr('Complete this stage to progress', 'Выполни этот этап для продвижения'),
       status,
     };
     setShowLevelDetail(levelData);
@@ -789,7 +798,7 @@ export default function GoalMapScreen() {
   // Get current level data
   const currentLevelData = currentLevel <= numberOfStages ? {
     number: currentLevel,
-    name: stageNames[currentLevel - 1] || `Stage ${currentLevel}`,
+    name: stageNames[currentLevel - 1] || tr(`Stage ${currentLevel}`, `Этап ${currentLevel}`),
   } : null;
   const levelPathBottomPadding = currentLevelData ? 200 + insets.bottom : 120;
 
@@ -907,7 +916,7 @@ export default function GoalMapScreen() {
             {/* Full path (dashed) - starts at level 1 card, ends at level 4 card */}
             {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
             <Path
-              d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${width * 0.3},${level2CircleRenderedCenter} ${width/2},${level2CircleRenderedCenter}`}
+              d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${effectiveWidth * 0.3},${level2CircleRenderedCenter} ${effectiveWidth/2},${level2CircleRenderedCenter}`}
               stroke="url(#pathGradient)"
               strokeWidth="3.45"
               fill="none"
@@ -916,7 +925,7 @@ export default function GoalMapScreen() {
             />
             {/* Second segment: Level 2 circle to Level 3 circle */}
             <Path
-              d={`M${width/2},${level2CircleRenderedCenter} Q${width * 0.7},${level3CircleRenderedCenter} ${width/2},${level3CircleRenderedCenter}`}
+              d={`M${effectiveWidth/2},${level2CircleRenderedCenter} Q${effectiveWidth * 0.7},${level3CircleRenderedCenter} ${effectiveWidth/2},${level3CircleRenderedCenter}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -925,7 +934,7 @@ export default function GoalMapScreen() {
             />
             {/* Third segment: Level 3 circle to Level 4 card */}
             <Path
-              d={`M${width/2},${level3CircleRenderedCenter} Q${width * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
+              d={`M${effectiveWidth/2},${level3CircleRenderedCenter} Q${effectiveWidth * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -937,7 +946,7 @@ export default function GoalMapScreen() {
               <>
                 {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
                 <Path
-                  d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${width * 0.3},${level2CircleRenderedCenter} ${width/2},${level2CircleRenderedCenter}`}
+                  d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${effectiveWidth * 0.3},${level2CircleRenderedCenter} ${effectiveWidth/2},${level2CircleRenderedCenter}`}
                   stroke="url(#completedGradient)"
                   strokeWidth="4.6"
                   fill="none"
@@ -945,7 +954,7 @@ export default function GoalMapScreen() {
                 {/* Second segment: Level 2 circle to Level 3 circle (if completed) */}
                 {completedCount >= 2 && (
                   <Path
-                    d={`M${width/2},${level2CircleRenderedCenter} Q${width * 0.7},${level3CircleRenderedCenter} ${width/2},${level3CircleRenderedCenter}`}
+                    d={`M${effectiveWidth/2},${level2CircleRenderedCenter} Q${effectiveWidth * 0.7},${level3CircleRenderedCenter} ${effectiveWidth/2},${level3CircleRenderedCenter}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -954,7 +963,7 @@ export default function GoalMapScreen() {
                 {/* Third segment: Level 3 circle to Level 4 card (if completed) */}
                 {completedCount >= 3 && (
                   <Path
-                    d={`M${width/2},${level3CircleRenderedCenter} Q${width * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
+                    d={`M${effectiveWidth/2},${level3CircleRenderedCenter} Q${effectiveWidth * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -971,7 +980,7 @@ export default function GoalMapScreen() {
           const index = stageNumber - 1; // Convert to 0-indexed
           const position = stagePositions[index];
           const status = getStageStatus(stageNumber);
-          const rawStageName = stageNames[index] || `Stage ${stageNumber}`;
+          const rawStageName = stageNames[index] || tr(`Stage ${stageNumber}`, `Этап ${stageNumber}`);
           const stageName = cleanStageName(rawStageName, stageNumber); // Remove "Level X:" prefix if present
           const isFirstStage = stageNumber === 1;
           

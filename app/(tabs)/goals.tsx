@@ -22,6 +22,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
+// On iPad (width >= 768) the app is constrained to 74% of window width by _layout.tsx.
+const CONTENT_WIDTH = width >= 768 ? Math.round(width * 0.74) : width;
 const ACTIVE_GOAL_CARD_TOP_SPACING = 15;
 const GOAL_ACTION_VERTICAL_GAP = 15;
 const CARD_TO_CONTINUE_VISUAL_COMPENSATION = 15;
@@ -1152,7 +1154,7 @@ export default function GoalsScreen() {
   // Swipe handling for carousel
   const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
-    const cardWidth = width; // Full width for paging
+    const cardWidth = CONTENT_WIDTH; // Full column width for paging
     const index = Math.round(scrollPosition / cardWidth);
     if (index >= 0 && index < activeGoals.length) {
       setCurrentCardIndex(index);
@@ -1164,7 +1166,7 @@ export default function GoalsScreen() {
     if (activeGoals.length > 0 && scrollViewRef.current) {
       // Small delay to ensure ScrollView is rendered
       const timer = setTimeout(() => {
-        const cardWidth = width;
+        const cardWidth = CONTENT_WIDTH;
         scrollViewRef.current?.scrollTo({
           x: currentCardIndex * cardWidth,
           animated: true,
@@ -1262,7 +1264,7 @@ export default function GoalsScreen() {
                 onPress={() => {
                   void hapticLight();
                   setCurrentCardIndex(index);
-                  const cardWidth = width; // Full width for paging
+                  const cardWidth = CONTENT_WIDTH; // Full column width for paging
                   scrollViewRef.current?.scrollTo({
                     x: index * cardWidth,
                     animated: true,
@@ -1655,7 +1657,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   goalCardWrapper: {
-    width: width - 40, // Full width minus horizontal padding (20 * 2)
+    width: CONTENT_WIDTH - 40,
     paddingHorizontal: 0,
   },
   goalCard: {
@@ -2106,7 +2108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   cardWrapper: {
-    width: width, // Full viewport width for proper paging
+    width: CONTENT_WIDTH, // Full column width for proper paging
     alignItems: 'center',
     justifyContent: 'flex-start',
     // Locked baseline spacing for card Y-position.
@@ -2115,7 +2117,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   card: {
-    width: width - 48, // Full width minus padding
+    width: CONTENT_WIDTH - 48, // Full column width minus horizontal padding
     borderRadius: 20,
     padding: 20,
     position: 'relative',

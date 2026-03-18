@@ -1,16 +1,16 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
-import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { BodyStyle } from '@/constants/theme';
 import { changeLanguage } from '@/utils/i18n';
 import * as superwallUtils from '@/utils/superwall';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DEER_IMAGE_WIDTH = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85; // Reduced by 15%
-const DEER_IMAGE_HEIGHT = DEER_IMAGE_WIDTH * (180 / 220); // Maintain aspect ratio
+const MAX_DEER_WIDTH = 260;
+// Module-level screen width used only for static StyleSheet values (can't use hooks here).
+const STYLE_SCREEN_WIDTH = Dimensions.get('window').width;
 
 // ============================================================================
 // WELCOME SCREEN
@@ -31,6 +31,11 @@ type Content = {
 
 const WelcomeScreen = () => {
   const router = useRouter();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const rawDeerWidth = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85;
+  const DEER_IMAGE_WIDTH = Math.min(rawDeerWidth, MAX_DEER_WIDTH);
+  const DEER_IMAGE_HEIGHT = DEER_IMAGE_WIDTH * (180 / 220);
+
   const { i18n } = useTranslation();
   const normalizeLanguage = (lang?: string): LanguageCode =>
     lang?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
@@ -484,10 +489,10 @@ const WelcomeScreen = () => {
               ]}
             >
               <View style={styles.mascotGlow} />
-              <View style={styles.deerImageWrapper}>
+              <View style={[styles.deerImageWrapper, { width: DEER_IMAGE_WIDTH, height: DEER_IMAGE_HEIGHT }]}>
                 <Image 
                   source={require('../assets/images/anxious.png')}
-                  style={styles.deerImage}
+                  style={{ width: DEER_IMAGE_WIDTH, height: DEER_IMAGE_HEIGHT }}
                   resizeMode="contain"
                 />
                 {/* Animated Butterfly on Deer's Nose */}
@@ -495,6 +500,8 @@ const WelcomeScreen = () => {
                   style={[
                     styles.butterfly,
                     {
+                      top: DEER_IMAGE_HEIGHT * 0.4 + 20,
+                      left: DEER_IMAGE_WIDTH * 0.5 - 10,
                       transform: [
                         { translateX: butterflyX },
                         { translateY: butterflyY },
@@ -637,13 +644,13 @@ const styles = StyleSheet.create({
   },
   softGlow: {
     position: 'absolute',
-    top: -SCREEN_WIDTH * 0.3,
-    right: -SCREEN_WIDTH * 0.3,
-    width: SCREEN_WIDTH * 0.6,
-    height: SCREEN_WIDTH * 0.6, // Same as width to ensure it's a circle
-    backgroundColor: 'rgba(165,146,176,0.3)', // Changed to #a592b0
-    borderRadius: SCREEN_WIDTH * 0.3, // Half of width/height to make perfect circle
-    aspectRatio: 1, // Ensure it stays a circle
+    top: -STYLE_SCREEN_WIDTH * 0.3,
+    right: -STYLE_SCREEN_WIDTH * 0.3,
+    width: STYLE_SCREEN_WIDTH * 0.6,
+    height: STYLE_SCREEN_WIDTH * 0.6,
+    backgroundColor: 'rgba(165,146,176,0.3)',
+    borderRadius: STYLE_SCREEN_WIDTH * 0.3,
+    aspectRatio: 1,
   },
   floatingOrb1: {
     position: 'absolute',
@@ -694,6 +701,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
+    minWidth: 110,
   },
   languageName: {
     fontFamily: Platform.select({
@@ -705,6 +713,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     marginRight: 6,
     flexShrink: 0,
+    flexGrow: 1,
   },
   languageDropdown: {
     position: 'absolute',
@@ -761,8 +770,12 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   welcomeTitle: {
-    ...HeadingStyle,
-    fontSize: 24,
+    fontFamily: Platform.select({
+      ios: 'BricolageGrotesque-Bold',
+      android: 'BricolageGrotesque-Bold',
+      default: 'sans-serif',
+    }),
+    fontSize: Platform.isPad ? 36 : 24,
     fontWeight: '700',
     color: '#342846',
     marginBottom: 16,
@@ -855,26 +868,23 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   deerImageWrapper: {
-    width: DEER_IMAGE_WIDTH,
-    height: DEER_IMAGE_HEIGHT,
+    // width/height applied inline using reactive DEER_IMAGE_WIDTH/HEIGHT
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
   deerImage: {
-    width: DEER_IMAGE_WIDTH,
-    height: DEER_IMAGE_HEIGHT,
+    // width/height applied inline using reactive DEER_IMAGE_WIDTH/HEIGHT
   },
   butterfly: {
     position: 'absolute',
-    top: DEER_IMAGE_HEIGHT * 0.4 + 20, // Position near deer's nose area, moved down 20px
-    left: DEER_IMAGE_WIDTH * 0.5 - 10, // Center horizontally, moved left 10px
+    // top/left applied inline using reactive DEER_IMAGE_WIDTH/HEIGHT
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10, // Ensure butterfly appears on top of the image
+    zIndex: 10,
   },
 
   // Bottom Section

@@ -98,7 +98,10 @@ type YazioFlowStepKey = (typeof YAZIO_FLOW_STEPS)[number];
 
 export default function OnboardingScreen() {
   const { t, i18n } = useTranslation();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  // On iPad, _layout.tsx constrains content to 74% of window width.
+  // Use the same ratio for slide dimensions so each step fits its visible container.
+  const slideWidth = Platform.isPad ? Math.round(windowWidth * 0.74) : windowWidth;
   const iosConstants = (Platform.constants as { interfaceIdiom?: string } | undefined);
   const nativePlatformConstants = NativeModules?.PlatformConstants as { interfaceIdiom?: string } | undefined;
   const interfaceIdiom = iosConstants?.interfaceIdiom || nativePlatformConstants?.interfaceIdiom;
@@ -160,11 +163,11 @@ export default function OnboardingScreen() {
 
     setCurrentStep(stepIndex);
     Animated.timing(slideAnim, {
-      toValue: -stepIndex * screenWidth,
+      toValue: -stepIndex * slideWidth,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [params.step, screenWidth, ONBOARDING_STEPS, slideAnim, isAddGoalFlow]);
+  }, [params.step, slideWidth, ONBOARDING_STEPS, slideAnim, isAddGoalFlow]);
   
   // Form state for About You step
   const [name, setName] = useState('');
@@ -412,13 +415,13 @@ export default function OnboardingScreen() {
         const maxStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.length - 1 : ONBOARDING_STEPS.length - 1;
         const stepToRestore = Math.min(Math.max(0, parsed), maxStep);
         setCurrentStep(stepToRestore);
-        slideAnim.setValue(-stepToRestore * screenWidth);
+        slideAnim.setValue(-stepToRestore * slideWidth);
       } catch {
         // Non-blocking in dev.
       }
     };
     restoreDevStep();
-  }, [isAddGoalFlow, screenWidth, slideAnim, ONBOARDING_STEPS.length]);
+  }, [isAddGoalFlow, slideWidth, slideAnim, ONBOARDING_STEPS.length]);
 
   // Dev-only: persist current onboarding step for hot reload continuity.
   useEffect(() => {
@@ -1084,14 +1087,14 @@ export default function OnboardingScreen() {
           setUserIsPremium(true);
           setCurrentStep(7);
           Animated.timing(slideAnim, {
-            toValue: -7 * screenWidth,
+            toValue: -7 * slideWidth,
             duration: 300,
             useNativeDriver: true,
           }).start();
         } else {
           setUserIsPremium(false);
           setCurrentStep(7);
-          slideAnim.setValue(-7 * screenWidth);
+          slideAnim.setValue(-7 * slideWidth);
         }
       }
     } catch (err) {
@@ -1246,7 +1249,7 @@ export default function OnboardingScreen() {
           ]);
         }
         Animated.timing(slideAnim, {
-          toValue: -nextStep * screenWidth,
+          toValue: -nextStep * slideWidth,
           duration: 300,
           useNativeDriver: true,
         }).start();
@@ -1470,7 +1473,7 @@ export default function OnboardingScreen() {
       const nextStep = step + 1;
       // Proceed with navigation - NO VALIDATION
       Animated.timing(slideAnim, {
-        toValue: -nextStep * screenWidth,
+        toValue: -nextStep * slideWidth,
         duration: 300,
         useNativeDriver: true,
       }).start();
@@ -1538,7 +1541,7 @@ export default function OnboardingScreen() {
     if (step > 0) {
       const prevStep = step - 1;
       Animated.timing(slideAnim, {
-        toValue: -prevStep * screenWidth,
+        toValue: -prevStep * slideWidth,
         duration: 300,
         useNativeDriver: true,
       }).start();
@@ -1559,7 +1562,7 @@ export default function OnboardingScreen() {
       if (paywallStepIndex >= 0) {
         setCurrentStep(paywallStepIndex);
         Animated.timing(slideAnim, {
-          toValue: -paywallStepIndex * screenWidth,
+          toValue: -paywallStepIndex * slideWidth,
           duration: 300,
           useNativeDriver: true,
         }).start();
@@ -1731,12 +1734,12 @@ export default function OnboardingScreen() {
     if (personalizedPlanIndex >= 0) {
       setCurrentStep(personalizedPlanIndex);
       Animated.timing(slideAnim, {
-        toValue: -personalizedPlanIndex * screenWidth,
+        toValue: -personalizedPlanIndex * slideWidth,
         duration: 250,
         useNativeDriver: true,
       }).start();
     }
-  }, [canShowFinalPaywall, currentYazioStep, screenWidth, slideAnim]);
+  }, [canShowFinalPaywall, currentYazioStep, slideWidth, slideAnim]);
 
   const shouldShowOnboardingBackground =
     !showJourneyLoading &&
@@ -1873,7 +1876,7 @@ export default function OnboardingScreen() {
             const nextStep = 7; // Step id 8 (Paths Aligned)
             setCurrentStep(nextStep);
             Animated.timing(slideAnim, {
-              toValue: -nextStep * screenWidth,
+              toValue: -nextStep * slideWidth,
               duration: 300,
               useNativeDriver: true,
             }).start();
@@ -2003,12 +2006,12 @@ export default function OnboardingScreen() {
             styles.slider,
             {
               transform: [{ translateX: slideAnim }],
-              width: screenWidth * totalStepCount,
+              width: slideWidth * totalStepCount,
             },
           ]}
         >
           {USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.map((stepKey, index) => (
-            <View key={`${stepKey}-${index}`} style={[styles.stepContainer, { width: screenWidth }]}>
+            <View key={`${stepKey}-${index}`} style={[styles.stepContainer, { width: slideWidth }]}>
               {stepKey === 'welcomeAtlas' ? (
                 <WelcomeAtlasStep name={name} onContinue={goToNextFromUser} />
               ) : stepKey === 'aboutYou' ? (
@@ -2208,7 +2211,7 @@ export default function OnboardingScreen() {
                         if (paywallIndex >= 0) {
                           setCurrentStep(paywallIndex);
                           Animated.timing(slideAnim, {
-                            toValue: -paywallIndex * screenWidth,
+                            toValue: -paywallIndex * slideWidth,
                             duration: 300,
                             useNativeDriver: true,
                           }).start();
@@ -2240,7 +2243,7 @@ export default function OnboardingScreen() {
                       if (pathExplorationIndex >= 0) {
                         setCurrentStep(pathExplorationIndex);
                         Animated.timing(slideAnim, {
-                          toValue: -pathExplorationIndex * screenWidth,
+                          toValue: -pathExplorationIndex * slideWidth,
                           duration: 300,
                           useNativeDriver: true,
                         }).start();
@@ -2268,7 +2271,7 @@ export default function OnboardingScreen() {
                     if (journeyLoadingIndex >= 0) {
                       setCurrentStep(journeyLoadingIndex);
                       Animated.timing(slideAnim, {
-                        toValue: -journeyLoadingIndex * screenWidth,
+                        toValue: -journeyLoadingIndex * slideWidth,
                         duration: 300,
                         useNativeDriver: true,
                       }).start();
@@ -2293,7 +2296,7 @@ export default function OnboardingScreen() {
                       if (pathExplorationIndex >= 0) {
                         setCurrentStep(pathExplorationIndex);
                         Animated.timing(slideAnim, {
-                          toValue: -pathExplorationIndex * screenWidth,
+                          toValue: -pathExplorationIndex * slideWidth,
                           duration: 300,
                           useNativeDriver: true,
                         }).start();
@@ -2316,7 +2319,7 @@ export default function OnboardingScreen() {
             </View>
           )) : (
           ONBOARDING_STEPS.map((step, index) => (
-          <View key={step.id} style={[styles.stepContainer, { width: screenWidth }]}>
+          <View key={step.id} style={[styles.stepContainer, { width: slideWidth }]}>
             {step.isForm ? (
               <AboutYouForm
                 name={name}

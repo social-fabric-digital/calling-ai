@@ -140,7 +140,7 @@ export default function CommitmentChallengeStep({ onContinue }: CommitmentChalle
           })}
         </View>
       </View>
-      <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
+      <View style={localStyles.bottomButtonWrap}>
         <TouchableOpacity
           style={[styles.continueButton, !selected && localStyles.continueDisabled]}
           onPress={handleContinue}
@@ -157,10 +157,10 @@ export default function CommitmentChallengeStep({ onContinue }: CommitmentChalle
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 30,
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
   card: {
     marginTop: 20,
@@ -249,13 +249,8 @@ const localStyles = StyleSheet.create({
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingBottom: 40,
-    zIndex: 1000,
   },
 });

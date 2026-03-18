@@ -4,7 +4,7 @@ import { FEATURES_INTRO_TOTAL_CARDS, FULL_ONBOARDING_JOURNEY_UNITS } from '@/con
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Animated,
@@ -472,16 +472,18 @@ const getFeatures = (isRussian: boolean): FeatureItem[] => [
 const FeatureCard = ({ 
   item, 
   index, 
-  scrollX 
+  scrollX,
+  containerWidth,
 }: { 
   item: FeatureItem;
   index: number;
   scrollX: Animated.Value;
+  containerWidth: number;
 }) => {
   const inputRange = [
-    (index - 1) * SCREEN_WIDTH,
-    index * SCREEN_WIDTH,
-    (index + 1) * SCREEN_WIDTH,
+    (index - 1) * containerWidth,
+    index * containerWidth,
+    (index + 1) * containerWidth,
   ];
 
   const scale = scrollX.interpolate({
@@ -497,7 +499,7 @@ const FeatureCard = ({
   });
 
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, { width: containerWidth }]}>
       <Animated.View 
         style={[
           styles.card, 
@@ -544,9 +546,11 @@ const FeatureCard = ({
 // Visual Switcher Component
 // ============================================
 const VisualSwitcher = ({ 
-  scrollX 
+  scrollX,
+  containerWidth,
 }: { 
   scrollX: Animated.Value;
+  containerWidth: number;
 }) => {
   const visuals = [
     <IkigaiCirclesVisual key="ikigai" />,
@@ -559,9 +563,9 @@ const VisualSwitcher = ({
     <View style={styles.visualSwitcher}>
       {visuals.map((visual, index) => {
         const inputRange = [
-          (index - 1) * SCREEN_WIDTH,
-          index * SCREEN_WIDTH,
-          (index + 1) * SCREEN_WIDTH,
+          (index - 1) * containerWidth,
+          index * containerWidth,
+          (index + 1) * containerWidth,
         ];
 
         const opacity = scrollX.interpolate({
@@ -605,6 +609,11 @@ export default function FeaturesIntroScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<any>>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH);
+  const handleContainerLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setContainerWidth(w);
+  }, []);
   const [showHeaderTooltip, setShowHeaderTooltip] = useState(false);
   const [headerTooltipText, setHeaderTooltipText] = useState('');
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
@@ -710,7 +719,7 @@ export default function FeaturesIntroScreen() {
   );
 
   const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    const index = Math.round(event.nativeEvent.contentOffset.x / containerWidth);
     setCurrentCardIndex(index);
   };
 
@@ -818,7 +827,7 @@ export default function FeaturesIntroScreen() {
 
         {/* Dynamic Visual */}
         <Animated.View style={[styles.visualContainer, { opacity: visualFade }]}>
-          <VisualSwitcher scrollX={scrollX} />
+          <VisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
         </Animated.View>
 
         {/* Feature Cards Carousel */}
@@ -831,12 +840,12 @@ export default function FeaturesIntroScreen() {
             }
           ]}
         >
-          <View style={styles.cardsWrapper}>
+          <View style={styles.cardsWrapper} onLayout={handleContainerLayout}>
             <AnimatedFlatList
               ref={flatListRef as any}
               data={features}
               renderItem={({ item, index }) => (
-                <FeatureCard item={item} index={index} scrollX={scrollX} />
+                <FeatureCard item={item} index={index} scrollX={scrollX} containerWidth={containerWidth} />
               )}
               keyExtractor={(item, index) => index.toString()}
               horizontal
@@ -846,11 +855,11 @@ export default function FeaturesIntroScreen() {
               onMomentumScrollEnd={handleMomentumScrollEnd}
               scrollEventThrottle={16}
               decelerationRate="fast"
-              snapToInterval={SCREEN_WIDTH}
+              snapToInterval={containerWidth}
               snapToAlignment="center"
               getItemLayout={(data, index) => ({
-                length: SCREEN_WIDTH,
-                offset: SCREEN_WIDTH * index,
+                length: containerWidth,
+                offset: containerWidth * index,
                 index,
               })}
             />
@@ -859,9 +868,9 @@ export default function FeaturesIntroScreen() {
             <View style={styles.pagination}>
               {features.map((_, index) => {
                 const inputRange = [
-                  (index - 1) * SCREEN_WIDTH,
-                  index * SCREEN_WIDTH,
-                  (index + 1) * SCREEN_WIDTH,
+                  (index - 1) * containerWidth,
+                  index * containerWidth,
+                  (index + 1) * containerWidth,
                 ];
 
                 const dotScale = scrollX.interpolate({

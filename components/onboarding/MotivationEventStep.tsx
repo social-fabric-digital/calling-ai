@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { loadOnboardingAnswer, persistOnboardingAnswer } from './persistOnboardingAnswer';
@@ -44,41 +44,33 @@ export default function MotivationEventStep({ onContinue }: MotivationEventStepP
 
   return (
     <View style={localStyles.container}>
-      <View style={localStyles.headerSlot}>
-        <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
-          {t('onboarding.yazioFlow.motivationEventQuestion')}
-        </Text>
-      </View>
-      <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        <View style={styles.lifeContextOptionsContainer}>
-          {OPTIONS.map((optionId) => {
-            const isSelected = selected === optionId;
-            return (
-              <TouchableOpacity
-                key={optionId}
-                style={[
-                  styles.lifeContextOptionButton,
-                  localStyles.option,
-                  isSelected && styles.lifeContextOptionSelectedSoft,
-                ]}
-                onPress={() => handleSelect(optionId)}
-                activeOpacity={0.85}
-              >
-                <Text
-                  style={[
-                    styles.lifeContextOptionText,
-                    localStyles.optionText,
-                    isSelected && styles.lifeContextOptionTextSelectedSoft,
-                  ]}
-                >
-                  {t(`onboarding.yazioFlow.motivationEventOptions.${optionId}`)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={localStyles.headerSlot}>
+          <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+            {t('onboarding.yazioFlow.motivationEventQuestion')}
+          </Text>
         </View>
-      </View>
-      <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
+        <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
+          <View style={styles.lifeContextOptionsContainer}>
+            {OPTIONS.map((optionId) => {
+              const isSelected = selected === optionId;
+              return (
+                <TouchableOpacity
+                  key={optionId}
+                  style={[styles.lifeContextOptionButton, localStyles.option, isSelected && styles.lifeContextOptionSelectedSoft]}
+                  onPress={() => handleSelect(optionId)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.lifeContextOptionText, localStyles.optionText, isSelected && styles.lifeContextOptionTextSelectedSoft]}>
+                    {t(`onboarding.yazioFlow.motivationEventOptions.${optionId}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+      <View style={localStyles.bottomButtonWrap}>
         <TouchableOpacity
           style={[styles.continueButton, !selected && localStyles.continueDisabled]}
           onPress={handleContinue}
@@ -95,10 +87,11 @@ export default function MotivationEventStep({ onContinue }: MotivationEventStepP
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 30,
-    paddingBottom: 40,
+  },
+  scrollContent: {
+    paddingBottom: 120,
   },
   card: {
     marginTop: 8,
@@ -125,13 +118,8 @@ const localStyles = StyleSheet.create({
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingBottom: 40,
-    zIndex: 1000,
   },
 });

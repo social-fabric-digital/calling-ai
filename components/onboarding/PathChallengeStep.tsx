@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   Animated,
-  Dimensions,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -15,8 +14,6 @@ import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { useTranslation } from 'react-i18next';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
-
-const { width } = Dimensions.get('window');
 
 // ============================================
 // Types
@@ -338,7 +335,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   challengeCard: {
-    width: (width - 72) / 2,
+    flex: 1,
+    minWidth: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
     borderWidth: 2,
@@ -379,7 +377,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     textAlign: 'center',
     lineHeight: 20,
-    maxWidth: (width - 72) / 2 - 32, // Card width minus padding (16px * 2)
+    width: '100%',
   },
   challengeLabelSelected: {
     fontWeight: '600',

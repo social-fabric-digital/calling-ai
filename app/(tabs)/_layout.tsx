@@ -317,10 +317,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tabLabelTabletActive: {
-    marginTop: 6,
+    marginTop: 14,
   },
   tabLabelTabletInactive: {
-    marginTop: 0,
+    marginTop: 4,
   },
   tabIconTablet: {
     marginRight: 5,

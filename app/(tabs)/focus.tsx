@@ -1102,13 +1102,6 @@ export default function FocusScreen() {
       ) : (
         <>
           {/* Light bulb icon above duration selection */}
-          <View style={[styles.lightBulbContainer, styles.initialContentShift]}>
-            <Image
-              source={require('../../assets/images/light.png')}
-              style={styles.lightBulbIcon}
-              resizeMode="contain"
-            />
-          </View>
           <View
             style={[
               styles.durationSelectionFrame,
@@ -1434,16 +1427,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.75,
   },
-  lightBulbContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    marginTop: 140, // Moved down 70 more pixels (was 70, now 140)
-  },
-  lightBulbIcon: {
-    width: 32,
-    height: 32,
-  },
   durationSelectionFrame: {
     width: '100%',
     borderWidth: 1,
@@ -1547,7 +1530,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 'auto',
     alignSelf: 'center',
-    gap: 50,
+    gap: 16,
     marginTop: 45,
   },
   timerOptionCircle: {

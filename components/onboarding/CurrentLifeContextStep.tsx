@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { getLifeContextQuestions } from './constants';
 import { styles } from './styles';
@@ -71,49 +71,33 @@ function CurrentLifeContextStep({
 
   return (
     <View style={localStyles.container}>
-      <View style={[localStyles.headerSlot, isRussian && localStyles.headerSlotRussian]}>
-        <Text
-          style={[
-            styles.aboutYouTitle,
-            localStyles.screenHeader,
-            isRussian && localStyles.screenHeaderRussian,
-          ]}
-        >
-          {questionText}
-        </Text>
-      </View>
-
-      <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        <View style={styles.lifeContextOptionsContainer}>
-          {options.map((option) => {
-            const isSelected = selected === option.id;
-            return (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.lifeContextOptionButton,
-                  localStyles.option,
-                  isSelected && styles.lifeContextOptionSelectedSoft,
-                ]}
-                onPress={() => handleSelect(option.id)}
-                activeOpacity={0.85}
-              >
-                <Text
-                  style={[
-                    styles.lifeContextOptionText,
-                    localStyles.optionText,
-                    isSelected && styles.lifeContextOptionTextSelectedSoft,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={[localStyles.headerSlot, isRussian && localStyles.headerSlotRussian]}>
+          <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isRussian && localStyles.screenHeaderRussian]}>
+            {questionText}
+          </Text>
         </View>
-      </View>
-
-      <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
+        <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
+          <View style={styles.lifeContextOptionsContainer}>
+            {options.map((option) => {
+              const isSelected = selected === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.lifeContextOptionButton, localStyles.option, isSelected && styles.lifeContextOptionSelectedSoft]}
+                  onPress={() => handleSelect(option.id)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.lifeContextOptionText, localStyles.optionText, isSelected && styles.lifeContextOptionTextSelectedSoft]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+      <View style={localStyles.bottomButtonWrap}>
         <TouchableOpacity
           style={[styles.continueButton, !selected && localStyles.continueDisabled]}
           onPress={handleContinue}
@@ -130,10 +114,11 @@ function CurrentLifeContextStep({
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 30,
-    paddingBottom: 40,
+  },
+  scrollContent: {
+    paddingBottom: 120,
   },
   headerSlot: {
     minHeight: 80,
@@ -167,14 +152,9 @@ const localStyles = StyleSheet.create({
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingBottom: 40,
-    zIndex: 1000,
   },
 });
 

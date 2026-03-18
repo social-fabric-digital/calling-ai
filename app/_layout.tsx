@@ -9,12 +9,16 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import 'react-native-reanimated';
 import '@/utils/i18n';
 import { loadLanguagePreference } from '@/utils/i18n';
 import { ensureSuperwallInitialized } from '@/utils/superwall';
 import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
+
+// On iPad the app renders as a centered column. 74% of screen width feels natural
+// on iPad Air 11-inch (820pt → ~607px) without stretching phone layouts.
+const IPAD_CONTENT_RATIO = 0.74;
 
 // Preload splash + key background images at app bootstrap.
 // This removes background pop-in when navigating between screens.
@@ -70,12 +74,34 @@ const screenOptions = {
   gestureEnabled: false,
 };
 
+const styles = StyleSheet.create({
+  // Fills the full iPad screen; brand colour shows in the side gutters on wide devices.
+  outerContainer: {
+    flex: 1,
+    backgroundColor: '#342846',
+    alignItems: 'center',
+  },
+  // maxWidth is applied dynamically (only on tablets) — see maxContentWidth above.
+  // No overflow: 'hidden' here — it can intercept scroll gestures on iPad.
+  innerContainer: {
+    flex: 1,
+    width: '100%',
+  },
+});
+
 export const unstable_settings = {
   initialRouteName: 'landing',
 };
 
 export default function RootLayout() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  // Only constrain width on actual tablets. On all iPhones the content fills
+  // the full screen with no side gutters.
+  const isTablet = Platform.isPad || (Platform.OS === 'android' && width >= 768);
+  // 74% of iPad width — on iPad Air 11-inch (820pt) this gives ~607px, leaving
+  // comfortable gutters without looking like a shrunken phone.
+  const maxContentWidth = isTablet ? Math.round(width * IPAD_CONTENT_RATIO) : undefined;
   const lastHandledRecoveryUrlRef = useRef<string | null>(null);
   const [splashDone, setSplashDone] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -233,44 +259,39 @@ export default function RootLayout() {
   // Always render the Stack on first render so the navigator is mounted.
   // Expo Router requires a Slot/navigator on first render; returning null causes
   // "Attempted to navigate before mounting the Root Layout" when navigating from onboarding.
+  const navigator = (
+    <ThemeProvider value={DefaultTheme}>
+      <SubscriptionProvider>
+        <Stack screenOptions={screenOptions}>
+          <Stack.Screen name="landing" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="reset-password" />
+          <Stack.Screen name="account" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        </Stack>
+        {fontsLoaded && <StatusBar style="dark" />}
+      </SubscriptionProvider>
+    </ThemeProvider>
+  );
+
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1 }}>
-        <ThemeProvider value={DefaultTheme}>
-          <SubscriptionProvider>
-            <Stack screenOptions={screenOptions}>
-              <Stack.Screen name="landing" />
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="reset-password" />
-              <Stack.Screen name="account" />
-              <Stack.Screen name="settings" />
-              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            </Stack>
-          </SubscriptionProvider>
-        </ThemeProvider>
+      <View style={styles.outerContainer}>
+        <View style={[styles.innerContainer, { maxWidth: maxContentWidth }]}>
+          {navigator}
+        </View>
         <AnimatedSplashScreen progress={0} onFinish={() => {}} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <ThemeProvider value={DefaultTheme}>
-        <SubscriptionProvider>
-          <Stack screenOptions={screenOptions}>
-            <Stack.Screen name="landing" />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="reset-password" />
-            <Stack.Screen name="account" />
-            <Stack.Screen name="settings" />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          </Stack>
-          <StatusBar style="dark" />
-        </SubscriptionProvider>
-      </ThemeProvider>
-
+    <View style={styles.outerContainer}>
+      <View style={[styles.innerContainer, { maxWidth: maxContentWidth }]}>
+        {navigator}
+      </View>
       {!splashDone && (
         <AnimatedSplashScreen
           progress={loadProgress}

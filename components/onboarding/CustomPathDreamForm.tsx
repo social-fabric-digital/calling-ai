@@ -64,7 +64,7 @@ function Step1NameYourDream({ isActive, value, onChange, onNext, onBack }: Step1
     scale: new Animated.Value(0),
     position: {
       top: Math.random() * 150,
-      left: Math.random() * (width - 100) + 20,
+      left: Math.random() * (Math.min(width, 400) - 100) + 20,
     },
   }))).current;
 

@@ -178,8 +178,8 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         styles.pledgeContainer,
         styles.pledgeContentContainer,
         {
-          paddingHorizontal: isTablet ? 64 : isSmallPhone ? 20 : 30,
-          paddingTop: isSmallPhone ? 12 : 25,
+          paddingHorizontal: isTablet ? 40 : isSmallPhone ? 20 : 30,
+          paddingTop: isTablet ? 52 : isSmallPhone ? 12 : 25,
           paddingBottom: isSmallPhone ? 16 : 40,
         },
       ]}
@@ -227,8 +227,8 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
                 styles.signatureWrapper,
                 localStyles.signaturePad,
                 {
-                  height: isVerySmallPhone ? 132 : isSmallPhone ? 152 : isTablet ? 240 : 212.5,
-                  maxWidth: isTablet ? 620 : 495,
+                  height: isVerySmallPhone ? 132 : isSmallPhone ? 152 : isTablet ? 180 : 212.5,
+                  maxWidth: isTablet ? 480 : 495,
                 },
               ]}
               pointerEvents="auto"
@@ -427,11 +427,12 @@ const localStyles = StyleSheet.create({
     marginBottom: 16,
   },
   pledgeTitleTablet: {
-    marginBottom: 28,
-    fontSize: 46,
+    marginBottom: 20,
+    fontSize: 32,
+    lineHeight: 40,
   },
   pledgeContentTablet: {
-    maxWidth: 700,
+    maxWidth: 520,
   },
   pledgeTextSmall: {
     fontSize: 14,

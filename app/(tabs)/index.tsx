@@ -2170,7 +2170,7 @@ export default function HomeScreen() {
   const headerTotalHeight = headerTopOffset + headerContentHeight;
   // Temporary screenshot override: keep Question of the Day visible
   // even when already answered.
-  const forceShowQuestionCardForScreenshot = true;
+  const forceShowQuestionCardForScreenshot = false;
   const shouldShowDailyQuestionCard =
     forceShowQuestionCardForScreenshot || (!answerCapturedToday && !showEnvelope);
   const isHomeAnsweredLayout =
@@ -3368,7 +3368,7 @@ const styles = StyleSheet.create({
     elevation: 12, // For Android
   },
   gridButtonTablet: {
-    width: 320,
+    width: 260,
     maxWidth: '100%',
   },
   gridButtonColumnTablet: {

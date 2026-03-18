@@ -10,7 +10,7 @@
     "newArchEnabled": true,
  "ios": {
   "icon": "./assets/images/calling.logo.png",
-  "supportsTablet": false,
+  "supportsTablet": true,
   "bundleIdentifier": "com.socialfactorydigital.calling",
   "buildNumber": "8",
   "infoPlist": {

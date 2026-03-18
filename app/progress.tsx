@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
@@ -165,8 +165,6 @@ export default function ProgressScreen() {
 
   // Current goal ID state
   const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
-  
-  // Help modal state
   const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Load current goal ID and week data on mount and when screen comes into focus
@@ -398,11 +396,13 @@ export default function ProgressScreen() {
     !weekData.mostFrequentMood.label?.trim() || weekData.mostFrequentMood.count === 0;
 
   return (
-    <ImageBackground
-      source={require('../assets/images/progress.png')}
-      style={styles.screen}
-      resizeMode="cover"
-    >
+    <View style={styles.screen}>
+      <Image
+        source={require('../assets/images/progress.png')}
+        style={styles.screenBg}
+        resizeMode="cover"
+        pointerEvents="none"
+      />
       <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, { paddingTop: Math.max(60, insets.top + 20) }]}>
@@ -421,7 +421,8 @@ export default function ProgressScreen() {
           
           <TouchableOpacity 
             style={styles.helpButton}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             onPress={() => setShowHelpModal(true)}
           >
             <MaterialIcons name="help-outline" size={20} color="#342846" />
@@ -456,14 +457,14 @@ export default function ProgressScreen() {
                 </View>
               </View>
               
-              {/* Progress bar — one dot per day (Mon–Sun), filled if user opened the app that day */}
+              {/* Progress bar — 7 bars filled from the left based on days active count */}
               <View style={styles.engagementProgressTrack}>
-                {weekData.activeDays.map((active, i) => (
+                {weekData.activeDays.map((_active, i) => (
                   <View 
                     key={i}
                     style={[
                       styles.engagementDot,
-                      { backgroundColor: active ? '#342846' : '#E8E8E8' }
+                      { backgroundColor: i < weekData.daysActive ? '#342846' : '#E8E8E8' }
                     ]}
                   />
                 ))}
@@ -741,82 +742,64 @@ export default function ProgressScreen() {
       {/* Help Modal */}
       <Modal
         visible={showHelpModal}
-        animationType="fade"
         transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
         onRequestClose={() => setShowHelpModal(false)}
       >
         <View style={styles.helpModalOverlay}>
           <TouchableOpacity
-            style={styles.helpModalBackdrop}
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
             activeOpacity={1}
             onPress={() => setShowHelpModal(false)}
           />
           <View style={styles.helpModalContent}>
-            <View style={styles.helpModalHeader}>
-              <TouchableOpacity
-                onPress={() => setShowHelpModal(false)}
-                style={styles.helpModalCloseButton}
-              >
-                <MaterialIcons name="close" size={24} color="#342846" />
-              </TouchableOpacity>
-              <View style={styles.helpModalTitleContainer}>
-                <Text style={styles.helpModalTitle}>{tr('Your weekly progress', 'Твой недельный прогресс')}</Text>
-                <Text style={styles.helpModalSubtitle}>
-                  {tr('A quick snapshot of your week: goals, reflection, and growth.', 'Короткий срез твоей недели: цели, рефлексия и рост.')}
-                </Text>
-              </View>
-            </View>
-            
-            <ScrollView 
-              style={styles.helpModalScroll} 
-              contentContainerStyle={styles.helpModalScrollContent}
-              showsVerticalScrollIndicator={true}
+            <TouchableOpacity
+              style={styles.helpModalCloseButton}
+              onPress={() => setShowHelpModal(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View style={styles.helpQuickGrid}>
-                <View style={styles.helpQuickCard}>
-                  <Text style={styles.helpQuickIcon}>🔥</Text>
-                  <Text style={styles.helpQuickTitle}>{tr('Consistency', 'Последовательность')}</Text>
-                  <Text style={styles.helpQuickText}>
-                    {tr('Track active days and weekly momentum.', 'Отслеживай активные дни и недельный импульс.')}
-                  </Text>
+              <Text style={styles.helpModalCloseBtnText}>×</Text>
+            </TouchableOpacity>
+            <ScrollView
+              style={styles.helpModalScroll}
+              contentContainerStyle={styles.helpModalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.helpModalIcon}>📊</Text>
+              <Text style={styles.helpModalTitle}>{tr('Your Week', 'Твоя неделя')}</Text>
+              <View style={styles.helpModalBody}>
+                <View style={styles.helpModalItem}>
+                  <View style={styles.helpModalItemTextContainer}>
+                    <Text style={styles.helpModalItemTitle}>{tr('Weekly engagement', 'Недельная активность')}</Text>
+                    <Text style={styles.helpModalItemText}>{tr('Track how many days you were active this week. The bars fill from left to right.', 'Отслеживай, сколько дней ты был активен на этой неделе. Полоски заполняются слева направо.')}</Text>
+                  </View>
                 </View>
-                <View style={styles.helpQuickCard}>
-                  <Text style={styles.helpQuickIcon}>🎯</Text>
-                  <Text style={styles.helpQuickTitle}>{tr('Path progress', 'Прогресс пути')}</Text>
-                  <Text style={styles.helpQuickText}>
-                    {tr('See your level and goal completion status.', 'Смотри текущий уровень и прогресс по цели.')}
-                  </Text>
+                <View style={styles.helpModalItem}>
+                  <View style={styles.helpModalItemTextContainer}>
+                    <Text style={styles.helpModalItemTitle}>{tr('Path progress', 'Прогресс пути')}</Text>
+                    <Text style={styles.helpModalItemText}>{tr('See your current level and how close you are to completing your goal.', 'Смотри текущий уровень и как близко ты к завершению цели.')}</Text>
+                  </View>
                 </View>
-                <View style={styles.helpQuickCard}>
-                  <Text style={styles.helpQuickIcon}>📝</Text>
-                  <Text style={styles.helpQuickTitle}>{tr('Reflection', 'Рефлексия')}</Text>
-                  <Text style={styles.helpQuickText}>
-                    {tr('Review clarity maps, insights, and focus sessions.', 'Смотри карты ясности, инсайты и фокус-сессии.')}
-                  </Text>
+                <View style={styles.helpModalItem}>
+                  <View style={styles.helpModalItemTextContainer}>
+                    <Text style={styles.helpModalItemTitle}>{tr('Reflection', 'Рефлексия')}</Text>
+                    <Text style={styles.helpModalItemText}>{tr('Review your clarity maps, mood logs, and focus sessions from the week.', 'Просмотри карты ясности, записи настроения и сессии фокуса за неделю.')}</Text>
+                  </View>
                 </View>
-                <View style={styles.helpQuickCard}>
-                  <Text style={styles.helpQuickIcon}>🏆</Text>
-                  <Text style={styles.helpQuickTitle}>{tr('Small wins', 'Маленькие победы')}</Text>
-                  <Text style={styles.helpQuickText}>
-                    {tr('Celebrate completed steps and goals this week.', 'Отмечай завершенные шаги и цели за неделю.')}
-                  </Text>
+                <View style={styles.helpModalItem}>
+                  <View style={styles.helpModalItemTextContainer}>
+                    <Text style={styles.helpModalItemTitle}>{tr('Small wins & Badge', 'Маленькие победы и награда')}</Text>
+                    <Text style={styles.helpModalItemText}>{tr('Celebrate your completed steps and claim your weekly badge as proof of progress.', 'Отмечай выполненные шаги и забирай еженедельную награду как подтверждение прогресса.')}</Text>
+                  </View>
                 </View>
-              </View>
-
-              <View style={styles.helpFocusCard}>
-                <Text style={styles.helpFocusTitle}>{tr('Why this screen matters', 'Почему этот экран важен')}</Text>
-                <Text style={styles.helpFocusText}>
-                  {tr(
-                    'It helps you notice your momentum, recognize real progress, and stay motivated with visible weekly proof.',
-                    'Он помогает увидеть импульс, заметить реальный прогресс и поддерживать мотивацию через видимые результаты недели.'
-                  )}
-                </Text>
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+
+    </View>
   );
 }
 
@@ -1186,6 +1169,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1f1a2a',
   },
+  screenBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1201,6 +1193,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: 'transparent',
+    zIndex: 10,
   },
   backButton: {
     width: 44,
@@ -1959,183 +1952,85 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   
-  // Help Modal Styles
+  // Help Modal Styles — mirrors goal-map pattern
   helpModalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  helpModalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(31,26,42,0.6)',
   },
   helpModalContent: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 0,
     width: '100%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 700,
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    maxWidth: 440,
+    maxHeight: '85%',
     overflow: 'hidden',
-  },
-  helpModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 10,
     position: 'relative',
   },
-  helpModalTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: 28,
-  },
-  helpModalTitle: {
-    ...HeadingStyle,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#342846',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  helpModalSubtitle: {
-    ...BodyStyle,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    textAlign: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: 6,
-  },
   helpModalCloseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#342846',
-    justifyContent: 'center',
-    alignItems: 'center',
     position: 'absolute',
-    right: 20,
-    top: 20,
+    right: 16,
+    top: 16,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  helpModalCloseBtnText: {
+    fontSize: 26,
+    color: '#342846',
+    lineHeight: 30,
   },
   helpModalScroll: {
     flex: 1,
-    minHeight: 0,
   },
   helpModalScrollContent: {
-    padding: 24,
-    paddingTop: 18,
-    paddingBottom: 24,
-    gap: 14,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
   },
-  helpQuickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
+  helpModalIcon: {
+    fontSize: 40,
+    textAlign: 'center',
+    marginBottom: 12,
   },
-  helpQuickCard: {
-    width: '48%',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    minHeight: 132,
-  },
-  helpQuickIcon: {
-    fontSize: 18,
-    marginBottom: 8,
-  },
-  helpQuickTitle: {
+  helpModalTitle: {
     ...HeadingStyle,
-    fontSize: 14,
+    fontSize: 22,
+    fontWeight: '700',
     color: '#342846',
-    marginBottom: 6,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  helpQuickText: {
-    ...BodyStyle,
-    fontSize: 12,
-    color: '#5B536B',
-    lineHeight: 18,
+  helpModalBody: {
+    gap: 16,
   },
-  helpFocusCard: {
-    backgroundColor: '#FFF8F0',
+  helpModalItem: {
+    backgroundColor: 'rgba(52,40,70,0.05)',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FFE8D6',
     padding: 14,
   },
-  helpFocusTitle: {
+  helpModalItemTextContainer: {
+    flex: 1,
+  },
+  helpModalItemTitle: {
     ...HeadingStyle,
-    fontSize: 14,
+    fontSize: 15,
     color: '#342846',
     marginBottom: 6,
   },
-  helpFocusText: {
+  helpModalItemText: {
     ...BodyStyle,
     fontSize: 13,
     color: '#5B536B',
-    lineHeight: 20,
-  },
-  helpSection: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  helpSectionTitle: {
-    ...HeadingStyle,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#342846',
-    marginBottom: 12,
-    textAlign: 'center',
-    alignSelf: 'center',
-    width: '100%',
-  },
-  helpSectionText: {
-    ...BodyStyle,
-    fontSize: 14,
-    color: '#342846',
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  helpBulletPoint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingLeft: 4,
-  },
-  helpBullet: {
-    ...BodyStyle,
-    fontSize: 14,
-    color: '#342846',
-    marginRight: 8,
-    lineHeight: 22,
-  },
-  helpBulletText: {
-    ...BodyStyle,
-    fontSize: 14,
-    color: '#342846',
-    lineHeight: 22,
-    flex: 1,
-  },
-  helpBold: {
-    fontWeight: '600',
+    lineHeight: 19,
   },
 });

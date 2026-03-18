@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { persistOnboardingAnswer, loadOnboardingAnswer } from './persistOnboardingAnswer';
@@ -35,6 +35,7 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
 
   return (
     <View style={localStyles.container}>
+      <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
         {t('onboarding.yazioFlow.whyHereQuestion')}
       </Text>
@@ -67,8 +68,8 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
           })}
         </View>
       </View>
-
-      <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
+      </ScrollView>
+      <View style={localStyles.bottomButtonWrap}>
         <TouchableOpacity
           style={[styles.continueButton, !selected && localStyles.continueDisabled]}
           onPress={handleContinue}
@@ -85,10 +86,11 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 30,
-    paddingBottom: 40,
+  },
+  scrollContent: {
+    paddingBottom: 120,
   },
   card: {
     marginTop: 8,
@@ -111,13 +113,8 @@ const localStyles = StyleSheet.create({
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingBottom: 40,
-    zIndex: 1000,
   },
 });

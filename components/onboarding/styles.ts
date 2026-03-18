@@ -1,6 +1,10 @@
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { height, width } from './constants';
+
+// On iPad, _layout.tsx constrains content to 74% of window width.
+// Use the same ratio so the cake image scales to the actual column, not the full window.
+const cakeImageSize = Platform.isPad ? Math.round(width * 0.74 * 0.6885) : width * 0.6885;
 
 export const styles = StyleSheet.create({
   container: {
@@ -1351,8 +1355,8 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cakeImage: {
-    width: width * 0.6885, // Reduced by 15% from 0.81
-    height: width * 0.6885,
+    width: cakeImageSize,
+    height: cakeImageSize,
   },
   pledgeContainer: {
     flex: 1,
@@ -1705,8 +1709,8 @@ export const styles = StyleSheet.create({
     textTransform: 'none',
   },
   journeyDeerImage: {
-    width: width * 0.5,
-    height: width * 0.5,
+    width: Platform.isPad ? Math.round(width * 0.74 * 0.35) : width * 0.5,
+    height: Platform.isPad ? Math.round(width * 0.74 * 0.35) : width * 0.5,
     marginBottom: 40,
   },
   journeyLoadingList: {
