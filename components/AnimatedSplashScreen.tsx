@@ -211,11 +211,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    top: CLOUD_SIZE.height * 0.28 + 10,
+    top: CLOUD_SIZE.height * 0.28 + 30,
   },
   progressText: {
     fontFamily: getHeadingFontFamily(),
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: BRAND_PURPLE,
     letterSpacing: 0,

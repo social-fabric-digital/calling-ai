@@ -4,7 +4,6 @@
  */
 
 import { Platform } from 'react-native';
-import i18n from '@/utils/i18n';
 
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
@@ -38,9 +37,9 @@ export const Fonts = Platform.select({
     rounded: 'ui-rounded',
     /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
-    /** Bricolage Grotesque for English, Montserrat for other languages */
-    heading: 'BricolageGrotesque-Bold',
-    headingNonEnglish: 'Montserrat-Bold',
+    /** Match Home screen heading font globally */
+    heading: 'DMSans_700Bold',
+    headingNonEnglish: 'DMSans_700Bold',
     /** Anonymous Pro for body and subtitle text */
     body: 'AnonymousPro-Regular',
     subtitle: 'AnonymousPro-Regular',
@@ -50,8 +49,8 @@ export const Fonts = Platform.select({
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
-    heading: 'BricolageGrotesque-Bold',
-    headingNonEnglish: 'Montserrat-Bold',
+    heading: 'DMSans_700Bold',
+    headingNonEnglish: 'DMSans_700Bold',
     body: 'AnonymousPro-Regular',
     subtitle: 'AnonymousPro-Regular',
   },
@@ -60,49 +59,44 @@ export const Fonts = Platform.select({
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-    heading: "'Bricolage Grotesque', sans-serif",
-    headingNonEnglish: "'Montserrat', sans-serif",
+    heading: "'DM Sans', sans-serif",
+    headingNonEnglish: "'DM Sans', sans-serif",
     body: "'Anonymous Pro', monospace",
     subtitle: "'Anonymous Pro', monospace",
   },
 });
 
 /**
- * Get the heading font family based on the current language
- * Uses BricolageGrotesque for English, Montserrat for all other languages
+ * Get the heading font family used across all screens.
  */
 export const getHeadingFontFamily = (language?: string): string => {
-  const currentLanguage = language || i18n.language || 'en';
-  const isEnglish = currentLanguage === 'en' || currentLanguage.startsWith('en-');
-  
-  if (isEnglish) {
-    return Fonts.heading;
-  }
-  
-  return Fonts.headingNonEnglish;
+  void language;
+  return Fonts.heading;
 };
 
 /**
- * Get heading style with language-appropriate font
- * Uses BricolageGrotesque for English, Montserrat for all other languages
+ * Get heading style with the global heading font.
  */
 export const getHeadingStyle = (language?: string) => ({
   fontFamily: getHeadingFontFamily(language),
-  fontSize: 26,
-  textTransform: 'uppercase' as const,
-  fontWeight: 'bold' as const,
+  fontSize: 24,
+  lineHeight: 28,
+  letterSpacing: 0,
+  textTransform: 'none' as const,
+  fontWeight: '700' as const,
 });
 
 /** 
  * Shared heading style for all screens
- * Uses language-appropriate font (BricolageGrotesque for English, Montserrat for others)
- * The fontFamily is dynamically determined based on the current i18n language
- * Usage: {...HeadingStyle} - works as before, but fontFamily is now language-aware
+ * Uses the same font as Home screen headings
+ * Usage: {...HeadingStyle} - works as before, with unified fontFamily
  */
 const headingStyleBase = {
-  fontSize: 26,
-  textTransform: 'uppercase' as const,
-  fontWeight: 'bold' as const,
+  fontSize: 24,
+  lineHeight: 28,
+  letterSpacing: 0,
+  textTransform: 'none' as const,
+  fontWeight: '700' as const,
 };
 
 export const HeadingStyle = Object.defineProperty(headingStyleBase, 'fontFamily', {

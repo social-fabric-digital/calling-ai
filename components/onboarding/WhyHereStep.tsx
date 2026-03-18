@@ -35,7 +35,7 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
 
   return (
     <View style={localStyles.container}>
-      <Text style={[styles.aboutYouTitle, localStyles.screenHeader]} numberOfLines={2}>
+      <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
         {t('onboarding.yazioFlow.whyHereQuestion')}
       </Text>
       <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
@@ -94,8 +94,8 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 0,
   },
   option: {

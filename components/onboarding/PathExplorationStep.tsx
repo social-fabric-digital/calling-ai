@@ -65,6 +65,7 @@ interface GoalData {
 }
 
 const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
+const PATH_EXPLORATION_CONTENT_VERSION = 2;
 
 // ============================================
 // Animated Aura Component (behind path icon)
@@ -543,6 +544,7 @@ export default function PathExplorationStep({
     const buildInputSignature = () =>
       JSON.stringify({
         language: i18n.language || 'en',
+        contentVersion: PATH_EXPLORATION_CONTENT_VERSION,
         pathName: pathName || '',
         pathDescription: pathDescription || '',
         birthMonth: birthMonth || '',
@@ -600,14 +602,8 @@ export default function PathExplorationStep({
               setIsInitialContentLoading(false);
               return;
             }
-            // If we already generated once in this onboarding and user returns (e.g. from paywall),
-            // reuse the latest generated content even if a non-critical prop changed.
-            if (cachedGoals.length > 0) {
-              setGoals(cachedGoals);
-              setWhyItFits(cachedWhyFits);
-              setIsInitialContentLoading(false);
-              return;
-            }
+            // Intentionally do not reuse stale cache when signature differs.
+            // Language/input changes must trigger regeneration.
           }
         } catch {
           // Ignore cache read failures and continue with generation.
@@ -752,7 +748,7 @@ export default function PathExplorationStep({
         >
           <PathIcon pathName={pathName} />
           
-          <Text style={styles.pathName}>{pathName.toUpperCase()}</Text>
+          <Text style={styles.pathName}>{pathName}</Text>
           
           {pathDescription && (
             <Text style={styles.pathDescription}>{pathDescription}</Text>
@@ -963,8 +959,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pathName: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 26,
+    ...HeadingStyle,
+    fontSize: 24,
     color: '#FFFFFF',
     opacity: 1,
     textAlign: 'center',
@@ -1013,7 +1009,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   whyItFitsName: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 26,
     color: COLORS.white,
     marginBottom: 12,
@@ -1076,7 +1072,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   sectionTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 14,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1156,7 +1152,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   goalTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 18,
     color: COLORS.primary,
     marginBottom: 8,
@@ -1295,7 +1291,7 @@ const styles = StyleSheet.create({
     marginLeft: 72,
   },
   customCardTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 16,
     color: '#342846',
     marginBottom: 4,

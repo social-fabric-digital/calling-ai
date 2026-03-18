@@ -230,8 +230,28 @@ export default function RootLayout() {
     };
   }, [router]);
 
+  // Always render the Stack on first render so the navigator is mounted.
+  // Expo Router requires a Slot/navigator on first render; returning null causes
+  // "Attempted to navigate before mounting the Root Layout" when navigating from onboarding.
   if (!fontsLoaded) {
-    return null;
+    return (
+      <View style={{ flex: 1 }}>
+        <ThemeProvider value={DefaultTheme}>
+          <SubscriptionProvider>
+            <Stack screenOptions={screenOptions}>
+              <Stack.Screen name="landing" />
+              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="reset-password" />
+              <Stack.Screen name="account" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            </Stack>
+          </SubscriptionProvider>
+        </ThemeProvider>
+        <AnimatedSplashScreen progress={0} onFinish={() => {}} />
+      </View>
+    );
   }
 
   return (

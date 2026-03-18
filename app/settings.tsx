@@ -1,6 +1,6 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { useSubscription } from '@/components/SubscriptionProvider';
-import { BodyStyle, ButtonHeadingStyle, HeadingStyle, SubtitleStyle } from '@/constants/theme';
+import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import {
   hapticError,
@@ -30,7 +30,9 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Linking,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -49,6 +51,8 @@ const APP_STORE_URL = Platform.select({
 const APPLE_SUBSCRIPTIONS_URL = 'itms-apps://apps.apple.com/account/subscriptions';
 const APPLE_SUBSCRIPTIONS_FALLBACK_URL = 'https://apps.apple.com/account/subscriptions';
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
+const DEFAULT_REMINDER_HOUR = 9;
+const DEFAULT_REMINDER_MINUTE = 0;
 const SUPABASE_URL =
   (Constants.expoConfig?.extra?.supabaseUrl ||
     process.env.EXPO_PUBLIC_SUPABASE_URL ||
@@ -76,8 +80,8 @@ export default function SettingsScreen() {
   const [isTrialActive, setIsTrialActive] = useState(false);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [reminderHour, setReminderHour] = useState(9);
-  const [reminderMinute, setReminderMinute] = useState(0);
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const profileDisplayName = userName.trim() || userEmail.trim().split('@')[0] || '';
 
   const currentLang = i18n.language?.startsWith('ru') ? 'ru' : 'en';
@@ -140,8 +144,13 @@ export default function SettingsScreen() {
 
     const prefs = await getNotificationPreferences();
     setNotificationsEnabled(prefs.enabled);
-    setReminderHour(prefs.hour);
-    setReminderMinute(prefs.minute);
+    if (prefs.hour !== DEFAULT_REMINDER_HOUR || prefs.minute !== DEFAULT_REMINDER_MINUTE) {
+      await saveNotificationPreferences(
+        prefs.enabled,
+        DEFAULT_REMINDER_HOUR,
+        DEFAULT_REMINDER_MINUTE
+      );
+    }
     await syncNotificationScheduleWithPreferences();
   }, []);
 
@@ -180,23 +189,13 @@ export default function SettingsScreen() {
         );
         return;
       }
-      await scheduleDailyNotification(reminderHour, reminderMinute);
+      await scheduleDailyNotification(DEFAULT_REMINDER_HOUR, DEFAULT_REMINDER_MINUTE);
     } else {
       await cancelAllNotifications();
     }
     setNotificationsEnabled(value);
-    await saveNotificationPreferences(value, reminderHour, reminderMinute);
+    await saveNotificationPreferences(value, DEFAULT_REMINDER_HOUR, DEFAULT_REMINDER_MINUTE);
     void hapticSuccess();
-  };
-
-  const handleTimeChange = async (hour: number, minute: number) => {
-    void hapticLight();
-    setReminderHour(hour);
-    setReminderMinute(minute);
-    await saveNotificationPreferences(notificationsEnabled, hour, minute);
-    if (notificationsEnabled) {
-      await scheduleDailyNotification(hour, minute);
-    }
   };
 
   const handleLanguageChange = async (lang: 'en' | 'ru') => {
@@ -243,76 +242,75 @@ export default function SettingsScreen() {
     void hapticMedium();
     try {
       await supabase.auth.signOut();
+      setShowLogoutConfirmModal(false);
       void hapticSuccess();
-      router.replace('/landing');
+      router.replace('/onboarding');
     } catch (error) {
       console.error('Logout error:', error);
       void hapticError();
     }
   };
 
-  const handleDeleteAccount = () => {
+  const handleLogoutPress = () => {
+    void hapticLight();
+    setShowLogoutConfirmModal(true);
+  };
+
+  const handleDeleteAccountPress = () => {
     void hapticHeavy();
-    Alert.alert(
-      t('settings.deleteAccountTitle'),
-      t('settings.deleteAccountMessage'),
-      [
-        { text: t('settings.cancel'), style: 'cancel' },
-        {
-          text: t('settings.deleteAccountConfirm'),
-          style: 'destructive',
-          onPress: async () => {
-            void hapticHeavy();
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const accessToken = session?.access_token;
+    setShowDeleteConfirmModal(true);
+  };
 
-              if (!accessToken || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
-                throw new Error('Missing authenticated session for account deletion.');
-              }
+  const handleDeleteAccount = async () => {
+    void hapticHeavy();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
 
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user?.id) {
-                await Promise.all([
-                  supabase.from('profiles').delete().eq('id', user.id),
-                  supabase.from('daily_answers').delete().eq('user_id', user.id),
-                ]);
-              }
+      if (!accessToken || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error('Missing authenticated session for account deletion.');
+      }
 
-              const deleteResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-                method: 'DELETE',
-                headers: {
-                  apikey: SUPABASE_ANON_KEY,
-                  Authorization: `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json',
-                },
-              });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await Promise.all([
+          supabase.from('profiles').delete().eq('id', user.id),
+          supabase.from('daily_answers').delete().eq('user_id', user.id),
+        ]);
+      }
 
-              if (!deleteResponse.ok) {
-                const errorText = await deleteResponse.text();
-                throw new Error(errorText || `Delete failed with status ${deleteResponse.status}`);
-              }
-
-              await supabase.auth.signOut();
-              await AsyncStorage.clear();
-              void hapticSuccess();
-              router.replace('/onboarding');
-            } catch (error) {
-              console.error('Delete account error:', error);
-              void hapticError();
-              Alert.alert(
-                '',
-                t('settings.deleteAccountError', {
-                  defaultValue: currentLang === 'ru'
-                    ? 'Не удалось удалить аккаунт. Попробуйте еще раз.'
-                    : 'Unable to delete account. Please try again.',
-                })
-              );
-            }
-          },
+      const deleteResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'DELETE',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
-      ],
-    );
+      });
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        throw new Error(errorText || `Delete failed with status ${deleteResponse.status}`);
+      }
+
+      await cancelAllNotifications();
+      await supabase.auth.signOut();
+      await AsyncStorage.clear();
+      setShowDeleteConfirmModal(false);
+      void hapticSuccess();
+      router.replace('/onboarding');
+    } catch (error) {
+      console.error('Delete account error:', error);
+      void hapticError();
+      Alert.alert(
+        '',
+        t('settings.deleteAccountError', {
+          defaultValue: currentLang === 'ru'
+            ? 'Не удалось удалить аккаунт. Попробуйте еще раз.'
+            : 'Unable to delete account. Please try again.',
+        })
+      );
+    }
   };
 
   const formatBirthDate = () => {
@@ -327,15 +325,6 @@ export default function SettingsScreen() {
 
   const initial = userName ? userName.charAt(0).toUpperCase() : '?';
   const currentPlanKey = isTrialActive ? 'trial' : isPremium ? 'premium' : 'free';
-
-  const formatTime = (h: number, m: number) => {
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`;
-  };
-
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = [0, 15, 30, 45];
 
   return (
     <PaperTextureBackground>
@@ -393,104 +382,6 @@ export default function SettingsScreen() {
               thumbColor="#fff"
             />
           </View>
-          {notificationsEnabled && (
-            <View style={styles.timePickerSection}>
-              <Text style={styles.rowLabel}>{t('settings.remindMeAt')}</Text>
-              <View style={styles.timePickerRow}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeScroll}>
-                  {hours.map((h) => (
-                    <TouchableOpacity
-                      key={`h-${h}`}
-                      style={[styles.timePill, reminderHour === h && styles.timePillActive]}
-                      onPress={() => handleTimeChange(h, reminderMinute)}
-                    >
-                      <Text style={[styles.timePillText, reminderHour === h && styles.timePillTextActive]}>
-                        {h === 0 ? 12 : h > 12 ? h - 12 : h}{h < 12 ? 'a' : 'p'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.timePickerRow}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeScroll}>
-                  {minutes.map((m) => (
-                    <TouchableOpacity
-                      key={`m-${m}`}
-                      style={[styles.timePill, reminderMinute === m && styles.timePillActive]}
-                      onPress={() => handleTimeChange(reminderHour, m)}
-                    >
-                      <Text style={[styles.timePillText, reminderMinute === m && styles.timePillTextActive]}>
-                        :{m.toString().padStart(2, '0')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <Text style={styles.selectedTimeText}>{formatTime(reminderHour, reminderMinute)}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── Preferences ── */}
-        <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.rowLabel}>{t('settings.language')}</Text>
-          <View style={styles.languageRow}>
-            <TouchableOpacity
-              style={[styles.languagePill, currentLang === 'en' && styles.languagePillActive]}
-              onPress={() => handleLanguageChange('en')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.flagEmoji}>🇺🇸</Text>
-              <Text style={[styles.languagePillText, currentLang === 'en' && styles.languagePillTextActive]}>
-                {t('settings.english')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.languagePill, currentLang === 'ru' && styles.languagePillActive]}
-              onPress={() => handleLanguageChange('ru')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.flagEmoji}>🇷🇺</Text>
-              <Text style={[styles.languagePillText, currentLang === 'ru' && styles.languagePillTextActive]}>
-                {t('settings.russian')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Subscription ── */}
-        <Text style={styles.sectionTitle}>{t('settings.subscription')}</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>{t('settings.currentPlan')}</Text>
-            <View
-              style={[
-                styles.planBadge,
-                currentPlanKey === 'premium' && styles.planBadgePremium,
-                currentPlanKey === 'trial' && styles.planBadgeTrial,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.planBadgeText,
-                  currentPlanKey === 'premium' && styles.planBadgeTextPremium,
-                  currentPlanKey === 'trial' && styles.planBadgeTextTrial,
-                ]}
-              >
-                {currentPlanKey === 'trial'
-                  ? t('settings.trialPlan')
-                  : currentPlanKey === 'premium'
-                    ? t('settings.premiumPlan')
-                    : t('settings.freePlan')}
-              </Text>
-            </View>
-          </View>
-          {!isLoading && !isPremium && (
-            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade} activeOpacity={0.7}>
-              <Text style={styles.upgradeButtonText}>{t('settings.upgradeToPremium')}</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* ── Birth Chart ── */}
@@ -580,19 +471,173 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Subscription ── */}
+        <Text style={styles.sectionTitle}>{t('settings.subscription')}</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>{t('settings.currentPlan')}</Text>
+            <View
+              style={[
+                styles.planBadge,
+                currentPlanKey === 'premium' && styles.planBadgePremium,
+                currentPlanKey === 'trial' && styles.planBadgeTrial,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.planBadgeText,
+                  currentPlanKey === 'premium' && styles.planBadgeTextPremium,
+                  currentPlanKey === 'trial' && styles.planBadgeTextTrial,
+                ]}
+              >
+                {currentPlanKey === 'trial'
+                  ? t('settings.trialPlan')
+                  : currentPlanKey === 'premium'
+                    ? t('settings.premiumPlan')
+                    : t('settings.freePlan')}
+              </Text>
+            </View>
+          </View>
+          {!isLoading && !isPremium && (
+            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade} activeOpacity={0.7}>
+              <Text style={styles.upgradeButtonText}>{t('settings.upgradeToPremium')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── Preferences ── */}
+        <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
+        <View style={styles.card}>
+          <Text style={styles.rowLabel}>{t('settings.language')}</Text>
+          <View style={styles.languageRow}>
+            <TouchableOpacity
+              style={[styles.languagePill, currentLang === 'en' && styles.languagePillActive]}
+              onPress={() => handleLanguageChange('en')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.languagePillText, currentLang === 'en' && styles.languagePillTextActive]}>
+                {t('settings.english')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.languagePill, currentLang === 'ru' && styles.languagePillActive]}
+              onPress={() => handleLanguageChange('ru')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.languagePillText, currentLang === 'ru' && styles.languagePillTextActive]}>
+                {t('settings.russian')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* ── Account Actions ── */}
         <Text style={styles.sectionTitle}>{t('settings.accountActions')}</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={20} color="#342846" />
           <Text style={styles.logoutButtonText}>{t('settings.logOut')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccountPress} activeOpacity={0.7}>
           <Ionicons name="trash-outline" size={20} color="#D32F2F" />
           <Text style={styles.deleteButtonText}>{t('settings.deleteAccount')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: insets.bottom + 40 }} />
       </ScrollView>
+
+      <Modal
+        visible={showLogoutConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutConfirmModal(false)}
+      >
+        <Pressable
+          style={styles.logoutModalOverlay}
+          onPress={() => {
+            setShowLogoutConfirmModal(false);
+          }}
+        >
+          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+            <Text style={styles.logoutModalTitle}>
+              {t('settings.logOutConfirmTitle', {
+                defaultValue: currentLang === 'ru'
+                  ? 'Вы уверены, что хотите выйти?'
+                  : 'Are you sure you want to log out?',
+              })}
+            </Text>
+            <View style={styles.logoutModalButtonsRow}>
+              <TouchableOpacity
+                style={[styles.logoutModalButton, styles.logoutModalButtonSecondary]}
+                onPress={() => {
+                  void hapticLight();
+                  setShowLogoutConfirmModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.logoutModalButtonText, styles.logoutModalButtonTextSecondary]}>
+                  {t('settings.no', { defaultValue: currentLang === 'ru' ? 'Нет' : 'No' })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.logoutModalButton, styles.logoutModalButtonPrimary]}
+                onPress={handleLogout}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.logoutModalButtonText, styles.logoutModalButtonTextPrimary]}>
+                  {t('settings.yes', { defaultValue: currentLang === 'ru' ? 'Да' : 'Yes' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showDeleteConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirmModal(false)}
+      >
+        <Pressable
+          style={styles.logoutModalOverlay}
+          onPress={() => {
+            setShowDeleteConfirmModal(false);
+          }}
+        >
+          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+            <Text style={styles.logoutModalTitle}>
+              {t('settings.deleteConfirmTitle', {
+                defaultValue: currentLang === 'ru'
+                  ? 'Вы уверены, что хотите удалить аккаунт?'
+                  : 'Are you sure you want to delete your account?',
+              })}
+            </Text>
+            <View style={styles.logoutModalButtonsRow}>
+              <TouchableOpacity
+                style={[styles.logoutModalButton, styles.logoutModalButtonSecondary]}
+                onPress={() => {
+                  void hapticLight();
+                  setShowDeleteConfirmModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.logoutModalButtonText, styles.logoutModalButtonTextSecondary]}>
+                  {t('settings.no', { defaultValue: currentLang === 'ru' ? 'Нет' : 'No' })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.logoutModalButton, styles.logoutModalButtonPrimary]}
+                onPress={handleDeleteAccount}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.logoutModalButtonText, styles.logoutModalButtonTextPrimary]}>
+                  {t('settings.yes', { defaultValue: currentLang === 'ru' ? 'Да' : 'Yes' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </PaperTextureBackground>
   );
 }
@@ -614,6 +659,7 @@ const styles = StyleSheet.create({
     borderColor: '#342846',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
   },
   headerSpacer: {
     width: 40,
@@ -621,9 +667,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...HeadingStyle,
-    fontSize: 18,
+    fontSize: 24,
+    fontWeight: '700',
     color: '#342846',
-    marginTop: 15,
+    marginTop: 0,
     marginBottom: 20,
   },
   container: {
@@ -721,43 +768,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  // Time picker
-  timePickerSection: {
-    marginTop: 16,
-  },
-  timePickerRow: {
-    marginTop: 10,
-  },
-  timeScroll: {
-    flexGrow: 0,
-  },
-  timePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0edf3',
-    marginRight: 8,
-  },
-  timePillActive: {
-    backgroundColor: '#342846',
-  },
-  timePillText: {
-    ...BodyStyle,
-    fontSize: 14,
-    color: '#342846',
-  },
-  timePillTextActive: {
-    color: '#FFFFFF',
-  },
-  selectedTimeText: {
-    ...BodyStyle,
-    color: '#342846',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-
   // Language
   languageRow: {
     flexDirection: 'row',
@@ -772,13 +782,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: '#f0edf3',
-    gap: 8,
   },
   languagePillActive: {
     backgroundColor: '#342846',
-  },
-  flagEmoji: {
-    fontSize: 20,
   },
   languagePillText: {
     ...BodyStyle,
@@ -905,5 +911,62 @@ const styles = StyleSheet.create({
     ...ButtonHeadingStyle,
     color: '#D32F2F',
     fontSize: 16,
+  },
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  logoutModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  logoutModalTitle: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+    textTransform: 'none',
+  },
+  logoutModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  logoutModalButton: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutModalButtonPrimary: {
+    backgroundColor: '#342846',
+  },
+  logoutModalButtonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+  },
+  logoutModalButtonText: {
+    ...ButtonHeadingStyle,
+    fontSize: 16,
+  },
+  logoutModalButtonTextPrimary: {
+    color: '#FFFFFF',
+  },
+  logoutModalButtonTextSecondary: {
+    color: '#342846',
   },
 });

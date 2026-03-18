@@ -1,12 +1,14 @@
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import { JournalEntriesCalendar } from '@/components/JournalEntriesCalendar';
 import { MoodCalendar } from '@/components/MoodCalendar';
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { UserAnswer, generateLevelStepInstructions } from '@/utils/claudeApi';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,6 +80,127 @@ const getBadgeImage = (badgeNumber?: number) => {
   return require('../../assets/images/trophy.png');
 };
 
+const QUOTE_OPENERS_EN = [
+  'Small steps compound into extraordinary change.',
+  'Consistency quietly shapes your future.',
+  'Clarity comes from action, not waiting.',
+  'Momentum begins with one honest choice.',
+  'Progress is built in ordinary moments.',
+  'Your direction matters more than your speed.',
+  'Discipline is self-respect in motion.',
+  'Today is a fresh chance to realign.',
+  'Calm focus beats chaotic effort.',
+  'You grow every time you choose courage.',
+  'A meaningful life is built daily.',
+  'Your effort today becomes tomorrow’s confidence.',
+  'Purpose deepens when you keep showing up.',
+  'Every completed step teaches your mind to trust you.',
+  'A clear next step dissolves overwhelm.',
+];
+
+const QUOTE_CLOSERS_EN = [
+  'Trust the pace and keep moving.',
+  'Choose what matters and protect your energy.',
+  'Let this day reflect your values.',
+  'Finish one thing well before starting the next.',
+  'Your future is shaped by repeated small decisions.',
+  'Keep your standards high and your pressure low.',
+  'Notice the win, then take the next step.',
+  'Turn intention into action before motivation fades.',
+  'Stay grounded; progress is already happening.',
+  'What you practice today becomes your identity.',
+  'Follow what feels aligned, not only urgent.',
+  'One focused hour can change your week.',
+  'Keep the promise you made to yourself.',
+  'Choose depth over distraction.',
+  'Your path strengthens each time you continue.',
+  'Build quietly; results will speak.',
+  'Rest with intention, then return stronger.',
+  'Protect your attention like your most valuable asset.',
+  'Progress is not loud; it is consistent.',
+  'You are closer than you think.',
+  'Keep your heart open and your steps practical.',
+  'Direction first, speed second.',
+  'The next right step is enough for now.',
+  'Make this day count in a way that feels true.',
+  'Your consistency is your superpower.',
+];
+
+const QUOTE_OPENERS_RU = [
+  'Маленькие шаги складываются в большие перемены.',
+  'Постоянство тихо формирует твое будущее.',
+  'Ясность приходит через действие, а не ожидание.',
+  'Импульс начинается с одного честного выбора.',
+  'Прогресс строится в обычных моментах.',
+  'Направление важнее скорости.',
+  'Дисциплина — это уважение к себе в действии.',
+  'Сегодня — новый шанс выровнять курс.',
+  'Спокойный фокус сильнее суеты.',
+  'Ты растешь каждый раз, когда выбираешь смелость.',
+  'Осмысленная жизнь строится ежедневно.',
+  'Твои усилия сегодня становятся уверенностью завтра.',
+  'Предназначение углубляется, когда ты продолжаешь идти.',
+  'Каждый завершенный шаг учит тебя доверять себе.',
+  'Один ясный следующий шаг снимает перегруз.',
+];
+
+const QUOTE_CLOSERS_RU = [
+  'Доверяй своему темпу и продолжай.',
+  'Выбирай важное и береги свою энергию.',
+  'Пусть этот день отражает твои ценности.',
+  'Заверши одно дело качественно, прежде чем начинать новое.',
+  'Будущее формируется повторяющимися маленькими решениями.',
+  'Держи высокую планку и мягкое внутреннее давление.',
+  'Заметь победу и сделай следующий шаг.',
+  'Превращай намерение в действие, пока не ушла мотивация.',
+  'Оставайся в опоре: прогресс уже идет.',
+  'То, что ты практикуешь сегодня, становится твоей личностью.',
+  'Следуй за тем, что в резонансе, а не только срочно.',
+  'Один сфокусированный час может изменить неделю.',
+  'Сдержи обещание, данное себе.',
+  'Выбирай глубину вместо рассеивания.',
+  'Твой путь крепнет каждый раз, когда ты продолжаешь.',
+  'Строй тихо — результат скажет сам за себя.',
+  'Отдыхай осознанно и возвращайся сильнее.',
+  'Береги внимание как самый ценный ресурс.',
+  'Прогресс не всегда громкий, но всегда последовательный.',
+  'Ты ближе, чем кажется.',
+  'Сохраняй открытое сердце и практичные шаги.',
+  'Сначала направление, потом скорость.',
+  'Сейчас достаточно сделать следующий правильный шаг.',
+  'Пусть этот день будет прожит в согласии с собой.',
+  'Твое постоянство — твоя суперсила.',
+];
+
+const build365Quotes = (openers: string[], closers: string[]) =>
+  Array.from({ length: 365 }, (_, i) => {
+    const opener = openers[i % openers.length];
+    const closer = closers[(i * 7 + 3) % closers.length];
+    return `${opener} ${closer}`;
+  });
+
+const DAILY_QUOTES_EN = build365Quotes(QUOTE_OPENERS_EN, QUOTE_CLOSERS_EN);
+const DAILY_QUOTES_RU = build365Quotes(QUOTE_OPENERS_RU, QUOTE_CLOSERS_RU);
+
+const getDayOfYear = (date: Date) => {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  return Math.floor(diff / 86400000);
+};
+
+const ME_CARD_SURFACE = {
+  backgroundColor: 'rgba(255, 255, 255, 0.78)',
+  borderRadius: 16,
+  borderWidth: 1.5,
+  borderColor: 'rgba(255, 255, 255, 0.98)',
+  shadowColor: '#342846',
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.18,
+  shadowRadius: 16,
+  elevation: 9,
+  overflow: 'hidden',
+};
+
 export default function MeScreen() {
   const { t, i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
@@ -92,6 +215,8 @@ export default function MeScreen() {
   const [selectedInsight, setSelectedInsight] = useState<SavedInsight | null>(null);
   const [showSavedInsightsModal, setShowSavedInsightsModal] = useState(false);
   const [showAnswersCalendarModal, setShowAnswersCalendarModal] = useState(false);
+  const [showJournalEntryModal, setShowJournalEntryModal] = useState(false);
+  const [selectedJournalEntry, setSelectedJournalEntry] = useState<UserAnswer | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -103,8 +228,6 @@ export default function MeScreen() {
   
   // User profile data for portfolio area
   const [userName, setUserName] = useState<string>('');
-  const [zodiacSign, setZodiacSign] = useState<string>('');
-  const [completedGoalsCount, setCompletedGoalsCount] = useState<number>(0);
   const [isProfileLoaded, setIsProfileLoaded] = useState<boolean>(false);
 
   const sanitizeProfileText = (value?: string | null): string => {
@@ -167,25 +290,38 @@ export default function MeScreen() {
     }
   };
   
-  // Calculate zodiac sign from birth date
-  const calculateZodiacSign = (month: number, day: number): string => {
-    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return t('me.zodiacSigns.Aries');
-    if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return t('me.zodiacSigns.Taurus');
-    if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return t('me.zodiacSigns.Gemini');
-    if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return t('me.zodiacSigns.Cancer');
-    if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return t('me.zodiacSigns.Leo');
-    if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return t('me.zodiacSigns.Virgo');
-    if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return t('me.zodiacSigns.Libra');
-    if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return t('me.zodiacSigns.Scorpio');
-    if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return t('me.zodiacSigns.Sagittarius');
-    if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return t('me.zodiacSigns.Capricorn');
-    if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return t('me.zodiacSigns.Aquarius');
-    if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return t('me.zodiacSigns.Pisces');
-    return '';
-  };
-
   // Animation refs for badge slamming effect
   const badgeAnimations = useRef<{ [key: string]: Animated.Value }>({});
+  const badgesScrollRef = useRef<ScrollView | null>(null);
+  const completedGoalCheckPulse = useRef(new Animated.Value(1)).current;
+  const [badgesScrollX, setBadgesScrollX] = useState(0);
+  const [badgesViewportWidth, setBadgesViewportWidth] = useState(0);
+  const [badgesContentWidth, setBadgesContentWidth] = useState(0);
+
+  useEffect(() => {
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(completedGoalCheckPulse, {
+          toValue: 1.14,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(completedGoalCheckPulse, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseLoop.start();
+    return () => pulseLoop.stop();
+  }, [completedGoalCheckPulse]);
+
+  useEffect(() => {
+    if (!newlyAddedBadgeId) return;
+    badgesScrollRef.current?.scrollTo({ x: 0, animated: true });
+    setBadgesScrollX(0);
+  }, [newlyAddedBadgeId]);
 
   // Load user data on mount and when screen comes into focus
   useFocusEffect(
@@ -292,25 +428,6 @@ export default function MeScreen() {
       const name = await AsyncStorage.getItem('userName');
       if (name) {
         setUserName(sanitizeProfileText(name));
-      }
-
-      // Load birth date and calculate zodiac sign
-      const birthMonth = await AsyncStorage.getItem('birthMonth');
-      const birthDate = await AsyncStorage.getItem('birthDate');
-      if (birthMonth && birthDate) {
-        const month = parseInt(birthMonth);
-        const day = parseInt(birthDate);
-        const zodiac = calculateZodiacSign(month, day);
-        setZodiacSign(sanitizeProfileText(zodiac));
-      }
-
-      // Load completed goals count
-      const completedGoalsData = await AsyncStorage.getItem('completedGoals');
-      if (completedGoalsData) {
-        const goals = JSON.parse(completedGoalsData);
-        setCompletedGoalsCount(goals.length);
-      } else {
-        setCompletedGoalsCount(0);
       }
 
       // Load saved insights
@@ -529,6 +646,11 @@ export default function MeScreen() {
     });
   }, [answers]);
 
+  const dailyQuote = useMemo(() => {
+    const dayIndex = Math.max(0, getDayOfYear(new Date()) - 1) % 365;
+    return isRussian ? DAILY_QUOTES_RU[dayIndex] : DAILY_QUOTES_EN[dayIndex];
+  }, [isRussian]);
+
   const answersByDate = useMemo(() => {
     const map = new Map<string, UserAnswer>();
     answers.forEach((answer) => {
@@ -579,6 +701,13 @@ export default function MeScreen() {
     setShowAnswersCalendarModal(true);
   };
 
+  const openAnswerEntryFromDate = (dateKey: string) => {
+    const entry = answersByDate.get(dateKey) || null;
+    if (!entry) return;
+    setSelectedJournalEntry(entry);
+    setShowJournalEntryModal(true);
+  };
+
   const insightCategoryHeadings = isRussian
     ? ['ЧТО ГОВОРИТ ТВОЕ СЕРДЦЕ', 'СТОИТ ИССЛЕДОВАТЬ', 'ЧЕМУ МОЖНО ДАТЬ УЙТИ', 'ДРУГОЙ ВЗГЛЯД']
     : ['WHAT YOUR HEART SAYS', 'WORTH EXPLORING', 'WHAT TO RELEASE', 'ANOTHER PERSPECTIVE'];
@@ -622,6 +751,91 @@ export default function MeScreen() {
 
     return '';
   };
+
+  const getInsightPreviewData = (insightText: string, fallbackTitle?: string): { summary: string; snippet: string } => {
+    const clampWords = (value: string, max = 56) => {
+      const cleaned = value.replace(/\s+/g, ' ').trim();
+      if (cleaned.length <= max) return cleaned;
+      const sliced = cleaned.slice(0, max);
+      const lastSpace = sliced.lastIndexOf(' ');
+      return (lastSpace > 20 ? sliced.slice(0, lastSpace) : sliced).trim();
+    };
+
+    const body = getInsightBodyText(insightText);
+    const lines = body.split('\n').map((line) => line.trim()).filter(Boolean);
+    const fallbackSummary = tr('Clarity insight', 'Инсайт ясности');
+    const normalizeSnippetCase = (value: string) => {
+      const cleaned = value.replace(/\s+/g, ' ').trim();
+      if (!cleaned) return cleaned;
+      const lettersOnly = cleaned.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+      const looksUppercase =
+        lettersOnly.length > 8 && cleaned === cleaned.toUpperCase();
+      if (!looksUppercase) return cleaned;
+      const lower = cleaned.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    };
+
+    let summary = fallbackSummary;
+    if (fallbackTitle && fallbackTitle.trim()) {
+      summary = clampWords(fallbackTitle, 38);
+    } else {
+      const headingLike = lines.find(
+        (line) =>
+          line.length < 44 &&
+          !line.endsWith('.') &&
+          !line.startsWith('-') &&
+          !line.startsWith('•')
+      );
+      summary = clampWords(headingLike || lines[0] || fallbackSummary, 38);
+    }
+
+    const isKnownInsightHeading = (line: string) =>
+      insightCategoryHeadings.some(
+        (heading) => line.toUpperCase() === heading.toUpperCase()
+      );
+
+    const snippetSource =
+      lines.find(
+        (line) =>
+          line !== summary &&
+          !isKnownInsightHeading(line) &&
+          line.length > 10
+      ) ||
+      lines.find((line) => line !== summary && !isKnownInsightHeading(line)) ||
+      lines[1] ||
+      lines[0] ||
+      '';
+    const snippet = normalizeSnippetCase(
+      clampWords(
+        snippetSource || tr('Tap to open full insight.', 'Нажми, чтобы открыть полный инсайт.'),
+        62
+      )
+    );
+    return { summary, snippet };
+  };
+
+  const previewSavedInsights = useMemo(() => savedInsights.slice(0, 6), [savedInsights]);
+  const insightPathWidth = useMemo(
+    () => Math.max(previewSavedInsights.length * 159 + 40, 380),
+    [previewSavedInsights.length]
+  );
+
+  const displayBadges = useMemo(() => {
+    const sortedByDate = [...badges].sort((a, b) => {
+      const aTs = a.dateEarned ? new Date(a.dateEarned).getTime() : 0;
+      const bTs = b.dateEarned ? new Date(b.dateEarned).getTime() : 0;
+      return bTs - aTs;
+    });
+
+    if (!newlyAddedBadgeId) return sortedByDate;
+    const highlightedIdx = sortedByDate.findIndex((badge) => badge.id === newlyAddedBadgeId);
+    if (highlightedIdx <= 0) return sortedByDate;
+    const highlighted = sortedByDate[highlightedIdx];
+    return [highlighted, ...sortedByDate.filter((badge) => badge.id !== newlyAddedBadgeId)];
+  }, [badges, newlyAddedBadgeId]);
+
+  const canSwipeBadgesLeft = badgesScrollX > 4;
+  const canSwipeBadgesRight = badgesScrollX + badgesViewportWidth < badgesContentWidth - 4;
 
   const renderInsightSections = (insightText: string) => {
     const normalizedInsightText = getInsightBodyText(insightText);
@@ -727,37 +941,33 @@ export default function MeScreen() {
         resizeMode="cover"
       />
       <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: Math.max(60, insets.top + 20) }]}>
+          <View style={styles.headerSideSpacer} />
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.portfolioUserName}>{tr('Your Activity', 'Твоя активность')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.helperButton}
+            onPress={() => {}}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="help-outline" size={20} color="#342846" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.subtitleSection}>
+          <Text style={styles.headerSubtitle}>
+            {tr(
+              'See your progress, insights, and growth in one place.',
+              'Смотри свой прогресс, инсайты и рост в одном месте.'
+            )}
+          </Text>
+        </View>
 
         {/* User Portfolio Area */}
-        <View style={[styles.portfolioContainer, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.portfolioContainer}>
           <View style={styles.portfolioCard}>
             <FrostedCardLayer />
-
-            {/* User Name */}
-            <Text style={styles.portfolioUserName}>{isProfileLoaded ? userName : ''}</Text>
-            <Text style={styles.portfolioSubtitle}>
-              {tr('Your growth snapshot', 'Твой снимок прогресса')}
-            </Text>
-
-            {/* Zodiac Sign, goals count, and weekly entries */}
-            {isProfileLoaded && (
-              <View style={styles.portfolioInfoRow}>
-                {zodiacSign ? (
-                  <View style={styles.portfolioInfoItem}>
-                    <Text style={styles.portfolioInfoLabel}>{t('me.zodiac')}</Text>
-                    <Text style={styles.portfolioInfoValue}>{zodiacSign}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.portfolioInfoItem}>
-                  <Text style={styles.portfolioInfoLabel}>{t('me.goalsCompleted')}</Text>
-                  <Text style={styles.portfolioInfoValue}>{completedGoalsCount}</Text>
-                </View>
-                <View style={styles.portfolioInfoItem}>
-                  <Text style={styles.portfolioInfoLabel}>{tr('Entries this week', 'Записей за неделю')}</Text>
-                  <Text style={styles.portfolioInfoValue}>{currentWeekAnswers.length}</Text>
-                </View>
-              </View>
-            )}
+            <Text style={styles.portfolioQuoteText}>"{dailyQuote}"</Text>
           </View>
         </View>
 
@@ -768,79 +978,94 @@ export default function MeScreen() {
         >
           {/* Badges Gained Section */}
           <View style={styles.section}>
-            <View style={styles.badgesSectionHeader}>
-              <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>{t('me.badgesGained')}</Text>
-              {badges.length > 5 && (
-                <TouchableOpacity style={styles.viewAllButtonContainer}>
-                  <Text style={styles.viewAllButton}>
-                    {t('me.viewAll').replace(' ', '\n')}
-                  </Text>
-                </TouchableOpacity>
+            <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>
+              {tr('Badges gained', 'Награды')}
+            </Text>
+            <View style={styles.badgesContainerCard}>
+              {badges.length === 0 ? (
+                <View style={styles.badgesEmptyState}>
+                  <Text style={styles.emptyText}>{tr('No badges yet. Keep using the app to earn them!', 'Пока нет наград. Продолжай пользоваться приложением, чтобы их получить!')}</Text>
+                </View>
+              ) : (
+                <>
+                  <ScrollView
+                    ref={(ref) => {
+                      badgesScrollRef.current = ref;
+                    }}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.badgesScroll}
+                    contentContainerStyle={styles.badgesScrollContent}
+                    onLayout={(event) => setBadgesViewportWidth(event.nativeEvent.layout.width)}
+                    onContentSizeChange={(width) => setBadgesContentWidth(width)}
+                    onScroll={(event) => setBadgesScrollX(event.nativeEvent.contentOffset.x)}
+                    scrollEventThrottle={16}
+                  >
+                    {displayBadges.map((badge, index) => {
+                      const colors = getBadgeColors(badge.name, index);
+                      const isNewlyAdded = newlyAddedBadgeId === badge.id;
+                      const badgeImage = getBadgeImage(badge.badgeNumber);
+
+                      // Get or create animation value
+                      if (!badgeAnimations.current[badge.id]) {
+                        badgeAnimations.current[badge.id] = new Animated.Value(0);
+                      }
+                      const animValue = badgeAnimations.current[badge.id];
+
+                      return (
+                        <Animated.View
+                          key={badge.id}
+                          style={[
+                            styles.badgeCard,
+                            isNewlyAdded && {
+                              transform: [
+                                {
+                                  translateY: animValue,
+                                },
+                                {
+                                  scale: animValue.interpolate({
+                                    inputRange: [-200, -50, 0],
+                                    outputRange: [0.2, 1.3, 1.0],
+                                    extrapolate: 'clamp',
+                                  }),
+                                },
+                              ],
+                            },
+                          ]}
+                        >
+                          <View style={[styles.badgeIconContainer, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                            <Image
+                              source={badgeImage}
+                              style={styles.badgeImage}
+                              resizeMode="contain"
+                            />
+                          </View>
+                          <Text
+                            style={styles.badgeName}
+                            numberOfLines={3}
+                            ellipsizeMode="tail"
+                            android_hyphenationFrequency="none"
+                          >
+                            {badge.name}
+                          </Text>
+                        </Animated.View>
+                      );
+                    })}
+                  </ScrollView>
+                  {displayBadges.length > 1 ? (
+                    <View style={styles.badgesSwipeIndicatorRow}>
+                      <Text style={[styles.badgesSwipeArrow, !canSwipeBadgesLeft && styles.badgesSwipeArrowDisabled]}>
+                        {'←'}
+                      </Text>
+                      <Text style={styles.badgesSwipeHint}>{tr('Swipe', 'Листай')}</Text>
+                      <Text style={[styles.badgesSwipeArrow, !canSwipeBadgesRight && styles.badgesSwipeArrowDisabled]}>
+                        {'→'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
               )}
             </View>
-            {badges.length === 0 ? (
-              <View style={[styles.goalCard, styles.emptyFieldCard]}>
-                <Text style={styles.emptyText}>{tr('No badges yet. Keep using the app to earn them!', 'Пока нет наград. Продолжай пользоваться приложением, чтобы их получить!')}</Text>
-              </View>
-            ) : (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.badgesScroll}
-                contentContainerStyle={styles.badgesScrollContent}
-              >
-                {badges.map((badge, index) => {
-                  const colors = getBadgeColors(badge.name, index);
-                  const isNewlyAdded = newlyAddedBadgeId === badge.id;
-                  const badgeImage = getBadgeImage(badge.badgeNumber);
-                  
-                  // Get or create animation value
-                  if (!badgeAnimations.current[badge.id]) {
-                    badgeAnimations.current[badge.id] = new Animated.Value(0);
-                  }
-                  const animValue = badgeAnimations.current[badge.id];
-                  
-                  return (
-                    <Animated.View
-                      key={badge.id}
-                      style={[
-                        styles.badgeCard,
-                        isNewlyAdded && {
-                          transform: [
-                            {
-                              translateY: animValue,
-                            },
-                            {
-                              scale: animValue.interpolate({
-                                inputRange: [-200, -50, 0],
-                                outputRange: [0.2, 1.3, 1.0],
-                                extrapolate: 'clamp',
-                              }),
-                            },
-                          ],
-                        },
-                      ]}
-                    >
-                      <View style={[styles.badgeIconContainer, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                        <Image
-                          source={badgeImage}
-                          style={styles.badgeImage}
-                          resizeMode="contain"
-                        />
-                      </View>
-                      <Text
-                        style={styles.badgeName}
-                        numberOfLines={3}
-                        ellipsizeMode="tail"
-                        android_hyphenationFrequency="none"
-                      >
-                        {badge.name}
-                      </Text>
-                    </Animated.View>
-                  );
-                })}
-              </ScrollView>
-            )}
           </View>
 
           {/* Mood Tracker Calendar Section */}
@@ -855,7 +1080,7 @@ export default function MeScreen() {
           <View style={styles.section}>
             <View style={styles.recentAnswersHeader}>
               <Text style={[styles.sectionTitle, styles.sectionTitleCentered, styles.recentAnswersTitle]}>
-                {t('me.savedInsights')}
+                {tr('Saved insights', 'Сохраненные инсайты')}
               </Text>
               {savedInsights.length > 1 && (
                 <TouchableOpacity
@@ -874,54 +1099,52 @@ export default function MeScreen() {
                 <Text style={styles.emptyText}>{t('me.noSavedInsights')}</Text>
               </View>
             ) : (
-              <View style={styles.insightsList}>
-                {savedInsights.slice(0, 1).map((insight, index) => {
-                  // Generate title from insight content - use first heading or first line
-                  const getInsightTitle = (insightText: string): string => {
-                    const normalizedText = getInsightBodyText(insightText);
-                    const lines = normalizedText.split('\n').filter(line => line.trim().length > 0);
-                    // Look for a heading-like line
-                    for (const line of lines) {
-                      const trimmed = line.trim();
-                      if (trimmed.length < 40 && 
-                          !trimmed.endsWith('.') && 
-                          !trimmed.startsWith('-') &&
-                          !trimmed.startsWith('•')) {
-                        return trimmed;
-                      }
-                    }
-                    // Fallback: use first 30 chars of first line
-                    if (lines.length > 0) {
-                      return lines[0].substring(0, 30) + (lines[0].length > 30 ? '...' : '');
-                    }
-                    return t('me.clarityInsight');
-                  };
-                  
-                  const title = insight.title || getInsightTitle(insight.insight);
-                  const locale = i18n.language === 'ru' || i18n.language?.startsWith('ru') ? 'ru-RU' : 'en-US';
-                  const date = new Date(insight.timestamp).toLocaleDateString(locale, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  });
-                  
-                  return (
-                    <TouchableOpacity 
-                      key={insight.id} 
-                      style={styles.insightCard}
-                      onPress={() => setSelectedInsight(insight)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.insightIconContainer}>
-                        <Text style={styles.insightIcon}>📄</Text>
-                      </View>
-                      <View style={styles.insightCardContent}>
-                        <Text style={styles.insightCardTitle} numberOfLines={1}>{title}</Text>
-                        <Text style={styles.insightCardDate}>{date}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.insightPathWrap}>
+                <Image
+                  source={require('../../assets/images/road.png')}
+                  style={styles.insightPathStaticRoad}
+                  resizeMode="cover"
+                  pointerEvents="none"
+                />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.insightPathScroll}
+                  contentContainerStyle={[styles.insightPathScrollContent, { width: insightPathWidth }]}
+                >
+                  {previewSavedInsights.map((insight, index) => {
+                    const preview = getInsightPreviewData(insight.insight, insight.title);
+                    const itemLocale = i18n.language === 'ru' || i18n.language?.startsWith('ru') ? 'ru-RU' : 'en-US';
+                    const date = new Date(insight.timestamp).toLocaleDateString(itemLocale, {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                    const isTop = index % 2 === 0;
+                    const left = 8 + index * 159;
+                    const top = isTop ? 6 : 104;
+
+                    return (
+                      <TouchableOpacity
+                        key={insight.id}
+                        style={[styles.insightPathNodeCard, { left, top }]}
+                        onPress={() => setSelectedInsight(insight)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.insightPathNodeContent}>
+                          <Text style={styles.insightPathNodeDate}>{date}</Text>
+                          <Text style={styles.insightPathNodeSummary} numberOfLines={2}>
+                            {preview.summary}
+                          </Text>
+                          <Text style={styles.insightPathNodeSnippet} numberOfLines={2}>
+                            {preview.snippet}
+                          </Text>
+                          <View style={styles.insightPathNodeBottomSpacer} />
+                        </View>
+                        <View style={styles.insightPathNodeDot} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View>
             )}
           </View>
@@ -930,7 +1153,7 @@ export default function MeScreen() {
           <View style={styles.section}>
             <View style={styles.recentAnswersHeader}>
               <Text style={[styles.sectionTitle, styles.sectionTitleCentered, styles.recentAnswersTitle]}>
-                {t('me.recentAnswers')}
+                {tr('Journal entries', 'Записи дневника')}
               </Text>
               {answers.length > 0 && (
                 <TouchableOpacity
@@ -948,60 +1171,18 @@ export default function MeScreen() {
               <View style={[styles.goalCard, styles.emptyFieldCard]}>
                 <Text style={styles.emptyText}>{tr('No answers yet. Respond to daily questions to see them here!', 'Пока нет ответов. Отвечай на ежедневные вопросы, чтобы видеть их здесь!')}</Text>
               </View>
-            ) : currentWeekAnswers.length === 0 ? (
-              <View style={[styles.goalCard, styles.emptyFieldCard]}>
-                <Text style={styles.emptyText}>
-                  {tr('No entries for this week yet. Tap "See all" to browse your full diary.', 'На этой неделе пока нет записей. Нажми «Смотреть все», чтобы открыть дневник.')}
-                </Text>
-              </View>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                pagingEnabled
-                decelerationRate="fast"
-                snapToAlignment="start"
-                style={styles.answersCarousel}
-                contentContainerStyle={styles.answersCarouselContent}
-              >
-                {currentWeekAnswers.map((answer, index) => (
-                  <View key={`${answer.date}-${index}`} style={styles.answerSlide}>
-                    <View style={styles.answerCard}>
-                      <FrostedCardLayer />
-                      <View style={styles.answerJournalHeader}>
-                        <Text style={styles.answerJournalTag}>
-                          {tr('Journal entry', 'Запись дневника')}
-                        </Text>
-                        <View style={styles.answerJournalMetaRight}>
-                          <Text style={styles.answerJournalPage}>
-                            {index + 1}/{currentWeekAnswers.length}
-                          </Text>
-                          <Text style={styles.answerJournalDateMeta}>{formatDateShort(answer.date)}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.answerPromptRow}>
-                        <Text style={styles.answerPromptLabel}>{tr('Question', 'Вопрос')}</Text>
-                      </View>
-                      <View style={styles.answerQuestionBlock}>
-                        <Text style={styles.answerQuestion} numberOfLines={3} ellipsizeMode="tail">
-                          {answer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
-                        </Text>
-                      </View>
-                      <Text style={styles.answerEntryLabel}>{tr('The entry', 'Запись')}</Text>
-                      <View style={styles.answerField}>
-                        <Text style={styles.answerText}>{answer.answer || ''}</Text>
-                      </View>
-                      <View style={styles.answerCardBottomSpacer} />
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
+              <View style={styles.journalEntriesCalendarContainer}>
+                <JournalEntriesCalendar entries={answers} onSelectEntryDate={openAnswerEntryFromDate} />
+              </View>
             )}
           </View>
 
           {/* Completed Goals Section */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>{t('me.completedGoals')}</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleCentered]}>
+              {tr('Completed goals', 'Завершенные цели')}
+            </Text>
             {completedGoals.length === 0 ? (
               <View style={[styles.goalCard, styles.emptyFieldCard]}>
                 <Text style={styles.emptyText}>{t('me.noCompletedGoals')}</Text>
@@ -1009,8 +1190,8 @@ export default function MeScreen() {
             ) : (
               <View style={styles.goalsList}>
                 {completedGoals.map((goal) => (
-                  <TouchableOpacity 
-                    key={goal.id} 
+                  <TouchableOpacity
+                    key={goal.id}
                     style={styles.goalCard}
                     onPress={async () => {
                       setSelectedCompletedGoal(goal);
@@ -1024,7 +1205,7 @@ export default function MeScreen() {
                             setGoalDetails(goalData);
                             // Load step instructions for completed levels
                             await loadStepInstructionsForCompletedLevels(goalData);
-                            
+
                             // Ensure dateStarted is set if missing (for older completed goals)
                             if (!goal.dateStarted && goalData.createdAt) {
                               const updatedGoal = {
@@ -1032,7 +1213,7 @@ export default function MeScreen() {
                                 dateStarted: new Date(goalData.createdAt).toISOString().split('T')[0]
                               };
                               setSelectedCompletedGoal(updatedGoal);
-                              
+
                               // Update in storage
                               const completedGoalsData = await AsyncStorage.getItem('completedGoals');
                               if (completedGoalsData) {
@@ -1052,11 +1233,26 @@ export default function MeScreen() {
                     }}
                     activeOpacity={0.7}
                   >
+                    <View style={styles.goalCardAccent} />
                     <View style={styles.goalIconContainer}>
-                      <Text style={styles.goalCheckmark}>✓</Text>
+                      <View style={styles.goalCheckmarkCenter}>
+                        <Animated.Text
+                          style={[
+                            styles.goalCheckmark,
+                            { transform: [{ scale: completedGoalCheckPulse }] },
+                          ]}
+                        >
+                          ✓
+                        </Animated.Text>
+                      </View>
                     </View>
                     <View style={styles.goalContent}>
-                      <Text style={styles.goalName}>{goal.name}</Text>
+                      <View style={styles.goalTitleRow}>
+                        <Text style={styles.goalName}>{goal.name}</Text>
+                        <View style={styles.goalStatusPill}>
+                          <Text style={styles.goalStatusText}>{tr('Completed', 'Завершено')}</Text>
+                        </View>
+                      </View>
                       <Text style={styles.goalDate}>{t('me.completedOn')} {formatDate(goal.dateCompleted)}</Text>
                     </View>
                   </TouchableOpacity>
@@ -1064,8 +1260,59 @@ export default function MeScreen() {
               </View>
             )}
           </View>
+
         </ScrollView>
       </View>
+
+      {/* Single Journal Entry Modal */}
+      <Modal
+        visible={showJournalEntryModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowJournalEntryModal(false)}
+      >
+        <View style={styles.answersArchiveOverlay}>
+          <TouchableOpacity
+            style={styles.answersArchiveBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowJournalEntryModal(false)}
+          />
+          <View style={styles.journalEntryPopupCard}>
+            <View style={styles.journalEntryPopupHeader}>
+              <Text style={styles.journalEntryPopupTitle}>{tr('Journal entry', 'Запись дневника')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowJournalEntryModal(false)}
+                style={styles.journalEntryPopupCloseButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.answersArchiveCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedJournalEntry ? (
+              <>
+                <Text style={styles.journalEntryPopupDate}>
+                  {new Date(selectedJournalEntry.date).toLocaleDateString(locale, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+
+                <View style={styles.journalEntryContentCard}>
+                  <Text style={styles.journalEntryQuestionTitle}>
+                    {selectedJournalEntry.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
+                  </Text>
+                  <View style={styles.journalEntryContentDivider} />
+                  <Text style={styles.journalEntryAnswerText}>
+                    {selectedJournalEntry.answer || tr('No answer saved for this day.', 'Для этого дня ответ не сохранен.')}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* All Answers Calendar Modal */}
       <Modal
@@ -1108,95 +1355,28 @@ export default function MeScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.answersCalendarCard}>
-                <View style={styles.answersCalendarMonthHeader}>
-                  <TouchableOpacity
-                    style={styles.answersCalendarNavButton}
-                    onPress={() =>
-                      setCalendarMonth(
-                        (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
-                      )
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.answersCalendarNavButtonText}>{'<'}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.answersCalendarMonthLabel}>{calendarMonthLabel}</Text>
-                  <TouchableOpacity
-                    style={styles.answersCalendarNavButton}
-                    onPress={() =>
-                      setCalendarMonth(
-                        (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
-                      )
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.answersCalendarNavButtonText}>{'>'}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.answersCalendarDayNamesRow}>
-                  {calendarDayNames.map((dayName) => (
-                    <Text key={dayName} style={styles.answersCalendarDayName}>
-                      {dayName}
-                    </Text>
-                  ))}
-                </View>
-
-                <View style={styles.answersCalendarGrid}>
-                  {calendarCells.map((cell) => {
-                    const isSelected = selectedCalendarDateKey === cell.dateKey;
-                    return (
-                      <TouchableOpacity
-                        key={cell.dateKey}
-                        style={[
-                          styles.answersCalendarDayCell,
-                          !cell.inCurrentMonth && styles.answersCalendarDayCellOutsideMonth,
-                          isSelected && styles.answersCalendarDayCellSelected,
-                        ]}
-                        onPress={() => setSelectedCalendarDateKey(cell.dateKey)}
-                        activeOpacity={0.75}
-                      >
-                        <Text
-                          style={[
-                            styles.answersCalendarDayNumber,
-                            !cell.inCurrentMonth && styles.answersCalendarDayNumberOutsideMonth,
-                            cell.isTodayDate && styles.answersCalendarDayNumberToday,
-                            isSelected && styles.answersCalendarDayNumberSelected,
-                          ]}
-                        >
-                          {cell.date.getDate()}
-                        </Text>
-                        {cell.hasAnswer ? <View style={styles.answersCalendarEntryDot} /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                <JournalEntriesCalendar
+                  entries={answers}
+                  onSelectEntryDate={(dateKey) => setSelectedCalendarDateKey(dateKey)}
+                />
               </View>
 
               <View style={styles.answersCalendarEntryPanel}>
                 {selectedCalendarAnswer ? (
                   <>
-                    <View style={styles.answerJournalHeader}>
-                      <Text style={styles.answerJournalTag}>
-                        {tr('Journal entry', 'Запись дневника')}
-                      </Text>
-                      <View style={styles.answerJournalMetaRight}>
-                        <Text style={styles.answerJournalDateMeta}>
-                          {formatDateShort(selectedCalendarAnswer.date)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.answerPromptRow}>
-                      <Text style={styles.answerPromptLabel}>{tr('Question', 'Вопрос')}</Text>
-                    </View>
-                    <View style={styles.answerQuestionBlock}>
-                      <Text style={styles.answerQuestion} numberOfLines={3} ellipsizeMode="tail">
+                    <Text style={styles.journalEntryPopupDate}>
+                      {new Date(selectedCalendarAnswer.date).toLocaleDateString(locale, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                    <View style={styles.journalEntryContentCard}>
+                      <Text style={styles.journalEntryQuestionTitle} numberOfLines={3} ellipsizeMode="tail">
                         {selectedCalendarAnswer.question || tr('How do you handle unexpected challenges?', 'Как ты справляешься с неожиданными трудностями?')}
                       </Text>
-                    </View>
-                    <Text style={styles.answerEntryLabel}>{tr('The entry', 'Запись')}</Text>
-                    <View style={styles.answerField}>
-                      <Text style={styles.answerText}>
+                      <View style={styles.journalEntryContentDivider} />
+                      <Text style={styles.journalEntryAnswerText}>
                         {selectedCalendarAnswer.answer || tr('No answer saved for this day.', 'Для этого дня ответ не сохранен.')}
                       </Text>
                     </View>
@@ -1530,37 +1710,75 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 0,
+  },
+  headerSideSpacer: {
+    width: 44,
+    height: 44,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  subtitleSection: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+  },
+  headerSubtitle: {
+    ...BodyStyle,
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.95,
+    maxWidth: 270,
+  },
   portfolioContainer: {
     marginBottom: 24,
     marginLeft: 26,
     marginRight: 26,
+    marginTop: 0,
   },
-  portfolioCard: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 18,
-    alignItems: 'center',
-    overflow: 'hidden',
+  helperButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
     shadowColor: '#342846',
-    shadowOffset: {
-      width: 0,
-      height: 20,
-    },
-    shadowOpacity: 0.55,
-    shadowRadius: 30,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    marginBottom: 20,
+  },
+  portfolioCard: {
+    ...ME_CARD_SURFACE,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 20,
+    alignItems: 'center',
+    position: 'relative',
   },
   portfolioUserName: {
     ...HeadingStyle,
-    color: '#342846',
-    fontSize: 28,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 9,
   },
   portfolioSubtitle: {
     ...BodyStyle,
@@ -1568,34 +1786,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 10,
   },
-  portfolioInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    columnGap: 10,
-  },
-  portfolioInfoItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  portfolioInfoLabel: {
-    ...HeadingStyle,
-    color: 'rgba(52, 40, 70, 0.75)',
-    fontSize: 11,
-    lineHeight: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginTop: 15,
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  portfolioInfoValue: {
+  portfolioQuoteText: {
     ...BodyStyle,
-    color: '#342846',
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 18,
+    color: '#342846',
+    fontStyle: 'italic',
     textAlign: 'center',
+    marginVertical: 12,
   },
   scrollView: {
     flex: 1,
@@ -1615,17 +1813,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     position: 'relative',
   },
-  badgesSectionHeader: {
-    flexDirection: 'column',
+  badgesContainerCard: {
+    ...ME_CARD_SURFACE,
+    padding: 20,
+  },
+  badgesEmptyState: {
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    minHeight: 96,
   },
   sectionTitle: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   sectionTitleCentered: {
     textAlign: 'left',
@@ -1641,9 +1843,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   viewAllAnswersButton: {
-    backgroundColor: 'rgba(52, 40, 70, 0.08)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -1653,22 +1855,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#342846',
     letterSpacing: 0.2,
-  },
-  viewAllButtonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  viewAllButton: {
-    ...BodyStyle,
-    color: '#342846',
-    fontSize: 10,
-    lineHeight: 9,
-    textAlign: 'center',
   },
   emptyText: {
     ...BodyStyle,
@@ -1681,23 +1867,92 @@ const styles = StyleSheet.create({
   moodCalendarContainer: {
     marginTop: 16,
   },
+  journalEntriesCalendarContainer: {
+    marginTop: 16,
+  },
   insightsList: {
     gap: 12,
     marginTop: 16,
   },
+  insightPathWrap: {
+    marginTop: 16,
+    height: 238,
+    marginHorizontal: -20,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  insightPathScroll: {
+    flex: 1,
+  },
+  insightPathScrollContent: {
+    paddingHorizontal: 0,
+    position: 'relative',
+    height: 238,
+  },
+  insightPathStaticRoad: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  insightPathNodeCard: {
+    ...ME_CARD_SURFACE,
+    width: 152,
+    height: 134,
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingLeft: 10,
+    paddingRight: 10,
+    borderRadius: 14,
+    borderColor: 'rgba(191, 172, 202, 0.92)',
+    borderWidth: 1.5,
+    position: 'absolute',
+  },
+  insightPathNodeContent: {
+    flex: 1,
+    paddingRight: 4,
+    justifyContent: 'space-between',
+  },
+  insightPathNodeDate: {
+    ...BodyStyle,
+    fontSize: 10,
+    color: 'rgba(52, 40, 70, 0.7)',
+    marginBottom: 4,
+  },
+  insightPathNodeSummary: {
+    ...HeadingStyle,
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#342846',
+    textTransform: 'none',
+    marginBottom: 4,
+  },
+  insightPathNodeSnippet: {
+    ...BodyStyle,
+    fontSize: 11,
+    lineHeight: 14,
+    color: 'rgba(52, 40, 70, 0.78)',
+    textTransform: 'none',
+  },
+  insightPathNodeDot: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -5,
+    bottom: -18,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#7D5BA6',
+    shadowColor: '#7D5BA6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.42,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   insightCard: {
+    ...ME_CARD_SURFACE,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.15)',
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   insightIconContainer: {
     width: 44,
@@ -1726,11 +1981,33 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   badgesScroll: {
-    marginHorizontal: 0,
+    marginHorizontal: -2,
   },
   badgesScrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 2,
     gap: 13,
+  },
+  badgesSwipeIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  badgesSwipeArrow: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 11,
+    lineHeight: 11,
+  },
+  badgesSwipeArrowDisabled: {
+    color: 'rgba(52, 40, 70, 0.25)',
+  },
+  badgesSwipeHint: {
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.72)',
+    fontSize: 11,
+    textTransform: 'none',
   },
   badgeCard: {
     alignItems: 'center',
@@ -1782,19 +2059,10 @@ const styles = StyleSheet.create({
     height: 382,
   },
   answerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 16,
+    ...ME_CARD_SURFACE,
     padding: 18,
     paddingBottom: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
-    shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
-    elevation: 12,
     height: '100%',
-    overflow: 'hidden',
   },
   answerJournalHeader: {
     flexDirection: 'row',
@@ -1835,16 +2103,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(52, 40, 70, 0.08)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    borderRadius: 16,
+    paddingLeft: '15%',
+    paddingRight: '15%',
     paddingVertical: 4,
   },
   answerPromptLabel: {
     ...HeadingStyle,
     color: '#342846',
     fontSize: 10,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+    textTransform: 'none',
   },
   answerQuestion: {
     ...BodyStyle,
@@ -1865,7 +2134,7 @@ const styles = StyleSheet.create({
     color: '#342846',
     fontSize: 10,
     letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginTop: 10,
     marginBottom: 10,
   },
@@ -1883,6 +2152,67 @@ const styles = StyleSheet.create({
   answerCardBottomSpacer: {
     height: 4,
   },
+  recentAnswerCard: {
+    ...ME_CARD_SURFACE,
+    padding: 16,
+    height: '100%',
+  },
+  recentAnswerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  recentAnswerDateMeta: {
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.74)',
+    fontSize: 10,
+    textTransform: 'none',
+  },
+  recentAnswerCounterWrap: {
+    marginBottom: 12,
+  },
+  recentAnswerCounter: {
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.72)',
+    fontSize: 11,
+  },
+  recentAnswerSectionBlock: {
+    marginBottom: 12,
+  },
+  recentAnswerSectionLabel: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 11,
+    textTransform: 'none',
+    marginBottom: 6,
+  },
+  recentAnswerQuestionText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  recentAnswerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(52, 40, 70, 0.14)',
+    marginBottom: 12,
+  },
+  recentAnswerEntrySurface: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.14)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 148,
+  },
+  recentAnswerEntryText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    lineHeight: 22,
+  },
   answerText: {
     ...BodyStyle,
     color: '#342846',
@@ -1894,18 +2224,28 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   goalCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
+    backgroundColor: 'rgba(52, 40, 70, 0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(186, 204, 215, 0.5)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#1f132f',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  goalCardAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: '#a592b0',
   },
   emptyFieldCard: {
     flexDirection: 'column',
@@ -1918,35 +2258,60 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#342846',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   goalCheckmark: {
     ...BodyStyle,
-    color: '#FFFFFF',
-    fontSize: 24,
+    color: '#342846',
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    textAlignVertical: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
     includeFontPadding: false,
-    marginTop: -3,
+  },
+  goalCheckmarkCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalContent: {
     flex: 1,
   },
+  goalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 0,
+  },
   goalName: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     fontSize: 14,
+    lineHeight: 17,
     fontWeight: 'bold',
-    marginBottom: 4,
+    flex: 1,
+    textTransform: 'uppercase',
+  },
+  goalStatusPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  goalStatusText: {
+    ...BodyStyle,
+    fontSize: 10,
+    color: '#342846',
+    fontWeight: '700',
   },
   goalDate: {
     ...BodyStyle,
-    color: '#7a8a9a',
+    color: 'rgba(255, 255, 255, 0.78)',
     fontSize: 10,
   },
   modalOverlay: {
@@ -1993,6 +2358,75 @@ const styles = StyleSheet.create({
   answersArchiveBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  journalEntryPopupCard: {
+    ...ME_CARD_SURFACE,
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    maxWidth: 560,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
+  journalEntryPopupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  journalEntryPopupTitle: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 20,
+    textTransform: 'none',
+  },
+  journalEntryPopupCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+  },
+  journalEntryPopupDate: {
+    ...BodyStyle,
+    color: 'rgba(52, 40, 70, 0.74)',
+    fontSize: 11,
+    marginBottom: 8,
+    textTransform: 'none',
+  },
+  journalEntryContentCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 140,
+    shadowColor: '#7D5BA6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  journalEntryQuestionTitle: {
+    ...HeadingStyle,
+    color: '#342846',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  journalEntryContentDivider: {
+    height: 1,
+    backgroundColor: 'rgba(52, 40, 70, 0.12)',
+    marginVertical: 10,
+  },
+  journalEntryAnswerText: {
+    ...BodyStyle,
+    color: '#342846',
+    fontSize: 15,
+    lineHeight: 22,
   },
   answersArchiveHeader: {
     position: 'relative',
@@ -2071,7 +2505,7 @@ const styles = StyleSheet.create({
   journalArchiveTitle: {
     textAlign: 'center',
     width: '100%',
-    marginTop: 50,
+    marginTop: 30,
   },
   journalArchiveTitleWrap: {
     width: '100%',

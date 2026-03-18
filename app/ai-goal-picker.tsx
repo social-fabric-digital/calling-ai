@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import PathExplorationStep from '@/components/onboarding/PathExplorationStep';
 import PathsAlignedStep from '@/components/onboarding/PathsAlignedStep';
@@ -40,6 +40,135 @@ const AI_DIRECTIONS_REGEN_TRACKING_KEY = 'aiDirectionsRegenerationsByMonth';
 const AI_GOALS_REGEN_TRACKING_KEY = 'aiGoalsRegenerationsByMonth';
 const MONTHLY_REGEN_LIMIT = 3;
 const fallbackStepNames = ['Foundation', 'Skill Building', 'Momentum', 'Execution'];
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function SaveCelebration({ label }: { label: string }) {
+  const burst = useRef(new Animated.Value(0)).current;
+  const confetti = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(burst, {
+        toValue: 1,
+        duration: 550,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(confetti, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [burst, confetti]);
+
+  const pieces = [
+    { angle: -80, distance: 92, color: '#FF6B9D' },
+    { angle: -45, distance: 82, color: '#FFD166' },
+    { angle: -15, distance: 88, color: '#7FDBFF' },
+    { angle: 15, distance: 86, color: '#C77DFF' },
+    { angle: 42, distance: 84, color: '#95D5B2' },
+    { angle: 75, distance: 90, color: '#F4A261' },
+    { angle: 120, distance: 76, color: '#B8E986' },
+    { angle: 155, distance: 72, color: '#FF9F1C' },
+    { angle: -140, distance: 78, color: '#A0C4FF' },
+    { angle: -112, distance: 82, color: '#F38BA8' },
+  ];
+
+  return (
+    <View style={styles.celebrationWrap}>
+      <View style={styles.burstContainer}>
+        <Animated.View
+          style={[
+            styles.burstRing,
+            {
+              transform: [
+                {
+                  scale: burst.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.3, 1.4],
+                  }),
+                },
+              ],
+              opacity: burst.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.75, 0],
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.burstRingSoft,
+            {
+              transform: [
+                {
+                  scale: burst.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.4, 1.9],
+                  }),
+                },
+              ],
+              opacity: burst.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.5, 0],
+              }),
+            },
+          ]}
+        />
+        {pieces.map((piece, index) => {
+          const radians = (piece.angle * Math.PI) / 180;
+          return (
+            <Animated.View
+              key={`${piece.color}-${index}`}
+              style={[
+                styles.confettiPiece,
+                {
+                  backgroundColor: piece.color,
+                  transform: [
+                    {
+                      translateX: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, Math.cos(radians) * piece.distance],
+                      }),
+                    },
+                    {
+                      translateY: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, Math.sin(radians) * piece.distance],
+                      }),
+                    },
+                    {
+                      scale: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.4, 1],
+                      }),
+                    },
+                    {
+                      rotate: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', `${piece.angle * 2}deg`],
+                      }),
+                    },
+                  ],
+                  opacity: confetti.interpolate({
+                    inputRange: [0, 0.7, 1],
+                    outputRange: [0, 1, 0],
+                  }),
+                },
+              ]}
+            />
+          );
+        })}
+        <View style={styles.celebrationCenter}>
+          <Text style={styles.celebrationEmoji}>🎉</Text>
+        </View>
+      </View>
+      <Text style={styles.celebrationLabel}>{label}</Text>
+    </View>
+  );
+}
 
 const getFallbackSteps = (goalTitle: string) =>
   fallbackStepNames.map((name, index) => ({
@@ -114,6 +243,8 @@ export default function AIGoalPickerScreen() {
   const [selectedPath, setSelectedPath] = useState<GeneratedPath | null>(null);
   const [pathsVersion, setPathsVersion] = useState(0);
   const [isSavingGoal, setIsSavingGoal] = useState(false);
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+  const [saveSuccessLabel, setSaveSuccessLabel] = useState('');
   const [regenerationsThisMonth, setRegenerationsThisMonth] = useState(0);
   const [goalRegenerationsThisMonth, setGoalRegenerationsThisMonth] = useState(0);
   const [goalRegenTrigger, setGoalRegenTrigger] = useState(0);
@@ -338,19 +469,17 @@ export default function AIGoalPickerScreen() {
       };
 
       await AsyncStorage.setItem('userGoals', JSON.stringify([goalToSave, ...existingGoals]));
-      Alert.alert(
-        tr('Goal created', 'Цель создана'),
+
+      setSaveSuccessLabel(
         isQueued
-          ? tr(
-              'Your goal was added to queue because you already have 3 active goals.',
-              'Цель добавлена в очередь, потому что у тебя уже 3 активные цели.'
-            )
-          : tr(
-              'Your new goal is now active and ready to start.',
-              'Твоя новая цель активна и готова к старту.'
-            )
+          ? tr('Goal saved to queue', 'Цель сохранена в очередь')
+          : tr('Goal saved successfully', 'Цель успешно сохранена')
       );
+      setIsSavingGoal(false);
+      setIsSaveSuccess(true);
       void hapticSuccess();
+      await sleep(1300);
+      setIsSaveSuccess(false);
       router.back();
     } catch (error) {
       console.error('Failed to save AI goal:', error);
@@ -460,6 +589,7 @@ export default function AIGoalPickerScreen() {
             whatExcites={profile.whatExcites || undefined}
             hideCustomPathOption={true}
             headerTopMargin={20}
+            headerTitleColor="#FFFFFF"
             headerExtraContent={
               <View style={styles.regenerateWrap}>
                 <TouchableOpacity
@@ -505,10 +635,18 @@ export default function AIGoalPickerScreen() {
           />
         )}
 
-        {isSavingGoal && (
-          <View style={styles.savingOverlay}>
-            <ActivityIndicator size="small" color="#FFFFFF" />
-            <Text style={styles.savingText}>{tr('Saving goal...', 'Сохраняем цель...')}</Text>
+        {(isSavingGoal || isSaveSuccess) && (
+          <View style={styles.saveCenterOverlay} pointerEvents="auto">
+            <View style={styles.saveCard}>
+              {isSaveSuccess ? (
+                <SaveCelebration label={saveSuccessLabel} />
+              ) : (
+                <>
+                  <ActivityIndicator size="large" color="#342846" />
+                  <Text style={styles.saveCardText}>{tr('Saving your goal...', 'Сохраняем твою цель...')}</Text>
+                </>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -629,23 +767,92 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#342846',
   },
-  savingOverlay: {
+  saveCenterOverlay: {
     position: 'absolute',
-    bottom: 24,
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52, 40, 70, 0.9)',
-    flexDirection: 'row',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(52, 40, 70, 0.28)',
+    paddingHorizontal: 24,
   },
-  savingText: {
-    color: '#FFFFFF',
+  saveCard: {
+    minWidth: 240,
+    maxWidth: 320,
+    borderRadius: 24,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.78)',
+  },
+  saveCardText: {
+    marginTop: 12,
+    color: '#342846',
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  celebrationWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  burstContainer: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  burstRing: {
+    position: 'absolute',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 3,
+    borderColor: 'rgba(165,146,176,0.7)',
+  },
+  burstRingSoft: {
+    position: 'absolute',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 8,
+    borderColor: 'rgba(186,204,215,0.45)',
+  },
+  confettiPiece: {
+    position: 'absolute',
+    width: 10,
+    height: 16,
+    borderRadius: 3,
+  },
+  celebrationCenter: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.15)',
+  },
+  celebrationEmoji: {
+    fontSize: 32,
+  },
+  celebrationLabel: {
+    marginTop: 4,
+    color: '#342846',
     fontFamily: 'AnonymousPro-Bold',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

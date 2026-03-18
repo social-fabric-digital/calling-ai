@@ -313,7 +313,7 @@ export function GuideModal({ visible, onClose, onReplayWalkthrough }: GuideModal
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{tr('How to use Calling', 'Как пользоваться Предназначением')}</Text>
+          <Text style={styles.headerTitle}>{tr('How to use Calling', 'Как пользоваться Calling')}</Text>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>

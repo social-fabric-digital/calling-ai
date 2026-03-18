@@ -429,7 +429,7 @@ type FeatureItem = {
 const getFeatures = (isRussian: boolean): FeatureItem[] => [
   {
     icon: 'favorite',
-    title: isRussian ? 'ОТКРОЙ СВОЙ ИКИГАЙ' : 'DISCOVER YOUR IKIGAI',
+    title: isRussian ? 'Открой свой икигай' : 'Discover your ikigai',
     description: isRussian
       ? 'Найди пересечение того, что ты любишь, в чем силен и что нужно миру.'
       : 'Find the intersection of what you love, what you are good at, and what the world needs.',
@@ -439,7 +439,7 @@ const getFeatures = (isRussian: boolean): FeatureItem[] => [
   },
   {
     icon: 'flag',
-    title: isRussian ? 'СТАВЬ ЗНАЧИМЫЕ ЦЕЛИ' : 'SET MEANINGFUL GOALS',
+    title: isRussian ? 'Ставь значимые цели' : 'Set meaningful goals',
     description: isRussian
       ? 'Преврати свое видение в конкретные шаги, соответствующие твоим ценностям.'
       : 'Turn your vision into concrete steps aligned with your values.',
@@ -449,7 +449,7 @@ const getFeatures = (isRussian: boolean): FeatureItem[] => [
   },
   {
     icon: 'bar-chart',
-    title: isRussian ? 'ОТСЛЕЖИВАЙ ПРОГРЕСС' : 'TRACK YOUR PROGRESS',
+    title: isRussian ? 'Отслеживай прогресс' : 'Track your progress',
     description: isRussian
       ? 'Наблюдай свой рост через понятную аналитику и ежедневные проверки.'
       : 'See your growth through clear insights and daily check-ins.',
@@ -459,7 +459,7 @@ const getFeatures = (isRussian: boolean): FeatureItem[] => [
   },
   {
     icon: 'auto-awesome',
-    title: isRussian ? 'ПЕРСОНАЛЬНЫЕ ПОДСКАЗКИ' : 'PERSONALIZED GUIDANCE',
+    title: isRussian ? 'Персональные подсказки' : 'Personalized guidance',
     description: isRussian
       ? 'Система учитывает твои ответы и дает персональные инсайты.'
       : 'The system adapts to your answers and gives personalized insights.',
@@ -612,7 +612,7 @@ export default function FeaturesIntroScreen() {
   const headerTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copy = {
     skip: isRussian ? 'Пропустить' : 'Skip',
-    heading: isRussian ? 'УПРАВЛЯЙ СВОИМ ПУТЕМ' : 'OWN YOUR JOURNEY',
+    heading: isRussian ? 'Управляй своим путем' : 'Own your journey',
     subheading: isRussian
       ? 'Присоединяйся к тем, кто с помощью мудрости икигай строит осмысленную и сбалансированную жизнь.'
       : 'Join people building a meaningful and balanced life through ikigai wisdom.',
@@ -958,14 +958,21 @@ const styles = StyleSheet.create({
     zIndex: 12,
   },
   headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   headerProgressContainer: {
     flex: 1,
@@ -1283,7 +1290,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#342846',
     marginBottom: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   cardDescription: {
     ...BodyStyle,

@@ -44,11 +44,11 @@ const isTabletIOS = Platform.OS === 'ios' && Platform.isPad;
 // Mood emojis from lowest to highest sentiment
 const getMoodEmoji = (value: number): string => {
   "worklet";
-  if (value < 20) return '😢';      // Very sad
-  if (value < 40) return '😞';      // Sad
-  if (value < 60) return '😐';      // Neutral/Okay
-  if (value < 80) return '🙂';      // Happy
-  return '😊';                       // Very happy
+  if (value < 20) return '🌧';      // Very hard
+  if (value < 40) return '🥀';      // Not great
+  if (value < 60) return '🌱';      // Okay
+  if (value < 80) return '🌳';      // Good
+  return '🌟';                       // Great
 };
 
 const getMoodText = (value: number, isRussian: boolean): string => {
@@ -78,7 +78,7 @@ export function MoodSlider({
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const [sliderWidth, setSliderWidth] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  const [currentEmoji, setCurrentEmoji] = useState('😐');
+  const [currentEmoji, setCurrentEmoji] = useState('🌱');
   const [hasInteracted, setHasInteracted] = useState(false);
   const lastNotifiedValueRef = useRef<number>(-1);
   const lastNotifiedEmojiRef = useRef<string>('');

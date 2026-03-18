@@ -155,7 +155,7 @@ function Step1NameYourDream({ isActive, value, onChange, onNext, onBack }: Step1
       ))}
 
       <View style={[styles.stepContent, styles.step1ContentOffset]}>
-        <Text style={[styles.stepTitle, styles.step1Title]}>{isRussian ? 'КАКОЕ НАПРАВЛЕНИЕ ТЕБЯ ЗОВЁТ?' : 'WHICH DIRECTION CALLS YOU?'}</Text>
+        <Text style={[styles.stepTitle, styles.step1Title]}>{isRussian ? 'Какое направление тебя зовёт?' : 'Which direction calls you?'}</Text>
         <Text style={styles.stepSubtitle}>
           {isRussian
             ? 'Какой путь ты хочешь пройти? Дай ему название, которое тебя вдохновляет.'
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 26,
     color: '#342846',
     textAlign: 'center',
@@ -1080,6 +1080,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     marginBottom: 10,
+    color: '#FFFFFF',
   },
   step1ContentOffset: {
     marginTop: 30,
@@ -1291,7 +1292,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#342846',
   },
   pathDotLabel: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 10,
     color: '#FFFFFF',
     letterSpacing: 1,
@@ -1358,7 +1359,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineLabel: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 12,
     color: '#342846',
     marginBottom: 2,
@@ -1508,7 +1509,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   generateButtonText: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 16,
     color: '#FFFFFF',
     letterSpacing: 0.5,

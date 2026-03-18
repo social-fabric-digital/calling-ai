@@ -874,7 +874,7 @@ export default function CallingAwaitsStep({
 
           <Text style={styles.callingText}>
             {displayName && displayName !== 'A'
-              ? `${displayName}, ${isRussian ? 'твой путь зовет' : 'your path is calling'}`.toUpperCase()
+              ? `${displayName}, ${isRussian ? 'твой путь зовет' : 'your path is calling'}`
               : labels.journeyCall}
           </Text>
         </Animated.View>
@@ -986,14 +986,14 @@ const styles = StyleSheet.create({
     borderRadius: 0,
   },
   nameText: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 32,
+    ...HeadingStyle,
+    fontSize: 24,
     color: '#342846',
     marginBottom: 4,
   },
   callingText: {
     ...HeadingStyle,
-    fontSize: 32,
+    fontSize: 24,
     color: '#342846',
     textAlign: 'center',
   },
@@ -1110,7 +1110,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 16,
     color: '#FFFFFF',
     letterSpacing: 0.5,
@@ -1237,7 +1237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ikigaiTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 20,
     color: '#342846',
     textAlign: 'center',

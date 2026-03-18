@@ -57,6 +57,9 @@ export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasSte
     : isRussian
       ? 'Спасибо за доверие. Теперь ты готов(а) превратить эту ясность в действия.'
       : "Thank you for trusting me. You're ready to turn this clarity into action.";
+  const headingSubtitle = isRussian
+    ? 'Ты уже проделал(а) важную работу. Осталось сделать следующий шаг.'
+    : "You've already done important inner work. Now let's turn it into momentum.";
 
   const handleContinue = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -67,6 +70,7 @@ export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasSte
   return (
     <Animated.View style={[localStyles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
       <Text style={localStyles.heading}>{t('onboarding.yazioFlow.thankYouAtlasTitle')}</Text>
+      <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
 
       <View style={localStyles.speechWrap}>
         <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
@@ -149,8 +153,17 @@ const localStyles = StyleSheet.create({
     ...HeadingStyle,
     color: '#FFFFFF',
     textAlign: 'center',
+    marginBottom: 6,
+    textTransform: 'none',
+  },
+  headingSubtitle: {
+    ...BodyStyle,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.92,
+    lineHeight: 22,
     marginBottom: 8,
-    textTransform: 'uppercase',
+    paddingHorizontal: 14,
   },
   subheading: {
     ...BodyStyle,

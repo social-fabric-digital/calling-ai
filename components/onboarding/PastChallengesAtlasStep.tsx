@@ -59,7 +59,7 @@ export default function PastChallengesAtlasStep({ onContinue }: PastChallengesAt
     onContinue();
   };
 
-  const heading = isRussian ? 'МЫ СПРАВИМСЯ ВМЕСТЕ' : 'WE WILL WORK THROUGH THIS TOGETHER';
+  const heading = isRussian ? 'Мы справимся вместе' : 'We will work through this together';
   const message = isRussian
     ? 'Не переживай - если эти трудности снова появятся, мы пройдём через них вместе шаг за шагом.'
     : "Don't worry - if these challenges show up again, we will work through them together step by step.";
@@ -108,7 +108,7 @@ const localStyles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   speechWrap: {
     width: '100%',

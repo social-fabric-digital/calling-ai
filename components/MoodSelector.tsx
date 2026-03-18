@@ -26,7 +26,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved, onInteractionSt
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
   const [currentMoodText, setCurrentMoodText] = useState(tr('Okay', 'Нормально'));
-  const [currentEmoji, setCurrentEmoji] = useState('😐');
+  const [currentEmoji, setCurrentEmoji] = useState('🌱');
   const [currentValue, setCurrentValue] = useState(50);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -186,7 +186,7 @@ export function MoodSelector({ showQuestion = true, onMoodSaved, onInteractionSt
           
           {/* Show selected mood text */}
           <Text style={styles.selectedMood}>
-            {currentMoodText}
+            {`${currentEmoji} ${currentMoodText}`}
           </Text>
           
           {/* Save Button - appears after interaction */}
@@ -252,11 +252,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   selectedMood: {
     ...BodyStyle,
-    marginTop: 15,
+    marginTop: 0,
     fontSize: 18,
     fontWeight: '600',
     color: brandColors.text,

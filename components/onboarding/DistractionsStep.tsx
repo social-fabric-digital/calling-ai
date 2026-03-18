@@ -40,7 +40,6 @@ export default function DistractionsStep({ onContinue }: DistractionsStepProps) 
       <View style={localStyles.headerSlot}>
         <Text
           style={[styles.aboutYouTitle, localStyles.screenHeader]}
-          numberOfLines={2}
         >
           {t('onboarding.yazioFlow.distractionsQuestion')}
         </Text>
@@ -97,12 +96,12 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   headerSlot: {
-    height: 94,
+    minHeight: 148,
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 4,
   },
   screenSubtitle: {

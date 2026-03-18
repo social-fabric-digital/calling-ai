@@ -10,7 +10,7 @@ export default function LandingScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>{tr('Welcome to Calling', 'Добро пожаловать в Предназначение')}</Text>
+        <Text style={styles.title}>{tr('Welcome to Calling', 'Добро пожаловать в Calling')}</Text>
         <Text style={styles.subtitle}>{tr('Your path starts here', 'Твой путь начинается здесь')}</Text>
         <TouchableOpacity 
           style={styles.button} 
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#342846',
     marginBottom: 12,

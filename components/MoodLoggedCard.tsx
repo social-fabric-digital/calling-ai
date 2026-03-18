@@ -24,6 +24,23 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress, cont
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const tr = (en: string, ru: string) => (isRussian ? ru : en);
 
+  const getMoodEmoji = (): string => {
+    if (typeof moodValue === 'number') {
+      if (moodValue < 20) return '🌧';
+      if (moodValue < 40) return '🥀';
+      if (moodValue < 60) return '🌱';
+      if (moodValue < 80) return '🌳';
+      return '🌟';
+    }
+
+    if (emoji === '😢') return '🌧';
+    if (emoji === '😞') return '🥀';
+    if (emoji === '😐') return '🌱';
+    if (emoji === '🙂') return '🌳';
+    if (emoji === '😊') return '🌟';
+    return emoji;
+  };
+
   const getMoodLabel = (): string => {
     // Prefer numeric mood value when available for deterministic localization.
     if (typeof moodValue === 'number') {
@@ -35,11 +52,11 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress, cont
     }
 
     // Fallback: localize by emoji bucket.
-    if (emoji === '😢') return tr('Very hard', 'Тяжело');
-    if (emoji === '😞') return tr('Not great', 'Не очень');
-    if (emoji === '😐') return tr('Okay', 'Нормально');
-    if (emoji === '🙂') return tr('Good', 'Хорошо');
-    if (emoji === '😊') return tr('Great!', 'Отлично!');
+    if (emoji === '🌧') return tr('Very hard', 'Тяжело');
+    if (emoji === '🥀') return tr('Not great', 'Не очень');
+    if (emoji === '🌱') return tr('Okay', 'Нормально');
+    if (emoji === '🌳') return tr('Good', 'Хорошо');
+    if (emoji === '🌟') return tr('Great!', 'Отлично!');
 
     // Final fallback for legacy/misc stored text values.
     const raw = (moodText || '').trim().toLowerCase();
@@ -61,7 +78,7 @@ export function MoodLoggedCard({ emoji, moodText, moodValue, onUpdatePress, cont
       <FrostedCardLayer />
       <View style={styles.content}>
         <View style={styles.emojiContainer}>
-          <Text style={styles.emoji}>{emoji}</Text>
+          <Text style={styles.emoji}>{getMoodEmoji()}</Text>
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>{tr('Mood today', 'Настроение сегодня')}</Text>
@@ -130,9 +147,10 @@ const styles = StyleSheet.create({
   },
   moodText: {
     ...HeadingStyle,
+    fontFamily: 'DMSans_700Bold',
+    textTransform: 'none',
     fontSize: 18,
     color: brandColors.text,
-    fontWeight: '600',
   },
   updateButton: {
     paddingVertical: 8,

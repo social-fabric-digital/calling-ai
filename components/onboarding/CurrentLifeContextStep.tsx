@@ -14,7 +14,8 @@ function CurrentLifeContextStep({
   setWhatMattersMost,
   onContinue,
 }: CurrentLifeContextStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const situationQuestion = useMemo(
     () => getLifeContextQuestions(t).find((question) => question.id === 'situation'),
     [t]
@@ -70,8 +71,14 @@ function CurrentLifeContextStep({
 
   return (
     <View style={localStyles.container}>
-      <View style={localStyles.headerSlot}>
-        <Text style={[styles.aboutYouTitle, localStyles.screenHeader]} numberOfLines={2}>
+      <View style={[localStyles.headerSlot, isRussian && localStyles.headerSlotRussian]}>
+        <Text
+          style={[
+            styles.aboutYouTitle,
+            localStyles.screenHeader,
+            isRussian && localStyles.screenHeaderRussian,
+          ]}
+        >
           {questionText}
         </Text>
       </View>
@@ -129,13 +136,20 @@ const localStyles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerSlot: {
-    height: 80,
+    minHeight: 80,
     justifyContent: 'center',
   },
+  headerSlotRussian: {
+    minHeight: 116,
+  },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 0,
+  },
+  screenHeaderRussian: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   card: {
     marginTop: 8,

@@ -89,7 +89,6 @@ export default function CommitmentChallengeStep({ onContinue }: CommitmentChalle
       <View style={localStyles.headerSlot}>
         <Text
           style={[styles.aboutYouTitle, localStyles.screenHeader]}
-          numberOfLines={2}
         >
           {t('onboarding.yazioFlow.commitmentChallengeQuestion')}
         </Text>
@@ -168,21 +167,21 @@ const localStyles = StyleSheet.create({
     overflow: 'visible',
   },
   headerSlot: {
-    height: 80,
+    minHeight: 120,
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 2,
   },
   challengeHeader: {
     ...HeadingStyle,
-    fontSize: 18,
+    fontSize: 24,
     color: '#342846',
     textAlign: 'center',
     marginBottom: 0,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginTop: 120,
   },
   pillWrap: {

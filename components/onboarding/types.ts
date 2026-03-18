@@ -116,6 +116,7 @@ export interface PathsAlignedStepProps {
   cardHorizontalInset?: number;
   hideCustomPathOption?: boolean;
   headerTopMargin?: number;
+  headerTitleColor?: string;
   headerExtraContent?: ReactNode;
   onPathsGenerated?: (paths: Array<{ id: number; title: string; description: string; glowColor: string }>) => void;
   birthMonth?: string;

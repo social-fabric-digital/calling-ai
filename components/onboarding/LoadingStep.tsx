@@ -517,6 +517,7 @@ function LoadingStep({
   });
 
   const buildInputSignature = () => JSON.stringify({
+    language: i18n.language,
     birthMonth,
     birthDate,
     birthYear,

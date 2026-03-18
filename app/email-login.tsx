@@ -175,8 +175,8 @@ export default function EmailLoginScreen() {
           <Text style={styles.inputLabel}>{tr('Email', 'Эл. почта')}</Text>
           <TextInput
             style={styles.input}
-            placeholder={tr('your@email.com', 'твой@email.ru')}
-            placeholderTextColor="#9BA3AF"
+            placeholder={tr('Enter Email', 'Введи email')}
+            placeholderTextColor="#342846"
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -196,8 +196,8 @@ export default function EmailLoginScreen() {
           <TextInput
             ref={passwordInputRef}
             style={styles.input}
-            placeholder={tr('Enter password', 'Введи пароль')}
-            placeholderTextColor="#9BA3AF"
+            placeholder={tr('Password to continue', 'Пароль для продолжения')}
+            placeholderTextColor="#342846"
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -227,7 +227,12 @@ export default function EmailLoginScreen() {
         </TouchableOpacity>
 
         {/* Buttons */}
-        <View style={styles.buttonContainer}>
+        <View
+          style={[
+            styles.buttonContainer,
+            { paddingBottom: Math.max(insets.bottom + 12, 40) },
+          ]}
+        >
           <TouchableOpacity
             style={[
               styles.button, 
@@ -286,14 +291,21 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   content: {
     flex: 1,
@@ -303,6 +315,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     alignItems: 'center',
     marginBottom: 32,
+    transform: [{ translateY: -60 }],
   },
   title: {
     ...HeadingStyle,
@@ -314,6 +327,7 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#7A8A9A',
     textAlign: 'center',
+    width: 270,
   },
   errorContainer: {
     backgroundColor: '#FDF2F2',
@@ -364,8 +378,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#342846',
     marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    textTransform: 'none',
+    letterSpacing: 0,
   },
   input: {
     backgroundColor: '#F8F9FA',
@@ -394,7 +408,10 @@ const styles = StyleSheet.create({
     height: 52,
   },
   buttonContainer: {
-    marginTop: 8,
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
   },
   button: {
     borderRadius: 16,

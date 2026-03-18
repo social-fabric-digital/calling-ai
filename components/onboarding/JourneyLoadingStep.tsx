@@ -455,7 +455,7 @@ function JourneyLoadingStep({ onComplete, loadingItems }: JourneyLoadingStepProp
 
   return (
     <View style={styles.journeyLoadingContainer}>
-      <Text style={styles.journeyLoadingTitle}>{t('onboarding.weAreCreatingYourJourney').toUpperCase()}</Text>
+      <Text style={styles.journeyLoadingTitle}>{t('onboarding.weAreCreatingYourJourney')}</Text>
       
       <Animated.View
         style={{

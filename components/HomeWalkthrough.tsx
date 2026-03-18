@@ -54,18 +54,26 @@ export default function HomeWalkthrough({
   const isLastStep = stepIndex === totalSteps - 1;
   const tooltipMaxWidth = screenWidth >= 900 ? 360 : 280;
   const tooltipWidth = Math.min(tooltipMaxWidth, screenWidth - 32);
-  const tooltipHeight = 124;
+  const estimatedTooltipHeight = 160;
   const targetPaddingHorizontal = 18;
   const targetPaddingVertical = 10;
+  const bottomPadding = 24;
+  const topPadding = 24;
 
   let tooltipTop = screenHeight * 0.6;
   let tooltipLeft = (screenWidth - tooltipWidth) / 2;
 
   if (targetRect) {
     const targetBottom = targetRect.y + targetRect.height;
-    const preferredTop = targetBottom + 14;
-    const fallbackTop = targetRect.y - tooltipHeight - 14;
-    tooltipTop = preferredTop + tooltipHeight < screenHeight - 24 ? preferredTop : Math.max(24, fallbackTop);
+    const aboveTarget = targetRect.y - estimatedTooltipHeight - 14;
+    const belowTarget = targetBottom + 14;
+    const fitsAbove = aboveTarget >= topPadding;
+    if (fitsAbove) {
+      tooltipTop = aboveTarget;
+    } else {
+      tooltipTop = Math.min(belowTarget, screenHeight - bottomPadding - estimatedTooltipHeight);
+      tooltipTop = Math.max(topPadding, tooltipTop);
+    }
     tooltipLeft = Math.min(
       screenWidth - tooltipWidth - 16,
       Math.max(16, targetRect.x + targetRect.width / 2 - tooltipWidth / 2)
@@ -88,56 +96,13 @@ export default function HomeWalkthrough({
       <View style={styles.root}>
         {targetRect ? (
           <>
-            <View
-              style={[
-                styles.overlay,
-                { top: 0, left: 0, right: 0, height: holeTop },
-              ]}
-            />
-            <View
-              style={[
-                styles.overlay,
-                {
-                  top: holeTop,
-                  left: 0,
-                  width: holeLeft,
-                  height: holeHeight,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.overlay,
-                {
-                  top: holeTop,
-                  left: holeRight,
-                  right: 0,
-                  height: holeHeight,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.overlay,
-                {
-                  top: holeBottom,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                },
-              ]}
-            />
+            <View style={[styles.overlay, { top: 0, left: 0, right: 0, height: holeTop }]} />
+            <View style={[styles.overlay, { top: holeTop, left: 0, width: holeLeft, height: holeHeight }]} />
+            <View style={[styles.overlay, { top: holeTop, left: holeRight, right: 0, height: holeHeight }]} />
+            <View style={[styles.overlay, { top: holeBottom, left: 0, right: 0, bottom: 0 }]} />
             <View
               pointerEvents="none"
-              style={[
-                styles.highlight,
-                {
-                  left: holeLeft,
-                  top: holeTop,
-                  width: holeWidth,
-                  height: holeHeight,
-                },
-              ]}
+              style={[styles.highlight, { left: holeLeft, top: holeTop, width: holeWidth, height: holeHeight }]}
             />
           </>
         ) : (
@@ -145,19 +110,14 @@ export default function HomeWalkthrough({
         )}
 
         <View style={[styles.tooltip, { top: tooltipTop, left: tooltipLeft, width: tooltipWidth }]}>
-          <Text style={styles.stepCounter}>
-            {stepIndex + 1}/{totalSteps}
-          </Text>
+          <Text style={styles.stepCounter}>{stepIndex + 1}/{totalSteps}</Text>
           <Text style={styles.title}>{step.title}</Text>
           <Text style={styles.description}>{step.description}</Text>
           <View style={styles.actions}>
             <TouchableOpacity onPress={onSkip} style={styles.skipButton}>
               <Text style={styles.skipText}>{tr('Skip', 'Пропустить')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={isLastStep ? onDone : onNext}
-              style={styles.nextButton}
-            >
+            <TouchableOpacity onPress={isLastStep ? onDone : onNext} style={styles.nextButton}>
               <Text style={styles.nextText}>{isLastStep ? tr('Done', 'Готово') : tr('Next', 'Далее')}</Text>
             </TouchableOpacity>
           </View>

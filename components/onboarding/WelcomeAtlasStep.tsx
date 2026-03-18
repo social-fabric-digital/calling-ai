@@ -65,7 +65,7 @@ export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepP
   return (
     <Animated.View style={[localStyles.container, { opacity: fadeAnim }]}>
       <View style={localStyles.centerContent}>
-        <Text style={localStyles.heading} numberOfLines={2} ellipsizeMode="tail">
+        <Text style={localStyles.heading}>
           {displayName ? `${headingPrefix}\n${displayName}!` : t('onboarding.yazioFlow.welcomeAtlasTitle')}
         </Text>
         <View style={localStyles.atlasWrap}>
@@ -129,8 +129,8 @@ const localStyles = StyleSheet.create({
     ...HeadingStyle,
     color: '#FFFFFF',
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    textTransform: 'none',
+    letterSpacing: 0,
     marginBottom: 0,
     transform: [{ translateY: -100 }],
   },

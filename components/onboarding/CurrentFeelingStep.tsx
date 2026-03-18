@@ -75,7 +75,6 @@ export default function CurrentFeelingStep({ onContinue }: CurrentFeelingStepPro
       <View style={localStyles.headerSlot}>
         <Text
           style={[styles.aboutYouTitle, localStyles.screenHeader]}
-          numberOfLines={2}
         >
           {t('onboarding.yazioFlow.currentFeelingQuestion')}
         </Text>
@@ -125,12 +124,12 @@ const localStyles = StyleSheet.create({
     transform: [{ translateY: 70 }],
   },
   headerSlot: {
-    height: 80,
+    minHeight: 120,
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 0,
   },
   option: {

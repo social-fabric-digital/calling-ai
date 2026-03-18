@@ -1,6 +1,6 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
-import { ButtonHeadingStyle } from '@/constants/theme';
+import { ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { generateIkigaiConclusion } from '@/utils/claudeApi';
 import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -675,28 +675,28 @@ export default function IkigaiSummaryScreen({
     {
       id: 'love',
       icon: 'favorite',
-      title: tr('WHAT YOU LOVE', 'ЧТО ТЫ ЛЮБИШЬ'),
+      title: tr('What you love', 'Что ты любишь'),
       subtitle: tr('Your passion and what brings you joy', 'Твоя страсть и то, что приносит радость'),
       answer: whatYouLove || '',
     },
     {
       id: 'goodAt',
       icon: 'bolt',
-      title: tr('WHAT YOU ARE GOOD AT', 'В ЧЕМ ТЫ СИЛЕН'),
+      title: tr('What you are good at', 'В чем ты силен'),
       subtitle: tr('Your skills and natural talents', 'Твои навыки и природные таланты'),
       answer: whatYouGoodAt || '',
     },
     {
       id: 'worldNeeds',
       icon: 'public',
-      title: tr('WHAT THE WORLD NEEDS', 'ЧТО НУЖНО МИРУ'),
+      title: tr('What the world needs', 'Что нужно миру'),
       subtitle: tr('Problems you want to solve', 'Проблемы, которые ты хочешь решать'),
       answer: whatWorldNeeds || '',
     },
     {
       id: 'paidFor',
       icon: 'payments',
-      title: tr('WHAT YOU CAN BE PAID FOR', 'ЗА ЧТО ТЕБЕ МОГУТ ПЛАТИТЬ'),
+      title: tr('What you can be paid for', 'За что тебе могут платить'),
       subtitle: tr('Your value and professional role', 'Твоя ценность и профессиональная роль'),
       answer: whatCanBePaidFor || '',
     },
@@ -770,22 +770,22 @@ export default function IkigaiSummaryScreen({
             },
           ]}
         >
-          {/* Back button row */}
+          {/* Header row */}
           <View style={styles.headerButtonsRow}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
               <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>{tr('My Path', 'Мой путь')}</Text>
+            </View>
             <TouchableOpacity 
               style={styles.helpButton} 
               onPress={() => setShowHelpModal(true)}
               activeOpacity={0.7}
             >
-              <MaterialIcons name="help-outline" size={24} color="#342846" />
+              <MaterialIcons name="help-outline" size={20} color="#342846" />
             </TouchableOpacity>
           </View>
-
-          {/* Title */}
-          <Text style={styles.headerTitle}>{tr('MY PATH', 'МОЙ ПУТЬ')}</Text>
           <Text style={styles.headerSubtitle}>
             {t('ikigaiCompass.subtitle')}
           </Text>
@@ -959,36 +959,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 9,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   helpButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   headerTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 28,
+    ...HeadingStyle,
+    fontSize: 24,
     color: '#342846',
     textAlign: 'center',
-    marginTop: -30,
-    marginBottom: 12,
-    textTransform: 'uppercase',
+    marginTop: 0,
+    marginBottom: 0,
   },
   headerSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
@@ -997,6 +1016,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.95,
     lineHeight: 22,
+    maxWidth: 270,
+    alignSelf: 'center',
     marginBottom: 24,
   },
 
@@ -1067,9 +1088,10 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: {
     flex: 1,
+    paddingRight: 44,
   },
   cardTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 15,
     color: '#342846',
     marginBottom: 3,
@@ -1082,12 +1104,16 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   editButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 5,
   },
   cardDivider: {
     height: 1,
@@ -1159,7 +1185,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   conclusionTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 22,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1259,7 +1285,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 20,
     color: '#342846',
     textAlign: 'center',
@@ -1345,12 +1371,11 @@ const styles = StyleSheet.create({
     marginBottom: -36,
   },
   helpModalTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 24,
     color: '#342846',
     textAlign: 'center',
     marginBottom: 16,
-    textTransform: 'uppercase',
   },
   helpModalText: {
     fontFamily: 'AnonymousPro-Regular',

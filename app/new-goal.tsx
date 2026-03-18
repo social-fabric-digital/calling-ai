@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
 export default function NewGoalScreen() {
@@ -246,6 +246,13 @@ export default function NewGoalScreen() {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        <Image
+          source={require('../assets/images/active.png')}
+          pointerEvents="none"
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+
         {/* Back Arrow Button */}
         <TouchableOpacity
           style={styles.backButton}
@@ -281,6 +288,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   contentOffset: {
     flex: 1,

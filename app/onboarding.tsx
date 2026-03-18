@@ -57,7 +57,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRootNavigationState, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Animated, Dimensions, Image, Keyboard, Modal, NativeModules, Platform, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
@@ -116,9 +116,13 @@ export default function OnboardingScreen() {
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const localeText = (english: string, russian: string) => (isRussian ? russian : english);
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
   const params = useLocalSearchParams();
   const isAddGoalFlow = typeof params.source === 'string' && params.source === 'add-goal';
+  // Always land on the goals tab after creating a goal (whether from onboarding or add-goal flow).
+  const postGoalCreationRoute = '/(tabs)/goals';
   const JUST_FINISHED_ONBOARDING_KEY = '@just_finished_onboarding';
+  const DEV_ONBOARDING_STEP_KEY = '@dev_onboarding_step';
   const [currentStep, setCurrentStep] = useState(0);
   const currentStepRef = useRef(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -129,6 +133,9 @@ export default function OnboardingScreen() {
   const [showHeaderTooltip, setShowHeaderTooltip] = useState(false);
   const [headerTooltipText, setHeaderTooltipText] = useState('');
   const headerTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingReplaceHref, setPendingReplaceHref] = useState<Parameters<typeof router.replace>[0] | null>(null);
+  const pendingReplaceAttemptsRef = useRef(0);
+  const pendingReplaceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Get onboarding steps with translations - recalculate when language changes
   const ONBOARDING_STEPS = useMemo(() => getOnboardingSteps(t), [t, i18n.language]);
@@ -291,6 +298,23 @@ export default function OnboardingScreen() {
   const [canSubmitAboutYou, setCanSubmitAboutYou] = useState(false);
   const isAdvancingStepRef = useRef(false);
 
+  const resetLocalDataForFreshOnboarding = async () => {
+    const LANGUAGE_KEY = '@selected_language';
+    try {
+      const preservedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
+      const allKeys = await AsyncStorage.getAllKeys();
+      const keysToRemove = allKeys.filter((key) => key !== LANGUAGE_KEY);
+      if (keysToRemove.length > 0) {
+        await AsyncStorage.multiRemove(keysToRemove);
+      }
+      if (preservedLanguage) {
+        await AsyncStorage.setItem(LANGUAGE_KEY, preservedLanguage);
+      }
+    } catch (error) {
+      console.warn('Failed to reset local onboarding data:', error);
+    }
+  };
+
   const clarityEstimateDays = useMemo(() => {
     const baseDaysByCommitment: Record<string, number> = {
       '3days': 18,
@@ -362,14 +386,45 @@ export default function OnboardingScreen() {
   useEffect(() => {
     const initOnboarding = async () => {
       if (!isAddGoalFlow) {
-        // Sign out any existing session for fresh onboarding
-        await supabase.auth.signOut();
+        // In development, preserve current screen while iterating on UI changes.
+        if (!__DEV__) {
+          // Sign out any existing session for fresh onboarding
+          await supabase.auth.signOut();
+          // Ensure a different account starts from clean local state.
+          await resetLocalDataForFreshOnboarding();
+        }
       }
       const premium = await checkSubscriptionStatus();
       setUserIsPremium(premium);
     };
     initOnboarding();
   }, [isAddGoalFlow]);
+
+  // Dev-only: restore current onboarding step after hot reloads.
+  useEffect(() => {
+    if (!__DEV__ || isAddGoalFlow) return;
+    const restoreDevStep = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(DEV_ONBOARDING_STEP_KEY);
+        if (!raw) return;
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return;
+        const maxStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.length - 1 : ONBOARDING_STEPS.length - 1;
+        const stepToRestore = Math.min(Math.max(0, parsed), maxStep);
+        setCurrentStep(stepToRestore);
+        slideAnim.setValue(-stepToRestore * screenWidth);
+      } catch {
+        // Non-blocking in dev.
+      }
+    };
+    restoreDevStep();
+  }, [isAddGoalFlow, screenWidth, slideAnim, ONBOARDING_STEPS.length]);
+
+  // Dev-only: persist current onboarding step for hot reload continuity.
+  useEffect(() => {
+    if (!__DEV__ || isAddGoalFlow) return;
+    AsyncStorage.setItem(DEV_ONBOARDING_STEP_KEY, String(currentStep)).catch(() => {});
+  }, [currentStep, isAddGoalFlow]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -493,6 +548,7 @@ export default function OnboardingScreen() {
         setShowAccountCreation(false);
 
         const inputSignature = JSON.stringify({
+          language: i18n.language,
           birthMonth: storedBirthMonth,
           birthDate: storedBirthDate,
           birthYear: storedBirthYear,
@@ -737,6 +793,177 @@ export default function OnboardingScreen() {
       setShowJourneyLoading(true);
     }
   };
+
+  // Ref to prevent saving the onboarding goal more than once
+  // (both free and subscribe paths converge here).
+  const goalSavedByPaywallRef = useRef(false);
+
+  // Saves the goal selected/created during the YAZIO onboarding flow to
+  // AsyncStorage (and Supabase when a user account exists) without showing
+  // any loading UI.  Called just before navigating to the home screen.
+  const saveGoalToStorage = async () => {
+    if (goalSavedByPaywallRef.current) return;
+    if (!selectedGoalTitle && !customPathData?.pathName) return;
+    goalSavedByPaywallRef.current = true;
+
+    try {
+      const isCustomGoal = customPathData !== null && (customPathData?.milestones ?? []).length > 0;
+
+      // For custom path goals, the fear comes from PathChallengeStep — a predefined label
+      // the user explicitly selected (e.g. "Limited time", "Low confidence"). Use it as-is.
+      //
+      // For AI-selected goals, selectedGoalFear is AI-generated text that looks like a
+      // personalised typed answer. Instead, use the user's "what held you back" selections,
+      // which are also predefined labels, so the insight on the goal card always shows
+      // a clean, user-selected option rather than machine-generated prose.
+      const getWhatHeldBackLabel = (id: string): string => {
+        const map: Record<string, [string, string]> = {
+          clarity:          ['I don\'t know what I truly want',     'Я не понимаю, чего на самом деле хочу'],
+          fear:             ['Fear of failure',                      'Страх неудачи'],
+          motivation:       ['Lack of motivation or energy',         'Нехватка мотивации или энергии'],
+          responsibilities: ['Too many responsibilities',            'Слишком много обязанностей'],
+          selfTalk:         ['Negative self-talk',                   'Негативный внутренний диалог'],
+          finish:           ['I keep starting but never finish',     'Я начинаю, но не довожу до конца'],
+        };
+        const pair = map[id];
+        return pair ? localeText(pair[0], pair[1]) : localeText('Fear of failure', 'Страх неудачи');
+      };
+
+      const resolvedFear = isCustomGoal
+        // Custom path: PathChallengeStep already gave us a clean predefined label
+        ? (selectedGoalFear || fearOrBarrier || '').trim() || localeText('Fear of failure', 'Страх неудачи')
+        // AI goal: derive from the user's explicit "what held you back" selection
+        : whatHeldBackAnswers.length > 0
+          ? getWhatHeldBackLabel(whatHeldBackAnswers[0])
+          : (fearOrBarrier || '').trim() || localeText('Fear of failure', 'Страх неудачи');
+
+      let goalName: string;
+      let steps: { name: string; description: string; order: number }[];
+      let numberOfSteps: number;
+      let estimatedDuration: string;
+      let milestones: string[] | undefined;
+      let pathName: string | undefined;
+      let pathDescription: string | undefined;
+      let userSelectedDuration: string | undefined;
+
+      if (isCustomGoal && customPathData) {
+        const milestoneSteps = customPathData.milestones.map((milestone, index) => ({
+          name: milestone.trim(),
+          description: milestone.trim(),
+          order: index + 1,
+        }));
+        goalName = customPathData.pathName;
+        steps = milestoneSteps;
+        numberOfSteps = milestoneSteps.length;
+        estimatedDuration = customPathData.timeCommitment;
+        userSelectedDuration = customPathData.timeCommitment;
+        milestones = customPathData.milestones;
+        pathName = customPathData.pathName;
+        pathDescription = customPathData.pathDescription;
+      } else {
+        goalName = selectedGoalTitle || localeText('My Goal', 'Моя цель');
+        steps = [
+          { name: localeText('Step 1', 'Шаг 1'), description: localeText('Take the first step and build momentum.', 'Сделай первый шаг и задай импульс движению.'), order: 1 },
+          { name: localeText('Step 2', 'Шаг 2'), description: localeText('Stay focused and keep moving forward.', 'Продолжай фокусироваться и набирать темп.'), order: 2 },
+          { name: localeText('Step 3', 'Шаг 3'), description: localeText('Reach an important milestone.', 'Дойди до важной промежуточной точки.'), order: 3 },
+          { name: localeText('Step 4', 'Шаг 4'), description: localeText('Finish your goal and celebrate the result.', 'Заверши цель и отпразднуй результат.'), order: 4 },
+        ];
+        numberOfSteps = 4;
+        estimatedDuration = localeText('3 months', '3 месяца');
+        pathName = selectedGoalTitle || undefined;
+        pathDescription = dreamGoal || undefined;
+      }
+
+      const goalToSave: Record<string, unknown> = {
+        id: Date.now().toString(),
+        name: goalName,
+        steps,
+        numberOfSteps,
+        estimatedDuration,
+        aiEstimatedDuration: undefined,
+        userSelectedDuration,
+        hardnessLevel: 'Medium',
+        fear: resolvedFear,
+        progressPercentage: 0,
+        isActive: true,
+        isQueued: false,
+        isAiGenerated: !isCustomGoal,
+        milestones,
+        createdAt: new Date().toISOString(),
+        currentStepIndex: -1,
+        pathName,
+        pathDescription,
+      };
+
+      const existingGoalsData = await AsyncStorage.getItem('userGoals');
+      const existingGoals = existingGoalsData ? JSON.parse(existingGoalsData) : [];
+      const activeGoals = existingGoals.filter((g: { isActive?: boolean }) => g.isActive === true);
+      if (activeGoals.length >= 3) {
+        goalToSave.isActive = false;
+        goalToSave.isQueued = true;
+      }
+
+      const updatedGoals = [goalToSave, ...existingGoals];
+      await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
+      void hapticSuccess();
+
+      // Best-effort Supabase sync — non-blocking
+      try {
+        const { data: { user } } = await runWithNetworkRetry(() => supabase.auth.getUser());
+        if (user) {
+          const mapTimeline = (t: string): string => {
+            const lower = (t || '').toLowerCase();
+            if (lower.includes('1') && lower.includes('3')) return '1-3 months';
+            if (lower.includes('3') && lower.includes('6')) return '3-6 months';
+            if (lower.includes('6') && lower.includes('12')) return '6-12 months';
+            if (lower.includes('1+') || lower.includes('year')) return '1+ years';
+            return '3-6 months';
+          };
+          const goalInsertPayload: Record<string, unknown> = {
+            user_id: user.id,
+            name: goalToSave.name,
+            description: (goalToSave.pathDescription as string) || '',
+            difficulty: 'medium',
+            timeline: mapTimeline(goalToSave.estimatedDuration as string || ''),
+            is_ai_generated: !isCustomGoal,
+            status: (goalToSave.isActive as boolean) ? 'active' : 'queued',
+          };
+          const { data: newGoal, error: goalError } = await runWithNetworkRetry(() =>
+            supabase.from('goals').insert(goalInsertPayload).select().single()
+          );
+          if (goalError) console.error('Goal insert error:', goalError.message);
+          if (newGoal && steps.length > 0) {
+            const stepsToInsert = steps.map((step, index) => ({
+              goal_id: newGoal.id,
+              text: step.name || step.description,
+              completed: false,
+              order_index: index,
+            }));
+            await runWithNetworkRetry(() => supabase.from('goal_steps').insert(stepsToInsert));
+          }
+          if (pathName) {
+            await runWithNetworkRetry(() =>
+              supabase.from('paths').upsert({
+                user_id: user.id,
+                name: pathName,
+                description: pathDescription || '',
+                is_selected: true,
+                is_ai_generated: !isCustomGoal,
+              }, { onConflict: 'user_id,name' }).select()
+            );
+          }
+        }
+      } catch (supabaseError) {
+        if (isTransientNetworkError(supabaseError)) {
+          console.warn('Supabase temporarily unavailable while saving onboarding goal. Local goal is preserved.');
+        } else {
+          console.error('Error syncing onboarding goal to Supabase:', JSON.stringify(supabaseError));
+        }
+      }
+    } catch (error) {
+      console.error('Error saving onboarding goal:', error);
+    }
+  };
   
   const handleCreateAccount = async () => {
     void hapticMedium();
@@ -850,8 +1077,9 @@ export default function OnboardingScreen() {
         void hapticSuccess();
         
         if (USE_YAZIO_FLOW) {
+          await saveGoalToStorage();
           await markJustFinishedOnboarding();
-          router.replace('/(tabs)');
+          replaceRouteSafely('/(tabs)');
         } else if (route === 'premium') {
           setUserIsPremium(true);
           setCurrentStep(7);
@@ -1028,7 +1256,7 @@ export default function OnboardingScreen() {
       }
 
       await markJustFinishedOnboarding();
-      router.replace('/(tabs)');
+      replaceRouteSafely('/(tabs)');
       isAdvancingStepRef.current = false;
       return;
     }
@@ -1273,7 +1501,7 @@ export default function OnboardingScreen() {
       }
       // Navigate to main app (tabs) - no validation required
       await markJustFinishedOnboarding();
-      router.replace('/(tabs)');
+      replaceRouteSafely('/(tabs)');
     }
     } catch (error) {
       console.error('Error in goToNext:', error);
@@ -1352,6 +1580,55 @@ export default function OnboardingScreen() {
       console.error('Error setting onboarding completion flag:', error);
     }
   };
+
+  const replaceRouteSafely = (href: Parameters<typeof router.replace>[0]) => {
+    pendingReplaceAttemptsRef.current = 0;
+    setPendingReplaceHref(href);
+  };
+
+  useEffect(() => {
+    if (!pendingReplaceHref) return;
+    if (!rootNavigationState?.key) return;
+
+    const hrefToNavigate = pendingReplaceHref;
+
+    const attemptReplace = () => {
+      requestAnimationFrame(() => {
+        try {
+          router.replace(hrefToNavigate);
+          setPendingReplaceHref(null);
+          pendingReplaceAttemptsRef.current = 0;
+        } catch (error) {
+          const message = String((error as Error)?.message || error || '');
+          const isMountRace = message.includes('Attempted to navigate before mounting the Root Layout component');
+          if (isMountRace || pendingReplaceAttemptsRef.current < 20) {
+            pendingReplaceAttemptsRef.current += 1;
+            // Keep retrying quietly until root navigator is truly ready.
+            const retryDelayMs = Math.min(1500, 180 + pendingReplaceAttemptsRef.current * 110);
+            pendingReplaceTimerRef.current = setTimeout(attemptReplace, retryDelayMs);
+            return;
+          }
+          // Last-resort fallback if replace keeps failing in an unusual runtime state.
+          try {
+            router.push(hrefToNavigate as any);
+          } catch {
+            // Keep silent to avoid noisy red-box loops in dev.
+          }
+          setPendingReplaceHref(null);
+          pendingReplaceAttemptsRef.current = 0;
+        }
+      });
+    };
+
+    attemptReplace();
+
+    return () => {
+      if (pendingReplaceTimerRef.current) {
+        clearTimeout(pendingReplaceTimerRef.current);
+        pendingReplaceTimerRef.current = null;
+      }
+    };
+  }, [pendingReplaceHref, rootNavigationState?.key, router]);
 
   const goToNextFromUser = async (options?: { showAboutYouValidationAlert?: boolean }) => {
     if (USE_YAZIO_FLOW && currentFlowStepKey === 'aboutYou' && !canSubmitAboutYou) {
@@ -1607,7 +1884,7 @@ export default function OnboardingScreen() {
             setPendingRoute('free');
             setUserIsPremium(false);
             await markJustFinishedOnboarding();
-            router.replace('/(tabs)');
+            replaceRouteSafely('/(tabs)');
           }}
         />
       ) : showAccountCreation ? (
@@ -1630,8 +1907,8 @@ export default function OnboardingScreen() {
             />
             <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
               <View style={{ marginTop: -195 }}>
-                <Text style={{ fontFamily: 'BricolageGrotesque-Bold', fontSize: 28, color: '#342846', textAlign: 'center', marginBottom: 8 }}>
-                  {localeText('CREATE ACCOUNT', 'СОЗДАЙ АККАУНТ')}
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 28, color: '#342846', textAlign: 'center', marginBottom: 8 }}>
+                  {localeText('Create account', 'Создать аккаунт')}
                 </Text>
                 <Text style={{ fontFamily: 'AnonymousPro-Regular', fontSize: 15, color: '#342846', opacity: 0.6, textAlign: 'center', marginBottom: 32 }}>
                   {localeText('Save your progress and continue on any device', 'Сохрани прогресс и продолжай путь с любого устройства')}
@@ -1881,12 +2158,23 @@ export default function OnboardingScreen() {
                       onComplete={async (pathData) => {
                         void hapticMedium();
                         setShowCustomPathForm(false);
-                        setSelectedGoalTitle(pathData.goalTitle || selectedGoalTitle || localeText('My Goal', 'Моя цель'));
+                        const resolvedTitle = pathData.goalTitle || selectedGoalTitle || localeText('My Goal', 'Моя цель');
+                        setSelectedGoalTitle(resolvedTitle);
                         setDreamGoal(pathData.description || dreamGoal);
                         if (pathData.challenge) {
                           setFearOrBarrier(pathData.challenge);
                           setSelectedGoalFear(pathData.challenge);
                         }
+                        // Capture milestones and timeline so saveGoalToStorage can use them
+                        setCustomPathData({
+                          pathName: resolvedTitle,
+                          pathDescription: pathData.description || '',
+                          keyStrengths: '',
+                          desiredOutcome: pathData.description || '',
+                          timeCommitment: pathData.targetTimeline || localeText('3 months', '3 месяца'),
+                          uniqueApproach: (pathData.milestones || []).join(', '),
+                          milestones: (pathData.milestones || []).filter((m: string) => m.trim()),
+                        });
                         void goToNextFromUser();
                       }}
                     />
@@ -2015,8 +2303,10 @@ export default function OnboardingScreen() {
                       void hapticMedium();
                       setPendingRoute('free');
                       setUserIsPremium(false);
+                      await saveGoalToStorage();
                       await markJustFinishedOnboarding();
-                      router.replace('/(tabs)');
+                      // Defer so navigator is mounted (avoids "navigate before mounting Root Layout")
+                      replaceRouteSafely('/(tabs)');
                     }}
                   />
                 ) : (
@@ -2149,13 +2439,13 @@ export default function OnboardingScreen() {
                   onComplete={async () => {
                     setShowJourneyLoading(false);
                     if (exploringPathId) {
-                      // Navigate directly to tabs
+                      // After creating a goal, land on Active Goals.
                       await markJustFinishedOnboarding();
-                      router.replace('/(tabs)');
+                      replaceRouteSafely(postGoalCreationRoute);
                     } else if (customPathData) {
-                      // Navigate directly to tabs
+                      // After creating a goal, land on Active Goals.
                       await markJustFinishedOnboarding();
-                      router.replace('/(tabs)');
+                      replaceRouteSafely(postGoalCreationRoute);
                     } else {
                       // If "Work on my goal" was clicked, navigate to new goal screen
                       router.push({
@@ -2375,7 +2665,7 @@ export default function OnboardingScreen() {
                   onComplete={async () => {
                     setShowJourneyLoading(false);
                     await markJustFinishedOnboarding();
-                    router.replace('/(tabs)');
+                    replaceRouteSafely(postGoalCreationRoute);
                   }}
                 />
               ) : (

@@ -688,7 +688,9 @@ function IkigaiForm({
             }
           ]}
         >
-          <Text style={styles.ikigaiMainTitle}>{t('onboarding.step4TitleLine1')}{'\n'}{t('onboarding.step4TitleLine2')}</Text>
+          <Text style={styles.ikigaiMainTitle}>
+            {`${t('onboarding.step4TitleLine1')} ${t('onboarding.step4TitleLine2')}`}
+          </Text>
         </Animated.View>
 
         {/* Dynamic Visual */}

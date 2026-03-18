@@ -1,7 +1,8 @@
-import { BodyStyle } from '@/constants/theme';
+import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticMedium } from '@/utils/haptics';
+import { generateUnifiedDestinyProfile } from '@/utils/claudeApi';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -125,10 +126,11 @@ interface PathCardProps {
   index: number;
   isVisible: boolean;
   isTabletLayout: boolean;
+  isRussian: boolean;
   onSelect: () => void;
 }
 
-function PathCard({ path, index, isVisible, isTabletLayout, onSelect }: PathCardProps) {
+function PathCard({ path, index, isVisible, isTabletLayout, isRussian, onSelect }: PathCardProps) {
   const { t } = useTranslation();
   // Animations
   const cardAnim = useRef(new Animated.Value(0)).current;
@@ -240,7 +242,13 @@ function PathCard({ path, index, isVisible, isTabletLayout, onSelect }: PathCard
         />
       )}
 
-      <Animated.View style={[styles.card, isTabletLayout && styles.cardTablet]}>
+      <Animated.View
+        style={[
+          styles.card,
+          isTabletLayout && styles.cardTablet,
+          isRussian && path.isRecommended && styles.cardRecommendedRussian,
+        ]}
+      >
         <LinearGradient
           colors={['rgba(255,255,255,0.6)', 'rgba(255,255,255,0.6)']}
           start={{ x: 0, y: 0 }}
@@ -440,9 +448,12 @@ export default function PathsAlignedStep({
   cardHorizontalInset,
   hideCustomPathOption = false,
   headerTopMargin = 0,
+  headerTitleColor,
   headerExtraContent,
 }: PathsAlignedStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const PATHS_SIGNATURE_KEY = 'destinyProfile_pathsSignature';
+  const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const [isVisible, setIsVisible] = useState(false);
   const [paths, setPaths] = useState<PathData[]>([]);
   const [isLoadingPaths, setIsLoadingPaths] = useState(true);
@@ -455,6 +466,23 @@ export default function PathsAlignedStep({
   const headerSlide = useRef(new Animated.Value(-30)).current;
 
   const cardGradientColors = ['#342846', '#a592b0', '#342846'];
+  const hasCyrillic = (value: string) => /[А-Яа-яЁё]/.test(value);
+  const currentPathsSignature = JSON.stringify({
+    language: i18n.language || 'en',
+    birthMonth: birthMonth || '',
+    birthDate: birthDate || '',
+    birthYear: birthYear || '',
+    birthCity: birthCity || '',
+    birthHour: birthHour || '',
+    birthMinute: birthMinute || '',
+    birthPeriod: birthPeriod || '',
+    whatYouLove: whatYouLove || '',
+    whatYouGoodAt: whatYouGoodAt || '',
+    whatWorldNeeds: whatWorldNeeds || '',
+    whatCanBePaidFor: whatCanBePaidFor || '',
+    fear: fear || '',
+    whatExcites: whatExcites || '',
+  });
 
   // Default paths if none provided
   const defaultPaths: PathData[] = [
@@ -466,7 +494,7 @@ export default function PathsAlignedStep({
       whyItFits: t('clarityMap.perfectIfYouLike', { activity: whatYouLove?.slice(0, 25) || t('clarityMap.createSomethingNew') }),
       icon: 'lightbulb',
       gradientColors: cardGradientColors,
-      accentColor: '#342846',
+      accentColor: isRussian ? '#a592b0' : '#342846',
       milestones: [t('clarityMap.formulateVision'), t('clarityMap.layFoundation'), t('clarityMap.gainMomentum'), t('clarityMap.launchAndImprove')],
       duration: t('clarityMap.twelveWeeks'),
       isRecommended: true,
@@ -502,30 +530,89 @@ export default function PathsAlignedStep({
     const loadPaths = async () => {
       try {
         setIsLoadingPaths(true);
-        const storedPaths = await AsyncStorage.getItem('destinyProfile_paths');
+        const [[, storedPaths], [, storedPathsSignature]] = await AsyncStorage.multiGet([
+          'destinyProfile_paths',
+          PATHS_SIGNATURE_KEY,
+        ]);
+        const cardColors = isRussian ? ['#a592b0', '#baccd7', '#d4c4a8'] : ['#342846', '#a592b0', '#baccd7'];
+        const iconMap = ['lightbulb', 'architecture', 'campaign'];
+        const mapGeneratedPathsToCards = (rawPaths: any[]): PathData[] =>
+          rawPaths.map((path: any, index: number) => ({
+            id: path.id || index + 1,
+            title: path.title || `Path ${index + 1}`,
+            subtitle: path.title || `Path ${index + 1}`,
+            description: path.description || '',
+            whyItFits: path.description || '',
+            icon: iconMap[index] || 'star',
+            gradientColors: cardGradientColors,
+            accentColor: path.glowColor || cardColors[index] || cardColors[0],
+            milestones: [
+              t('clarityMap.formulateVision'),
+              t('clarityMap.layFoundation'),
+              t('clarityMap.gainMomentum'),
+              t('clarityMap.launchAndImprove'),
+            ],
+            duration: t('clarityMap.twelveWeeks'),
+            isRecommended: index === 0,
+          }));
         
-        if (storedPaths) {
+        if (storedPaths && storedPathsSignature === currentPathsSignature) {
           const generatedPaths = JSON.parse(storedPaths);
 
           // Convert stored paths to PathData format
           // Define color palette for cards: #342846, #a592b0, #baccd7
-          const cardColors = ['#342846', '#a592b0', '#baccd7'];
-          const iconMap = ['lightbulb', 'architecture', 'campaign'];
-          const aiPaths: PathData[] = generatedPaths.map((path: any, index: number) => ({
-            id: path.id || index + 1,
-            title: path.title.toUpperCase(),
-            subtitle: path.title,
-            description: path.description,
-            whyItFits: path.description,
-            icon: iconMap[index] || 'star',
-            gradientColors: cardGradientColors,
-            accentColor: path.glowColor || cardColors[index] || cardColors[0],
-            milestones: [t('clarityMap.formulateVision'), t('clarityMap.layFoundation'), t('clarityMap.gainMomentum'), t('clarityMap.launchAndImprove')],
-            duration: t('clarityMap.twelveWeeks'),
-            isRecommended: index === 0,
-          }));
+          const aiPaths: PathData[] = mapGeneratedPathsToCards(generatedPaths);
+          const shouldUseLocalizedFallback =
+            isRussian &&
+            aiPaths.length > 0 &&
+            generatedPaths.every((path: any) => {
+              const combinedText = `${path?.title || ''} ${path?.description || ''}`;
+              return !hasCyrillic(combinedText);
+            });
 
-          const finalPaths = aiPaths.length > 0 ? aiPaths : defaultPaths;
+          if (shouldUseLocalizedFallback) {
+            try {
+              const regeneratedProfile = await generateUnifiedDestinyProfile(
+                birthMonth,
+                birthDate,
+                birthYear,
+                birthCity,
+                birthHour,
+                birthMinute,
+                birthPeriod,
+                whatYouLove,
+                whatYouGoodAt,
+                whatWorldNeeds,
+                whatCanBePaidFor,
+                fear,
+                whatExcites
+              );
+
+              if (Array.isArray(regeneratedProfile.paths) && regeneratedProfile.paths.length > 0) {
+                await AsyncStorage.multiSet([
+                  ['destinyProfile_paths', JSON.stringify(regeneratedProfile.paths)],
+                  [PATHS_SIGNATURE_KEY, currentPathsSignature],
+                ]);
+                const regeneratedPaths: PathData[] = mapGeneratedPathsToCards(regeneratedProfile.paths);
+                setPaths(regeneratedPaths);
+                setIsLoadingPaths(false);
+                if (onPathsGenerated) {
+                  const formattedPaths = regeneratedPaths.map((path) => ({
+                    id: path.id,
+                    title: path.title,
+                    description: path.description,
+                    glowColor: path.accentColor,
+                  }));
+                  onPathsGenerated(formattedPaths);
+                }
+                return;
+              }
+            } catch {
+              // Fall through to localized fallback cards if regeneration fails.
+            }
+          }
+
+          const finalPaths = shouldUseLocalizedFallback || aiPaths.length === 0 ? defaultPaths : aiPaths;
           setPaths(finalPaths);
           setIsLoadingPaths(false);
 
@@ -540,7 +627,46 @@ export default function PathsAlignedStep({
             onPathsGenerated(formattedPaths);
           }
         } else {
-          // Fallback to defaults if storage is empty (shouldn't happen if LoadingStep completed)
+          // If storage is empty, try generating profile once before falling back.
+          try {
+            const regeneratedProfile = await generateUnifiedDestinyProfile(
+              birthMonth,
+              birthDate,
+              birthYear,
+              birthCity,
+              birthHour,
+              birthMinute,
+              birthPeriod,
+              whatYouLove,
+              whatYouGoodAt,
+              whatWorldNeeds,
+              whatCanBePaidFor,
+              fear,
+              whatExcites
+            );
+            if (Array.isArray(regeneratedProfile.paths) && regeneratedProfile.paths.length > 0) {
+              await AsyncStorage.multiSet([
+                ['destinyProfile_paths', JSON.stringify(regeneratedProfile.paths)],
+                [PATHS_SIGNATURE_KEY, currentPathsSignature],
+              ]);
+              const regeneratedPaths: PathData[] = mapGeneratedPathsToCards(regeneratedProfile.paths);
+              setPaths(regeneratedPaths);
+              setIsLoadingPaths(false);
+              if (onPathsGenerated) {
+                const formattedPaths = regeneratedPaths.map(path => ({
+                  id: path.id,
+                  title: path.title,
+                  description: path.description,
+                  glowColor: path.accentColor,
+                }));
+                onPathsGenerated(formattedPaths);
+              }
+              return;
+            }
+          } catch {
+            // Fall through to localized defaults if regeneration fails.
+          }
+
           setPaths(defaultPaths);
           setIsLoadingPaths(false);
           if (onPathsGenerated) {
@@ -570,7 +696,7 @@ export default function PathsAlignedStep({
     };
 
     loadPaths();
-  }, []); // Only run once on mount
+  }, [currentPathsSignature]); // Reload when onboarding answers/language change
 
   // Sort paths so recommended/best match is always first
   const sortedPaths = (paths.length > 0 ? paths : defaultPaths).sort((a, b) => {
@@ -639,8 +765,16 @@ export default function PathsAlignedStep({
             },
           ]}
         >
-          <Text style={styles.headerTitle}>
-            {t('onboarding.whichDirectionCallsYou').replace('{newline}', '\n')}
+          <Text style={[
+            styles.headerTitle,
+            headerTitleColor ? {
+              color: headerTitleColor,
+              textShadowColor: 'rgba(30, 20, 50, 0.55)',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 6,
+            } : undefined,
+          ]}>
+            {t('onboarding.whichDirectionCallsYou').replace('{newline}', ' ')}
           </Text>
           <Text style={styles.headerSubtitle}>
             {t('clarityMap.chooseDirectionThatResonates')}
@@ -657,6 +791,7 @@ export default function PathsAlignedStep({
               index={index}
               isVisible={isVisible}
               isTabletLayout={isTabletLayout}
+              isRussian={Boolean(isRussian)}
               onSelect={() => onExplorePath?.(path.id)}
             />
           ))}
@@ -707,7 +842,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   headerTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 24,
     color: '#342846',
     textAlign: 'center',
@@ -764,6 +899,9 @@ const styles = StyleSheet.create({
     elevation: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.65)',
+  },
+  cardRecommendedRussian: {
+    borderColor: '#a592b0',
   },
   cardTablet: {
     shadowOffset: { width: 0, height: 4 },
@@ -875,7 +1013,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pathTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 20,
     color: '#342846',
     marginBottom: 2,
@@ -897,20 +1035,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Description
-  pathDescription: {
-    fontFamily: 'AnonymousPro-Regular',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 24, // Increased line spacing (was 20)
-    marginBottom: 8,
-    flexShrink: 1, // Allow text to wrap properly
-  },
-
   // Why It Fits
   whyItFitsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.6)',
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -930,6 +1058,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#342846', // Changed to purple to match app theme
     flex: 1,
+    minWidth: 0,
     flexShrink: 1, // Allow text to wrap properly
     lineHeight: 20, // Increased line spacing
   },
@@ -1061,7 +1190,7 @@ const styles = StyleSheet.create({
     marginLeft: 72, // Align with icon (56px icon + 16px spacing)
   },
   customCardTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 16,
     color: '#342846',
     marginBottom: 4,

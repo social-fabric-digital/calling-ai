@@ -18,9 +18,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Animated, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
+const ACTIVE_GOAL_CARD_TOP_SPACING = 15;
+const GOAL_ACTION_VERTICAL_GAP = 15;
+const CARD_TO_CONTINUE_VISUAL_COMPENSATION = 15;
 
 // Firework Effect Component
 function FireworkEffect() {
@@ -216,6 +220,41 @@ const localizeDurationRu = (duration?: string): string => {
   return value;
 };
 
+const localizeNextStepLabel = (label: string, isRussian: boolean): string => {
+  if (!isRussian) return label;
+
+  const trimmed = (label || '').trim();
+  if (!trimmed) return trimmed;
+
+  const stepNumberMatch = trimmed.match(/^step\s+(\d+)\b[\s:.-]*/i);
+  if (stepNumberMatch) {
+    const stepNumber = stepNumberMatch[1];
+    return `Шаг ${stepNumber}`;
+  }
+
+  const stepWordMatch = trimmed.match(/^step\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+  if (stepWordMatch) {
+    const wordToNumber: Record<string, string> = {
+      one: '1',
+      two: '2',
+      three: '3',
+      four: '4',
+      five: '5',
+      six: '6',
+      seven: '7',
+      eight: '8',
+      nine: '9',
+      ten: '10',
+    };
+    const numericValue = wordToNumber[stepWordMatch[1].toLowerCase()];
+    if (numericValue) {
+      return `Шаг ${numericValue}`;
+    }
+  }
+
+  return trimmed;
+};
+
 // ============================================================================
 // ACTIVE GOALS SCREEN
 // A gentle, non-overwhelming goals management interface
@@ -333,19 +372,34 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
       {/* Info chips row */}
       <View style={styles.chipsRow}>
         <View style={styles.chip}>
-          <Text style={[styles.chipLabel, { marginBottom: 4 }]}>{tr('Difficulty', 'Сложность')}</Text>
+          <View style={[styles.chipLabelPill, { marginBottom: 6 }]}>
+            <View style={styles.chipLabelGlowDot} />
+            <Text style={styles.chipLabelText}>{tr('Difficulty', 'Сложность')}</Text>
+            <View style={styles.chipLabelLine} />
+          </View>
           <View style={styles.chipValue}>
             <View style={[
               styles.chipDot,
               { backgroundColor: getDifficultyColor(displayData.difficulty), marginRight: 6 }
             ]} />
-            <Text style={styles.chipText}>{getDifficultyLabel(displayData.difficulty, isRussian)}</Text>
+            <View style={styles.chipHighlight}>
+              <Text style={styles.chipHighlightText}>{getDifficultyLabel(displayData.difficulty, isRussian)}</Text>
+            </View>
           </View>
         </View>
         <View style={styles.chipDivider} />
         <View style={styles.chip}>
-          <Text style={[styles.chipLabel, { marginBottom: 4 }]}>{tr('Time', 'Время')}</Text>
-          <Text style={styles.chipText}>{getTimeCommitment()}</Text>
+          <View style={[styles.chipLabelPill, styles.chipLabelPillTime, { marginBottom: 6 }]}>
+            <View style={[styles.chipLabelGlowDot, styles.chipLabelGlowDotTime]} />
+            <Text style={styles.chipLabelText}>{tr('Time', 'Время')}</Text>
+            <View style={[styles.chipLabelLine, styles.chipLabelLineTime]} />
+          </View>
+          <View style={styles.chipValue}>
+            <MaterialIcons name="schedule" size={12} color="#342846" style={{ marginRight: 6 }} />
+            <View style={[styles.chipHighlight, styles.chipHighlightTime]}>
+              <Text style={styles.chipHighlightText}>{getTimeCommitment()}</Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -353,8 +407,14 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
       <View style={styles.insightRow}>
         <Text style={[styles.insightEmoji, { marginRight: 12 }]}>{displayData.insightDisplay.icon}</Text>
         <View style={styles.insightContent}>
-          <Text style={[styles.insightLabel, { marginBottom: 2 }]}>{displayData.insightDisplay.label}</Text>
-          <Text style={styles.insightValue}>{displayData.insight}</Text>
+          <View style={[styles.insightLabelPill, { marginBottom: 6 }]}>
+            <View style={styles.insightLabelGlowDot} />
+            <Text style={styles.insightLabelText}>{displayData.insightDisplay.label}</Text>
+            <View style={styles.insightLabelLine} />
+          </View>
+          <View style={styles.insightHighlight}>
+            <Text style={styles.insightHighlightText}>{displayData.insight}</Text>
+          </View>
         </View>
       </View>
 
@@ -381,7 +441,9 @@ const GoalCard = ({ goal, displayData, onDelete, isActive, removalAnimation }: {
           activeOpacity={0.8}
         >
           <View style={[styles.nextLevelNumber, { marginRight: 12 }]}>
-            <Text style={styles.nextLevelNumberText}>{displayData.currentLevel}</Text>
+            <View style={styles.nextLevelNumberInner}>
+              <Text style={styles.nextLevelNumberText}>{displayData.currentLevel}</Text>
+            </View>
           </View>
           <Text style={styles.nextLevelName}>{displayData.nextStep}</Text>
           <View style={{ marginLeft: 'auto' }}>
@@ -443,7 +505,7 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
                 <MaterialIcons name="close" size={22} color="#342846" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalTitle}>{tr('Add a new goal', 'Добавить новую цель')}</Text>
+            <Text style={[styles.modalTitle, styles.addGoalModalTitle]}>{tr('Add a new goal', 'Добавить новую цель')}</Text>
           </View>
 
           <View style={styles.modalNotice}>
@@ -494,7 +556,13 @@ const AddGoalModal = ({ onClose, onViewQueue, canAddActive, queueCount, onGoalCr
                 )}
               </View>
               <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>{tr('Ask AI to pick a goal for me', 'Попросить ИИ подобрать цель под меня')}</Text>
+                <Text
+                  style={styles.optionTitle}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {tr('Ask AI to choose a goal', 'Попросить ИИ выбрать цель')}
+                </Text>
                 <Text style={styles.optionDesc}>
                   {tr('Get personalized paths and goals based on your story', 'Получи персональные пути и цели на основе твоей истории')}
                 </Text>
@@ -614,8 +682,13 @@ const QueueModal = ({ goals, onClose, onActivate, onDelete, canActivate, activeC
               alwaysBounceVertical={false}
               keyboardShouldPersistTaps="handled"
             >
-              {goals.map(goal => (
+              {goals.map((goal, index) => (
                 <View key={goal.id} style={styles.queueItem}>
+                  <View style={styles.queueItemHeaderRow}>
+                    <Text style={styles.queueItemPill}>
+                      {tr('Queued', 'В очереди')} #{index + 1}
+                    </Text>
+                  </View>
                   <View style={styles.queueItemInfo}>
                     <Text
                       style={styles.queueItemName}
@@ -624,9 +697,18 @@ const QueueModal = ({ goals, onClose, onActivate, onDelete, canActivate, activeC
                     >
                       {goal.name}
                     </Text>
-                    <Text style={styles.queueItemMeta}>
-                      {getDifficultyLabel(goal.hardnessLevel, isRussian) || tr('Medium', 'Средний')} • {normalizeGoalBlocker(goal.fear)}
-                    </Text>
+                    <View style={styles.queueMetaRow}>
+                      <View style={styles.queueMetaChip}>
+                        <Text style={styles.queueMetaChipText}>
+                          {tr('Difficulty', 'Сложность')}: {getDifficultyLabel(goal.hardnessLevel, isRussian) || tr('Medium', 'Средний')}
+                        </Text>
+                      </View>
+                      <View style={styles.queueMetaChip}>
+                        <Text style={styles.queueMetaChipText}>
+                          {tr('Focus', 'Фокус')}: {normalizeGoalBlocker(goal.fear)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   <View style={styles.queueItemActions}>
                     <TouchableOpacity
@@ -734,6 +816,7 @@ export default function GoalsScreen() {
     return isPromptLike ? tr('Reflection', 'Рефлексия') : value;
   };
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [activeGoals, setActiveGoals] = useState<Goal[]>([]);
   const [queuedGoals, setQueuedGoals] = useState<Goal[]>([]);
@@ -827,12 +910,15 @@ export default function GoalsScreen() {
     loadGoals();
   }, [loadGoals]);
 
-  // Reload when screen comes into focus - ensure fresh data
+  // Reload when screen comes into focus - ensure fresh data.
+  // Use a longer delay to guarantee onboarding's AsyncStorage write completes
+  // before we read, especially right after navigating from onboarding.
   useFocusEffect(
     useCallback(() => {
+      loadGoals(); // immediate read for normal re-focus
       const timer = setTimeout(() => {
-        loadGoals();
-      }, 100);
+        loadGoals(); // delayed re-read to catch any write that hadn't flushed yet
+      }, 600);
       return () => clearTimeout(timer);
     }, [loadGoals])
   );
@@ -1105,6 +1191,7 @@ export default function GoalsScreen() {
         nextStep = goal.steps[nextStepIndex]?.name || tr('Start your path', 'Начни свой путь');
       }
     }
+    nextStep = localizeNextStepLabel(nextStep, isRussian);
     
     return {
       progress,
@@ -1137,8 +1224,11 @@ export default function GoalsScreen() {
         alwaysBounceVertical={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={{ width: 44, height: 44 }} />
+        <View style={[styles.header, { paddingTop: Math.max(60, insets.top + 20) }]}>
+          <View style={styles.headerSideSpacer} />
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.title}>{tr('Active goals', 'Активные цели')}</Text>
+          </View>
           <TouchableOpacity
             style={styles.helperButton}
             onPress={() => {
@@ -1147,14 +1237,16 @@ export default function GoalsScreen() {
             }}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="help-outline" size={24} color="#342846" />
+            <MaterialIcons name="help-outline" size={20} color="#342846" />
           </TouchableOpacity>
         </View>
-
-        {/* Title */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>{tr('ACTIVE GOALS', 'АКТИВНЫЕ ЦЕЛИ')}</Text>
-          <Text style={styles.subtitle}>{tr('Focus on what matters most', 'Фокусируйся на самом важном')}</Text>
+        <View style={styles.subtitleSection}>
+          <Text style={[styles.subtitle, isRussian && styles.subtitleRussian]}>
+            {tr(
+              'Track your active goals here and stay focused on what matters most.',
+              'Отслеживай активные цели здесь и сохраняй фокус на самом важном.'
+            )}
+          </Text>
         </View>
 
         {/* Pagination Dots */}
@@ -1252,9 +1344,14 @@ export default function GoalsScreen() {
               setShowQueueModal(true);
             }}
           >
-            <Text style={styles.queueText}>
-              {tr('View queued goals', 'Посмотреть цели в очереди')}
-            </Text>
+            <View style={styles.queueTextGroup}>
+              <Text style={styles.queueText}>
+                {tr('View queued goals', 'Посмотреть цели в очереди')}
+              </Text>
+              <Text style={styles.queueSubtext}>
+                {tr('These goals are waiting for you', 'Эти цели ждут тебя')}
+              </Text>
+            </View>
             {queuedGoals.length > 0 && (
               <View style={styles.queueBadge}>
                 <Text style={styles.queueBadgeText}>{queuedGoals.length}</Text>
@@ -1275,7 +1372,12 @@ export default function GoalsScreen() {
               setShowAddModal(true);
             }}
           >
-            <Text style={styles.addNewGoalText}>{tr('Add new goal', 'Добавить новую цель')}</Text>
+            <View style={styles.addNewGoalTextGroup}>
+              <Text style={styles.addNewGoalText}>{tr('Add new goal', 'Добавить новую цель')}</Text>
+              <Text style={styles.addNewGoalSubtext}>
+                {tr('You can create your own or ask AI to help you.', 'Ты можешь создать свою цель или попросить AI помочь.')}
+              </Text>
+            </View>
             <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <Path d="M9 18L15 12L9 6" stroke="#342846" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </Svg>
@@ -1875,31 +1977,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 0,
+    paddingBottom: 9,
+  },
+  headerSideSpacer: {
+    width: 44,
+    height: 44,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  subtitleSection: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
   helperButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   addNewGoalSection: {
     marginHorizontal: 24,
-    marginTop: 20,
+    marginTop: 0,
     marginBottom: 16,
   },
   addNewGoalButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 32,
     backgroundColor: '#FFFFFF',
-    borderRadius: 50,
+    borderRadius: 20,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -1912,19 +2036,24 @@ const styles = StyleSheet.create({
     color: '#342846',
     fontWeight: '600',
   },
-  titleSection: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
+  addNewGoalTextGroup: {
+    flex: 1,
+    gap: 2,
+    paddingRight: 10,
+  },
+  addNewGoalSubtext: {
+    ...BodyStyle,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#7A8A9A',
   },
   title: {
     ...HeadingStyle,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 0,
   },
   subtitle: {
     ...BodyStyle,
@@ -1932,42 +2061,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginTop: 0,
+    maxWidth: 270,
+  },
+  subtitleRussian: {
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
-    paddingVertical: 16,
-    marginBottom: 0,
+    marginTop: 15,
+    marginBottom: 15,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#BACCD7',
+    backgroundColor: '#FFFFFF',
+    opacity: 0.6,
   },
   dotActive: {
-    backgroundColor: '#342846',
-    width: 28,
+    backgroundColor: '#FFFFFF',
+    width: 8,
+    height: 8,
     borderRadius: 4,
+    opacity: 1,
   },
   carouselContainer: {
-    marginTop: -20,
+    // Keep at 0 so cards never shift higher than baseline.
+    marginTop: 0,
     marginBottom: 0,
     paddingHorizontal: 0,
   },
   carouselContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   carouselContentSingle: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   cardWrapper: {
     width: width, // Full viewport width for proper paging
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    // Locked baseline spacing for card Y-position.
+    paddingTop: ACTIVE_GOAL_CARD_TOP_SPACING,
     paddingHorizontal: 24, // Padding for card spacing
     overflow: 'hidden',
   },
@@ -2029,14 +2172,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#342846',
     marginBottom: 20,
-    lineHeight: 26,
+    lineHeight: 20,
+    includeFontPadding: false,
     position: 'relative',
     zIndex: 2,
   },
   chipsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.64)',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 18,
@@ -2053,11 +2197,71 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: 'rgba(52,40,70,0.7)',
-    textTransform: 'uppercase',
+    textTransform: 'none',
+  },
+  chipLabelPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chipLabelPillTime: {
+    opacity: 0.95,
+  },
+  chipLabelGlowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#342846',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  chipLabelGlowDotTime: {
+    backgroundColor: '#a592b0',
+    shadowColor: '#a592b0',
+  },
+  chipLabelLine: {
+    width: 18,
+    height: 1,
+    borderRadius: 1,
+    backgroundColor: 'rgba(52,40,70,0.24)',
+  },
+  chipLabelLineTime: {
+    backgroundColor: 'rgba(165,146,176,0.36)',
+  },
+  chipLabelText: {
+    ...HeadingStyle,
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(52,40,70,0.72)',
+    textTransform: 'none',
+    lineHeight: 12,
   },
   chipValue: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  chipHighlight: {
+    backgroundColor: 'rgba(52,40,70,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.16)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  chipHighlightTime: {
+    backgroundColor: 'rgba(165,146,176,0.16)',
+    borderColor: 'rgba(165,146,176,0.28)',
+  },
+  chipHighlightText: {
+    ...BodyStyle,
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#342846',
+    fontWeight: '700',
   },
   chipDot: {
     width: 8,
@@ -2079,8 +2283,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.64)',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.1)',
     marginBottom: 20,
     position: 'relative',
     zIndex: 2,
@@ -2097,12 +2303,59 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: 'rgba(52,40,70,0.7)',
-    textTransform: 'uppercase',
+    textTransform: 'none',
+  },
+  insightLabelPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  insightLabelGlowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#342846',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  insightLabelLine: {
+    width: 18,
+    height: 1,
+    borderRadius: 1,
+    backgroundColor: 'rgba(52,40,70,0.24)',
+  },
+  insightLabelText: {
+    ...HeadingStyle,
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(52,40,70,0.72)',
+    textTransform: 'none',
+    lineHeight: 12,
   },
   insightValue: {
     ...BodyStyle,
     fontSize: 14,
     color: '#342846',
+  },
+  insightHighlight: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(52,40,70,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.16)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  insightHighlightText: {
+    ...BodyStyle,
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#342846',
+    fontWeight: '700',
   },
   progressSection: {
     marginBottom: 18,
@@ -2146,8 +2399,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: 'rgba(52,40,70,0.7)',
-    textTransform: 'uppercase',
-    marginBottom: 8,
+    textTransform: 'none',
+    marginBottom: 3,
   },
   nextLevelCard: {
     flexDirection: 'row',
@@ -2158,6 +2411,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(52,40,70,0.22)',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 8,
   },
   nextLevelNumber: {
     width: 28,
@@ -2167,11 +2425,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  nextLevelNumberInner: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   nextLevelNumberText: {
     ...HeadingStyle,
     fontSize: 16,
+    lineHeight: 18,
     fontWeight: '700',
     color: '#342846',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   nextLevelName: {
     ...BodyStyle,
@@ -2198,17 +2464,18 @@ const styles = StyleSheet.create({
   emptySubtext: {
     ...BodyStyle,
     fontSize: 14,
-    color: '#7A8A9A',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   continueButton: {
     marginHorizontal: 24,
-    marginTop: -10,
-    marginBottom: 16,
+    // Compensate for card shadow so visual spacing matches other 15px gaps.
+    marginTop: CARD_TO_CONTINUE_VISUAL_COMPENSATION,
+    marginBottom: GOAL_ACTION_VERTICAL_GAP,
     paddingVertical: 18,
     paddingHorizontal: 32,
     backgroundColor: '#342846',
-    borderRadius: 50,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
@@ -2223,9 +2490,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   queueSection: {
-    marginTop: 20,
+    marginTop: 0,
     marginHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: GOAL_ACTION_VERTICAL_GAP,
   },
   queueButton: {
     width: '100%',
@@ -2235,7 +2502,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 32,
     backgroundColor: '#FFFFFF',
-    borderRadius: 50,
+    borderRadius: 20,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -2246,26 +2513,38 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   queueText: {
-    flex: 1,
     ...BodyStyle,
     fontSize: 16,
     color: '#342846',
     fontWeight: '600',
   },
+  queueTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  queueSubtext: {
+    ...BodyStyle,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#7A8A9A',
+  },
   queueBadge: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
+    width: 22,
+    height: 22,
     backgroundColor: '#a592b0',
-    borderRadius: 10,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   queueBadgeText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     fontSize: 11,
-    fontWeight: '600',
+    lineHeight: 11,
+    fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -2293,11 +2572,18 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   addGoalModalHeader: {
+    minHeight: 44,
+    justifyContent: 'center',
     marginBottom: 20,
+    position: 'relative',
+  },
+  addGoalModalTitle: {
+    marginTop: 0,
   },
   addGoalModalCloseRow: {
-    width: '100%',
-    alignItems: 'flex-end',
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   modalTitleContainer: {
     flex: 1,
@@ -2307,6 +2593,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 20,
     fontWeight: '700',
+    letterSpacing: 0,
     color: '#342846',
     textAlign: 'center',
   },
@@ -2395,8 +2682,10 @@ const styles = StyleSheet.create({
   optionTitle: {
     ...HeadingStyle,
     fontSize: 16,
+    lineHeight: 20,
     fontWeight: '600',
     color: '#342846',
+    flexShrink: 1,
   },
   optionDesc: {
     ...BodyStyle,
@@ -2425,6 +2714,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   queueModalTitle: {
+    letterSpacing: -0.1,
+    marginTop: -20,
     textAlign: 'center',
     width: '100%',
   },
@@ -2447,12 +2738,29 @@ const styles = StyleSheet.create({
   queueItem: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 10,
+    gap: 12,
     width: '100%',
-    padding: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 14,
-    marginBottom: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(248,249,250,0.96)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8EEF2',
+  },
+  queueItemHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  queueItemPill: {
+    ...BodyStyle,
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#342846',
+    backgroundColor: 'rgba(165,146,176,0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
   },
   queueItemInfo: {
     width: '100%',
@@ -2467,6 +2775,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
+    letterSpacing: 0,
     color: '#342846',
     flexShrink: 1,
   },
@@ -2474,6 +2783,27 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     fontSize: 12,
     color: '#7A8A9A',
+  },
+  queueMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  queueMetaChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#DCE4EA',
+    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  queueMetaChipText: {
+    ...BodyStyle,
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#506072',
   },
   activateButton: {
     paddingVertical: 10,

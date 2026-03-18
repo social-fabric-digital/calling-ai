@@ -248,7 +248,7 @@ const localStyles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   speechWrap: {
     width: '100%',

@@ -100,8 +100,8 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 0,
   },
   option: {

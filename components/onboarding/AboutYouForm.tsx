@@ -384,7 +384,9 @@ function AboutYouForm({
           scrollEventThrottle={16}
           onScrollBeginDrag={Keyboard.dismiss}
         >
-      <Text style={[styles.aboutYouTitle, { color: '#FFFFFF' }]}>{t('onboarding.aboutYouTitle')}</Text>
+      <Text style={[styles.aboutYouTitle, { color: '#FFFFFF', fontSize: 28, lineHeight: 32 }]}>
+        {t('onboarding.aboutYouTitle')}
+      </Text>
       <Text style={[styles.formBodyText, { color: '#FFFFFF' }]}>
         {t('onboarding.helpPersonalize')}
       </Text>

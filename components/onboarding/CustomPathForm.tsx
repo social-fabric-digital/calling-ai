@@ -21,6 +21,7 @@ import {
 import PathChallengeStep from './PathChallengeStep';
 import { styles as onboardingStyles } from './styles';
 import { CustomPathFormProps } from './types';
+import { HeadingStyle } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 const isTablet = Platform.OS === 'ios' && (Platform.isPad || Dimensions.get('window').width >= 768);
@@ -51,7 +52,7 @@ function HeroSection({ title, subtitle }: { title?: string; subtitle?: string })
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const safeTitle = (title || '').toUpperCase();
+  const safeTitle = title || '';
   const safeSubtitle = subtitle || '';
 
   useEffect(() => {
@@ -745,12 +746,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 26,
+    ...HeadingStyle,
+    fontSize: 24,
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginTop: 0,
     textShadowColor: 'rgba(255, 255, 255, 0.45)',
     textShadowOffset: { width: 0, height: 1 },
@@ -803,7 +804,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sectionTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 16,
     color: COLORS.primary,
   },
@@ -813,7 +814,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 14,
     color: COLORS.primary,
     marginBottom: 4,
@@ -876,7 +877,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   milestoneNumberText: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 14,
     color: COLORS.primary,
   },
@@ -971,7 +972,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineLabel: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 15,
     color: COLORS.primary,
     marginBottom: 2,

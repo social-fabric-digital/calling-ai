@@ -113,7 +113,7 @@ export default function EditProfileScreen() {
             <Ionicons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{tr('Edit profile', 'Редактировать профиль')}</Text>
-          <View style={styles.backButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.content}>
@@ -180,14 +180,29 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+  },
+  headerSpacer: {
+    width: 44,
+    height: 44,
   },
   headerTitle: {
     ...HeadingStyle,
-    fontSize: 20,
+    fontSize: 24,
     color: '#342846',
   },
   content: {
@@ -206,10 +221,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   label: {
-    ...ButtonHeadingStyle,
-    fontSize: 14,
+    ...HeadingStyle,
+    fontSize: 18,
     color: '#342846',
     marginBottom: 8,
+    textTransform: 'none',
   },
   secondLabel: {
     marginTop: 16,
@@ -217,15 +233,19 @@ const styles = StyleSheet.create({
   input: {
     ...BodyStyle,
     fontSize: 16,
+    lineHeight: 20,
     color: '#342846',
     backgroundColor: '#F7F5F9',
     borderRadius: 10,
     paddingHorizontal: 14,
     height: 48,
     paddingVertical: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
     borderWidth: 1,
     borderColor: '#E4DFEA',
     textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   helper: {
     ...BodyStyle,

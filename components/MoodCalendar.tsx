@@ -1,4 +1,5 @@
 import { BodyStyle, HeadingStyle } from '@/constants/theme';
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import {
   getDayNames,
   getMoodsForWeek,
@@ -97,6 +98,8 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
   
   return (
     <View style={styles.container}>
+      <FrostedCardLayer intensity={100} tint="light" fallbackColor="rgba(255, 255, 255, 0.34)" />
+      <View pointerEvents="none" style={styles.glassTint} />
       {/* Week Navigation */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -104,7 +107,7 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
           onPress={goToPreviousWeek}
           activeOpacity={0.7}
         >
-          <Text style={styles.navButtonText}>{'<'}</Text>
+          <Text style={styles.navButtonText}>{'←'}</Text>
         </TouchableOpacity>
         
         <Text style={styles.weekLabel}>{weekLabel}</Text>
@@ -115,7 +118,7 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
           activeOpacity={canGoNext() ? 0.7 : 1}
           disabled={!canGoNext()}
         >
-          <Text style={[styles.navButtonText, !canGoNext() && styles.navButtonTextDisabled]}>{'>'}</Text>
+          <Text style={[styles.navButtonText, !canGoNext() && styles.navButtonTextDisabled]}>{'→'}</Text>
         </TouchableOpacity>
       </View>
       
@@ -162,16 +165,21 @@ export function MoodCalendar({ onRefresh }: MoodCalendarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: brandColors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.98)',
+    overflow: 'hidden',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 9,
+  },
+  glassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
   },
   header: {
     flexDirection: 'row',
@@ -184,7 +192,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: brandColors.light,
+    backgroundColor: 'rgba(52, 40, 70, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -192,10 +200,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(52, 40, 70, 0.05)',
   },
   navButtonText: {
-    ...HeadingStyle,
-    fontSize: 18,
+    ...BodyStyle,
+    fontSize: 11,
+    lineHeight: 11,
     color: brandColors.primary,
-    fontWeight: 'bold',
+    textTransform: 'none',
   },
   navButtonTextDisabled: {
     color: 'rgba(52, 40, 70, 0.3)',
@@ -215,11 +224,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayName: {
-    ...BodyStyle,
+    ...HeadingStyle,
     fontSize: 11,
-    color: '#999',
+    color: 'rgba(52, 40, 70, 0.72)',
     marginBottom: 4,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   dayNameToday: {
     color: brandColors.primary,
@@ -239,7 +248,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(52, 40, 70, 0.05)',
+    backgroundColor: 'rgba(52, 40, 70, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },

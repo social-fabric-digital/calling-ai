@@ -2136,6 +2136,7 @@ export async function generateCallingAwaitsContent(
   astrologyReport?: PersonalAstrologyReport
 ): Promise<CallingAwaitsContent> {
   const apiKey = getApiKey();
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -2305,12 +2306,19 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       }
       
       // Return fallback content for API errors
-      const fallbackGifts: NaturalGift[] = [
-        { name: 'Creative expression', description: 'Your ability to express yourself through art, writing, or creative mediums that resonate with your inner truth.' },
-        { name: 'Bold leadership', description: 'Your natural capacity to inspire and guide others toward meaningful change and transformation.' },
-        { name: 'Artistic communication', description: 'Your gift for conveying complex ideas and emotions through visual, written, or spoken forms.' },
-        { name: 'Initiating projects', description: 'Your talent for starting new ventures and bringing innovative ideas to life with passion and determination.' },
-      ];
+      const fallbackGifts: NaturalGift[] = isRussianLocale
+        ? [
+            { name: 'Творческое выражение', description: 'Ты умеешь превращать идеи в понятные и вдохновляющие формы через слово, визуал и действие.' },
+            { name: 'Смелое лидерство', description: 'Ты естественно берёшь инициативу и помогаешь другим двигаться к значимым изменениям.' },
+            { name: 'Ясная коммуникация', description: 'Ты умеешь доносить сложные мысли просто и глубоко, создавая доверие и вовлечённость.' },
+            { name: 'Запуск проектов', description: 'Ты умеешь запускать важные инициативы и доводить их до ощутимого результата.' },
+          ]
+        : [
+            { name: 'Creative expression', description: 'Your ability to express yourself through art, writing, or creative mediums that resonate with your inner truth.' },
+            { name: 'Bold leadership', description: 'Your natural capacity to inspire and guide others toward meaningful change and transformation.' },
+            { name: 'Artistic communication', description: 'Your gift for conveying complex ideas and emotions through visual, written, or spoken forms.' },
+            { name: 'Initiating projects', description: 'Your talent for starting new ventures and bringing innovative ideas to life with passion and determination.' },
+          ];
       console.warn('CallingAwaits: Using fallback content due to API error');
       return {
         naturalGifts: fallbackGifts,
@@ -2399,7 +2407,11 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
           whatWorldNeeds: parsed.ikigaiCircles?.whatWorldNeeds || (whatWorldNeeds ? whatWorldNeeds.split(' ').slice(0, 2).join(' ') : 'World needs'),
           whatCanBePaidFor: parsed.ikigaiCircles?.whatCanBePaidFor || (whatCanBePaidFor ? whatCanBePaidFor.split(' ').slice(0, 2).join(' ') : 'Monetizable skills'),
         },
-        centerSummary: parsed.centerSummary ? parsed.centerSummary.replace(/calling/gi, 'path').replace(/Calling/gi, 'Path') : 'Your unique path to purpose and fulfillment.',
+        centerSummary: parsed.centerSummary
+          ? parsed.centerSummary.replace(/calling/gi, 'path').replace(/Calling/gi, 'Path')
+          : isRussianLocale
+            ? 'Твой уникальный путь к смыслу и реализации.'
+            : 'Your unique path to purpose and fulfillment.',
       };
     } catch (parseError: any) {
       console.error('Error parsing calling content JSON:', parseError);
@@ -2488,6 +2500,14 @@ export async function generateUnifiedDestinyProfile(
   whatMattersMost?: string[]
 ): Promise<UnifiedDestinyProfile> {
   const apiKey = getApiKey();
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const outputLanguageLabel = isRussianLocale ? 'Russian' : 'English';
+  const notProvidedLabel = isRussianLocale ? 'Не указано' : 'Not provided';
+  const trimForPrompt = (value?: string, maxChars = 220) => {
+    const normalized = (value || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return notProvidedLabel;
+    return normalized.length > maxChars ? `${normalized.slice(0, maxChars)}...` : normalized;
+  };
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -2496,7 +2516,7 @@ export async function generateUnifiedDestinyProfile(
   // Format birth date and time (handle empty values gracefully)
   const birthDateStr = (birthMonth && birthDate && birthYear) 
     ? `${birthMonth}/${birthDate}/${birthYear}` 
-    : 'Not provided';
+    : notProvidedLabel;
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
@@ -2525,11 +2545,91 @@ export async function generateUnifiedDestinyProfile(
   }
 
   // Format Current Life Context data
-  const currentSituationStr = currentSituation || 'Not provided';
-  const biggestConstraintStr = biggestConstraint || 'Not provided';
+  const currentSituationStr = trimForPrompt(currentSituation, 260);
+  const biggestConstraintStr = trimForPrompt(biggestConstraint, 220);
   const whatMattersMostStr = whatMattersMost && whatMattersMost.length > 0 
-    ? whatMattersMost.join(', ') 
-    : 'Not provided';
+    ? whatMattersMost.map((item) => trimForPrompt(item, 80)).join(', ') 
+    : notProvidedLabel;
+  const whatYouLoveStr = trimForPrompt(whatYouLove, 220);
+  const whatYouGoodAtStr = trimForPrompt(whatYouGoodAt, 220);
+  const whatWorldNeedsStr = trimForPrompt(whatWorldNeeds, 220);
+  const whatCanBePaidForStr = trimForPrompt(whatCanBePaidFor, 220);
+  const fearStr = trimForPrompt(fear, 180);
+  const whatExcitesStr = trimForPrompt(whatExcites, 180);
+  const toTwoWords = (value: string, fallbackA: string, fallbackB: string) => {
+    const words = value
+      .replace(/["'.,!?;:()]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+    if (words.length === 2) return `${words[0]} ${words[1]}`;
+    if (words.length === 1) return `${words[0]} ${fallbackB}`;
+    return `${fallbackA} ${fallbackB}`;
+  };
+  const buildRateLimitFallbackProfile = (): UnifiedDestinyProfile => {
+    const fallbackGifts: NaturalGift[] = isRussianLocale
+      ? [
+          { name: 'Творческий фокус', description: 'Ты умеешь превращать идеи в конкретные шаги и сохранять мотивацию в процессе.' },
+          { name: 'Сильная адаптивность', description: 'Ты гибко подстраиваешься под обстоятельства и находишь рабочие решения.' },
+          { name: 'Эмпатичное лидерство', description: 'Ты поддерживаешь других и создаешь вокруг себя атмосферу доверия и роста.' },
+          { name: 'Системное мышление', description: 'Ты видишь общую картину и умеешь разбивать сложные цели на понятные этапы.' },
+        ]
+      : [
+          { name: 'Creative Focus', description: 'You turn ideas into concrete steps and stay motivated through execution.' },
+          { name: 'Adaptive Strength', description: 'You adjust quickly to changing conditions and keep moving with clarity.' },
+          { name: 'Empathic Leadership', description: 'You support people well and create trust while moving goals forward.' },
+          { name: 'Systems Thinking', description: 'You see the big picture and break complex goals into practical phases.' },
+        ];
+
+    return {
+      callingAwaits: {
+        naturalGifts: fallbackGifts,
+        ikigaiCircles: {
+          whatYouLove: toTwoWords(
+            whatYouLoveStr,
+            isRussianLocale ? 'Твои' : 'Your',
+            isRussianLocale ? 'интересы' : 'passions'
+          ),
+          whatYouGoodAt: toTwoWords(
+            whatYouGoodAtStr,
+            isRussianLocale ? 'Твои' : 'Your',
+            isRussianLocale ? 'таланты' : 'skills'
+          ),
+          whatWorldNeeds: toTwoWords(
+            whatWorldNeedsStr,
+            isRussianLocale ? 'Польза' : 'World',
+            isRussianLocale ? 'миру' : 'needs'
+          ),
+          whatCanBePaidFor: toTwoWords(
+            whatCanBePaidForStr,
+            isRussianLocale ? 'Практичные' : 'Practical',
+            isRussianLocale ? 'навыки' : 'value'
+          ),
+        },
+        centerSummary: isRussianLocale
+          ? 'Твой путь строится на сильных сторонах и устойчивом прогрессе.'
+          : 'Your path is built on strengths and steady progress.',
+      },
+      paths: isRussianLocale
+        ? [
+            { id: 1, title: 'Творческий вектор', description: 'Развивай сильные стороны через понятные ежедневные шаги.', glowColor: '#cdbad8' },
+            { id: 2, title: 'Личный рост', description: 'Укрепляй уверенность и двигайся к целям в своем темпе.', glowColor: '#baccd7' },
+            { id: 3, title: 'Ценный вклад', description: 'Применяй навыки там, где они приносят практическую пользу.', glowColor: '#a6a76c' },
+          ]
+        : [
+            { id: 1, title: 'Creative Direction', description: 'Develop your strengths through clear daily action.', glowColor: '#cdbad8' },
+            { id: 2, title: 'Personal Growth', description: 'Build confidence and progress toward meaningful goals.', glowColor: '#baccd7' },
+            { id: 3, title: 'Purposeful Impact', description: 'Apply your skills where they create practical value.', glowColor: '#a6a76c' },
+          ],
+    };
+  };
+
+  // If API is currently in cooldown due to recent failures, skip network calls
+  // and return a local fallback profile immediately.
+  if (shouldSkipApiCall()) {
+    console.warn('[Destiny Profile] Cooldown active; using local fallback profile.');
+    return buildRateLimitFallbackProfile();
+  }
 
   // Use sun sign only for destiny profile loading step (skip full astrology report to keep load time fast)
   const astrologyReport: PersonalAstrologyReport | undefined = undefined;
@@ -2573,20 +2673,25 @@ CRITICAL INSTRUCTION: You MUST reference SPECIFIC insights from this astrologica
 
 ${astrologySection}
 
+OUTPUT LANGUAGE REQUIREMENT:
+- Return all user-facing text values in ${outputLanguageLabel}.
+- Keep JSON keys in English exactly as specified.
+- If ${outputLanguageLabel} is Russian, all titles/descriptions/summaries must be natural Russian text.
+
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
-${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
-${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
+${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : `- Birth Time: ${notProvidedLabel}`}
+${locationStr ? `- Birth Location: ${birthCity}` : `- Birth Location: ${notProvidedLabel}`}
 
 IKIGAI RESPONSES (USE THESE SPECIFIC ANSWERS):
-- What they love: "${whatYouLove || 'Not provided'}"
-- What they're good at: "${whatYouGoodAt || 'Not provided'}"
-- What the world needs: "${whatWorldNeeds || 'Not provided'}"
-- What can be paid for: "${whatCanBePaidFor || 'Not provided'}"
+- What they love: "${whatYouLoveStr}"
+- What they're good at: "${whatYouGoodAtStr}"
+- What the world needs: "${whatWorldNeedsStr}"
+- What can be paid for: "${whatCanBePaidForStr}"
 
 FEARS AND MOTIVATIONS:
-${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
-${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
+- Their fear: ${fearStr}
+- What excites them: ${whatExcitesStr}
 
 CURRENT LIFE CONTEXT (CRITICAL - Use this to personalize paths and gifts):
 - Current Situation: ${currentSituationStr}
@@ -2711,6 +2816,47 @@ ${astrologyReport && astrologyReport.sunSign ? `🚨 FINAL REMINDER: Each natura
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.`;
 
+  // Short fallback prompt used when input-token TPM rate-limit is hit.
+  // Keeps the same schema while dramatically reducing token usage.
+  const compactUnifiedPrompt = `Generate a personalized profile in ${outputLanguageLabel}. Return JSON only.
+
+User context:
+- Birth: ${birthDateStr}${birthTimeStr}${locationStr}
+- Sun sign: ${hasSunSign ? sunSign : notProvidedLabel}
+- Love: "${whatYouLoveStr}"
+- Good at: "${whatYouGoodAtStr}"
+- World needs: "${whatWorldNeedsStr}"
+- Paid for: "${whatCanBePaidForStr}"
+- Fear: "${fearStr}"
+- Excites: "${whatExcitesStr}"
+- Situation: "${currentSituationStr}"
+- Constraint: "${biggestConstraintStr}"
+- Matters most: "${whatMattersMostStr}"
+
+Requirements:
+1) naturalGifts: exactly 4 items. Each has name (2-4 words) and short description.
+2) ikigaiCircles: each value must be exactly 2 words.
+3) centerSummary: max 12 words, and must NOT include "destiny" or "calling".
+4) paths: exactly 3 items with title, description, glowColor.
+5) Keep user-facing text natural ${outputLanguageLabel}.
+
+Output schema:
+{
+  "naturalGifts": [{"name":"", "description":""}],
+  "ikigaiCircles": {
+    "whatYouLove": "",
+    "whatYouGoodAt": "",
+    "whatWorldNeeds": "",
+    "whatCanBePaidFor": ""
+  },
+  "centerSummary": "",
+  "paths": [
+    {"title":"", "description":"", "glowColor":"#cdbad8"},
+    {"title":"", "description":"", "glowColor":"#baccd7"},
+    {"title":"", "description":"", "glowColor":"#a6a76c"}
+  ]
+}`;
+
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
       {
@@ -2721,7 +2867,26 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
 
     // Use Sonnet for unified destiny profile generation
     // Increased max_tokens to accommodate both calling awaits and paths content
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 2000);
+    let response = await tryModel(
+      apiKey,
+      'claude-sonnet-4-5',
+      apiMessages,
+      `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
+      2000
+    );
+
+    // If we hit org TPM input limits, retry once with a compact prompt + fewer output tokens.
+    if (!response.ok && response.status === 429) {
+      console.warn('[Destiny Profile] 429 rate limit on full prompt; retrying with compact prompt.');
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      response = await tryModel(
+        apiKey,
+        'claude-haiku-4-5-20251001',
+        [{ role: 'user', content: compactUnifiedPrompt }],
+        `You are an expert life coach. Return all user-facing values in ${outputLanguageLabel}.`,
+        900
+      );
+    }
 
     // Check response status BEFORE trying to parse JSON
     if (!response.ok) {
@@ -2735,10 +2900,19 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       } else if (response.status === 402) {
         errorMsg += ' - Insufficient credits';
       } else if (response.status === 429) {
-        errorMsg += ' - Rate limit exceeded';
+        errorMsg += ' - Rate limit exceeded. Please retry in 30-60 seconds.';
       }
       
-      // DO NOT return fallback - throw error so LoadingStep can handle it
+      // Cooldown guard from tryModel; return fallback without throwing noisy errors.
+      if (
+        response.status === 400 &&
+        /temporarily unavailable due to recent failures|retrying in \d+ seconds/i.test(errorMessage)
+      ) {
+        console.warn('[Destiny Profile] API cooldown response; using local fallback profile.');
+        return buildRateLimitFallbackProfile();
+      }
+
+      // DO NOT return fallback for other API errors - throw so caller can handle
       throw new Error(errorMsg);
     }
 
@@ -2815,26 +2989,47 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
             description: path.description || '',
             glowColor: path.glowColor || ['#cdbad8', '#baccd7', '#a6a76c'][index] || '#cdbad8',
           }))
-        : [
-            {
-              id: 1,
-              title: 'Creative Expression',
-              description: 'A path aligned with your unique talents and passions.',
-              glowColor: '#cdbad8',
-            },
-            {
-              id: 2,
-              title: 'Personal Growth',
-              description: 'A journey that helps you overcome fears and reach your potential.',
-              glowColor: '#baccd7',
-            },
-            {
-              id: 3,
-              title: 'Purposeful Impact',
-              description: 'A way to make a meaningful difference in the world.',
-              glowColor: '#a6a76c',
-            },
-          ];
+        : isRussianLocale
+          ? [
+              {
+                id: 1,
+                title: 'Творческий вектор',
+                description: 'Путь, где твои сильные стороны и интересы складываются в устойчивый рост.',
+                glowColor: '#cdbad8',
+              },
+              {
+                id: 2,
+                title: 'Личный рост',
+                description: 'Маршрут, который помогает преодолеть ограничения и раскрыть потенциал.',
+                glowColor: '#baccd7',
+              },
+              {
+                id: 3,
+                title: 'Ценный вклад',
+                description: 'Направление, в котором твои навыки приносят реальную пользу другим.',
+                glowColor: '#a6a76c',
+              },
+            ]
+          : [
+              {
+                id: 1,
+                title: 'Creative Expression',
+                description: 'A path aligned with your unique talents and passions.',
+                glowColor: '#cdbad8',
+              },
+              {
+                id: 2,
+                title: 'Personal Growth',
+                description: 'A journey that helps you overcome fears and reach your potential.',
+                glowColor: '#baccd7',
+              },
+              {
+                id: 3,
+                title: 'Purposeful Impact',
+                description: 'A way to make a meaningful difference in the world.',
+                glowColor: '#a6a76c',
+              },
+            ];
 
       return {
         callingAwaits,
@@ -2846,12 +3041,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     }
   } catch (error: any) {
     const rawMessage = error?.message || String(error);
-    console.error('[Destiny Profile] API call failed:', rawMessage);
-    if (/network request failed|failed to fetch|fetch failed|timeout|aborted/i.test(rawMessage)) {
-      throw new Error('Network request failed. Please check your internet connection and try again.');
+    const isExpectedRateOrCooldown =
+      /429|rate limit|input tokens per minute|temporarily unavailable due to recent failures|retrying in \d+ seconds/i.test(rawMessage);
+    if (isExpectedRateOrCooldown) {
+      console.warn('[Destiny Profile] Rate-limit/cooldown encountered; using local fallback profile.');
+      return buildRateLimitFallbackProfile();
     }
-    // DO NOT return fallback - throw error so LoadingStep can handle retry
-    throw error;
+    console.warn('[Destiny Profile] API call failed; using local fallback profile:', rawMessage);
+    if (/network request failed|failed to fetch|fetch failed|timeout|aborted/i.test(rawMessage)) {
+      return buildRateLimitFallbackProfile();
+    }
+    // Fail-open: do not block onboarding if profile generation fails.
+    return buildRateLimitFallbackProfile();
   }
 }
 
@@ -2873,6 +3074,40 @@ export async function generatePathContent(
   whatExcites?: string
 ): Promise<PathContent> {
   const apiKey = getApiKey();
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const outputLanguageLabel = isRussianLocale ? 'Russian' : 'English';
+  const notProvidedLabel = isRussianLocale ? 'Не указано' : 'Not provided';
+  const hasCyrillic = (value?: string) => /[А-Яа-яЁё]/.test(value || '');
+  const russianFallbackContent = (): PathContent => ({
+    whyFitsYou: [
+      `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`,
+      'Твои ответы Икигай хорошо сочетаются с этим фокусом.',
+      'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.',
+    ],
+    goals: [
+      {
+        id: 1,
+        title: 'Сделай первый профессиональный рывок',
+        fear: fear || 'А вдруг не получится?',
+        timeFrame: 'три месяца, четыре шага',
+        description: 'Собери понятный план действий и запусти первые шаги к устойчивому результату.',
+      },
+      {
+        id: 2,
+        title: 'Запусти проект в этом направлении',
+        fear: fear || 'А если я ошибусь?',
+        timeFrame: 'шесть месяцев, восемь шагов',
+        description: 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.',
+      },
+      {
+        id: 3,
+        title: 'Покажи результаты публично',
+        fear: fear || 'А если никто не откликнется?',
+        timeFrame: 'два месяца, три шага',
+        description: 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.',
+      },
+    ],
+  });
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -2881,7 +3116,7 @@ export async function generatePathContent(
   // Format birth date and time (handle empty values gracefully)
   const birthDateStr = (birthMonth && birthDate && birthYear) 
     ? `${birthMonth}/${birthDate}/${birthYear}` 
-    : 'Not provided';
+    : notProvidedLabel;
   let birthTimeStr = '';
   if (birthHour && birthMinute && birthPeriod) {
     birthTimeStr = ` at ${birthHour}:${birthMinute} ${birthPeriod}`;
@@ -2912,7 +3147,7 @@ export async function generatePathContent(
   // Build prompt conditionally based on available data
   const sunSignSection = hasSunSign 
     ? `- Sun Sign: ${sunSign}`
-    : `- Sun Sign: Not provided (birth date information unavailable)`;
+    : `- Sun Sign: ${notProvidedLabel} (birth date information unavailable)`;
 
   const pathContentPrompt = `You are an expert astrologer and life coach. Generate personalized content for a specific life path that aligns with the user's calling.
 
@@ -2923,18 +3158,23 @@ SELECTED PATH:
 PERSONAL INFORMATION:
 - Birth Date: ${birthDateStr}${birthTimeStr}${locationStr}
 ${sunSignSection}
-${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : '- Birth Time: Not provided'}
-${locationStr ? `- Birth Location: ${birthCity}` : '- Birth Location: Not provided'}
+${birthTimeStr ? `- Birth Time: ${birthHour}:${birthMinute} ${birthPeriod}` : `- Birth Time: ${notProvidedLabel}`}
+${locationStr ? `- Birth Location: ${birthCity}` : `- Birth Location: ${notProvidedLabel}`}
 
 IKIGAI RESPONSES:
-${whatYouLove ? `- What they love: ${whatYouLove}` : '- What they love: Not provided'}
-${whatYouGoodAt ? `- What they are good at: ${whatYouGoodAt}` : '- What they are good at: Not provided'}
-${whatWorldNeeds ? `- What the world needs: ${whatWorldNeeds}` : '- What the world needs: Not provided'}
-${whatCanBePaidFor ? `- What can be paid for: ${whatCanBePaidFor}` : '- What can be paid for: Not provided'}
+${whatYouLove ? `- What they love: ${whatYouLove}` : `- What they love: ${notProvidedLabel}`}
+${whatYouGoodAt ? `- What they are good at: ${whatYouGoodAt}` : `- What they are good at: ${notProvidedLabel}`}
+${whatWorldNeeds ? `- What the world needs: ${whatWorldNeeds}` : `- What the world needs: ${notProvidedLabel}`}
+${whatCanBePaidFor ? `- What can be paid for: ${whatCanBePaidFor}` : `- What can be paid for: ${notProvidedLabel}`}
 
 FEARS AND MOTIVATIONS:
-${fear ? `- Their fear: ${fear}` : '- Their fear: Not provided'}
-${whatExcites ? `- What excites them: ${whatExcites}` : '- What excites them: Not provided'}
+${fear ? `- Their fear: ${fear}` : `- Their fear: ${notProvidedLabel}`}
+${whatExcites ? `- What excites them: ${whatExcites}` : `- What excites them: ${notProvidedLabel}`}
+
+OUTPUT LANGUAGE REQUIREMENT:
+- Return all user-facing text values in ${outputLanguageLabel}.
+- Keep JSON keys in English exactly as specified.
+- If ${outputLanguageLabel} is Russian, all reasons and goals must be natural Russian text.
 
 INSTRUCTIONS:
 1. Generate exactly 3 reasons "Why this fits you" that connect ${hasSunSign ? `their astrological chart (Sun sign: ${sunSign}), ` : ''}their Ikigai responses, and their fears/motivations to this specific path. Each reason should be one sentence (max 25 words).
@@ -2987,7 +3227,13 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex calling content analysis with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 900);
+    const response = await tryModel(
+      apiKey,
+      'claude-sonnet-4-5',
+      apiMessages,
+      `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
+      900
+    );
 
     // Check response status BEFORE trying to parse JSON
     if (!response.ok) {
@@ -3001,36 +3247,67 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       }
       
       // Return fallback content for API errors
-      return {
-        whyFitsYou: [
-          `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-          'Your Ikigai responses show alignment with this direction.',
-          'This path addresses your fears while pursuing what excites you.',
-        ],
-        goals: [
-          {
-            id: 1,
-            title: 'Become a full-time professional in this path',
-            fear: fear || 'What if I go broke?',
-            timeFrame: 'three months, four steps',
-            description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
-          },
-          {
-            id: 2,
-            title: 'Launch your own venture in this field',
-            fear: fear || 'What if I fail?',
-            timeFrame: 'six months, eight steps',
-            description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
-          },
-          {
-            id: 3,
-            title: 'Create and share your work online',
-            fear: fear || 'What if no one buys it?',
-            timeFrame: 'two months, three steps',
-            description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
-          },
-        ],
-      };
+      return isRussianLocale
+        ? {
+            whyFitsYou: [
+              `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`,
+              'Твои ответы Икигай хорошо сочетаются с этим фокусом.',
+              'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.',
+            ],
+            goals: [
+              {
+                id: 1,
+                title: 'Сделай первый профессиональный рывок',
+                fear: fear || 'А вдруг не получится?',
+                timeFrame: 'три месяца, четыре шага',
+                description: 'Собери понятный план действий и запусти первые шаги к устойчивому результату.',
+              },
+              {
+                id: 2,
+                title: 'Запусти проект в этом направлении',
+                fear: fear || 'А если я ошибусь?',
+                timeFrame: 'шесть месяцев, восемь шагов',
+                description: 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.',
+              },
+              {
+                id: 3,
+                title: 'Покажи результаты публично',
+                fear: fear || 'А если никто не откликнется?',
+                timeFrame: 'два месяца, три шага',
+                description: 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.',
+              },
+            ],
+          }
+        : {
+            whyFitsYou: [
+              `Your ${sunSign} sun sign gives you natural strengths for this path.`,
+              'Your Ikigai responses show alignment with this direction.',
+              'This path addresses your fears while pursuing what excites you.',
+            ],
+            goals: [
+              {
+                id: 1,
+                title: 'Become a full-time professional in this path',
+                fear: fear || 'What if I go broke?',
+                timeFrame: 'three months, four steps',
+                description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
+              },
+              {
+                id: 2,
+                title: 'Launch your own venture in this field',
+                fear: fear || 'What if I fail?',
+                timeFrame: 'six months, eight steps',
+                description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
+              },
+              {
+                id: 3,
+                title: 'Create and share your work online',
+                fear: fear || 'What if no one buys it?',
+                timeFrame: 'two months, three steps',
+                description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
+              },
+            ],
+          };
     }
 
     // Parse the JSON response only if response is ok
@@ -3124,36 +3401,62 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
               },
             ],
       };
+
+      if (isRussianLocale) {
+        const allWhyFitsAreEnglish = content.whyFitsYou.every((item) => !hasCyrillic(item));
+        const allGoalsAreEnglish = content.goals.every(
+          (goal) =>
+            !hasCyrillic(goal.title) &&
+            !hasCyrillic(goal.description) &&
+            !hasCyrillic(goal.timeFrame) &&
+            !hasCyrillic(goal.fear)
+        );
+        if (allWhyFitsAreEnglish || allGoalsAreEnglish) {
+          content = russianFallbackContent();
+        }
+      }
     } catch (parseError) {
       console.warn('Path content response was not valid JSON, using fallback content:', parseError);
       // Fallback content
       content = {
         whyFitsYou: [
-          `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-          'Your Ikigai responses show alignment with this direction.',
-          'This path addresses your fears while pursuing what excites you.',
+          isRussianLocale
+            ? `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`
+            : `Your ${sunSign} sun sign gives you natural strengths for this path.`,
+          isRussianLocale
+            ? 'Твои ответы Икигай хорошо сочетаются с этим фокусом.'
+            : 'Your Ikigai responses show alignment with this direction.',
+          isRussianLocale
+            ? 'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.'
+            : 'This path addresses your fears while pursuing what excites you.',
         ],
         goals: [
           {
             id: 1,
-            title: 'Become a full-time professional in this path',
-            fear: fear || 'What if I go broke?',
-            timeFrame: 'three months, four steps',
-            description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
+            title: isRussianLocale ? 'Сделай первый профессиональный рывок' : 'Become a full-time professional in this path',
+            fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I go broke?'),
+            timeFrame: isRussianLocale ? 'три месяца, четыре шага' : 'three months, four steps',
+            description: isRussianLocale
+              ? 'Собери понятный план действий и запусти первые шаги к устойчивому результату.'
+              : 'Design and launch internal startups to diversify company portfolio and revenue streams.',
           },
           {
             id: 2,
-            title: 'Launch your own venture in this field',
-            fear: fear || 'What if I fail?',
-            timeFrame: 'six months, eight steps',
-            description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
+            title: isRussianLocale ? 'Запусти проект в этом направлении' : 'Launch your own venture in this field',
+            fear: fear || (isRussianLocale ? 'А если я ошибусь?' : 'What if I fail?'),
+            timeFrame: isRussianLocale ? 'шесть месяцев, восемь шагов' : 'six months, eight steps',
+            description: isRussianLocale
+              ? 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.'
+              : 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
           },
           {
             id: 3,
-            title: 'Create and share your work online',
-            fear: fear || 'What if no one buys it?',
-            timeFrame: 'two months, three steps',
-            description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
+            title: isRussianLocale ? 'Покажи результаты публично' : 'Create and share your work online',
+            fear: fear || (isRussianLocale ? 'А если никто не откликнется?' : 'What if no one buys it?'),
+            timeFrame: isRussianLocale ? 'два месяца, три шага' : 'two months, three steps',
+            description: isRussianLocale
+              ? 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.'
+              : 'Establish your digital presence and monetize your creative work through strategic content and community building.',
           },
         ],
       };
@@ -3165,28 +3468,34 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     // Return fallback content
     return {
       whyFitsYou: [
-        `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-        'Your Ikigai responses show alignment with this direction.',
-        'This path addresses your fears while pursuing what excites you.',
+        isRussianLocale
+          ? `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`
+          : `Your ${sunSign} sun sign gives you natural strengths for this path.`,
+        isRussianLocale
+          ? 'Твои ответы Икигай хорошо сочетаются с этим фокусом.'
+          : 'Your Ikigai responses show alignment with this direction.',
+        isRussianLocale
+          ? 'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.'
+          : 'This path addresses your fears while pursuing what excites you.',
       ],
       goals: [
         {
           id: 1,
-          title: 'Become a full-time professional in this path',
-          fear: fear || 'What if I go broke?',
-          timeFrame: 'three months, four steps',
+          title: isRussianLocale ? 'Сделай первый профессиональный рывок' : 'Become a full-time professional in this path',
+          fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I go broke?'),
+          timeFrame: isRussianLocale ? 'три месяца, четыре шага' : 'three months, four steps',
         },
         {
           id: 2,
-          title: 'Launch your own venture in this field',
-          fear: fear || 'What if I fail?',
-          timeFrame: 'six months, eight steps',
+          title: isRussianLocale ? 'Запусти проект в этом направлении' : 'Launch your own venture in this field',
+          fear: fear || (isRussianLocale ? 'А если я ошибусь?' : 'What if I fail?'),
+          timeFrame: isRussianLocale ? 'шесть месяцев, восемь шагов' : 'six months, eight steps',
         },
         {
           id: 3,
-          title: 'Create and share your work online',
-          fear: fear || 'What if no one buys it?',
-          timeFrame: 'two months, three steps',
+          title: isRussianLocale ? 'Покажи результаты публично' : 'Create and share your work online',
+          fear: fear || (isRussianLocale ? 'А если никто не откликнется?' : 'What if no one buys it?'),
+          timeFrame: isRussianLocale ? 'два месяца, три шага' : 'two months, three steps',
         },
       ],
     };

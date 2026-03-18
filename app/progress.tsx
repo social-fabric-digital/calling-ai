@@ -380,12 +380,22 @@ export default function ProgressScreen() {
 
   const placeholderSmallWins = [
     tr(
-      'Complete a goal or level, or share a small win with Atlas - and it will appear here.',
-      'Заверши цель или уровень, либо поделись маленькой победой с Атласом - и она появится здесь.'
+      'Please complete a goal step or share a win in Atlas Chat so you see your weekly wins here.',
+      'Пожалуйста, заверши шаг цели или поделись победой в чате с Атласом, чтобы видеть здесь свои победы за неделю.'
     ),
   ];
   const isPlaceholderSmallWins = weekData.smallWins.length === 0;
   const smallWinsToDisplay = isPlaceholderSmallWins ? placeholderSmallWins : weekData.smallWins;
+  const isEngagementEmpty = weekData.daysActive === 0;
+  const isPathProgressEmpty = !weekData.pathName?.trim();
+  const reflectionsTotal =
+    weekData.reflections.clarityMaps +
+    weekData.reflections.dailyQuestions +
+    weekData.reflections.cosmicInsights +
+    weekData.reflections.focusSessions;
+  const isReflectionsEmpty = reflectionsTotal === 0;
+  const isMoodEmpty =
+    !weekData.mostFrequentMood.label?.trim() || weekData.mostFrequentMood.count === 0;
 
   return (
     <ImageBackground
@@ -405,7 +415,7 @@ export default function ProgressScreen() {
           </TouchableOpacity>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{tr('YOUR WEEK', 'ТВОЯ НЕДЕЛЯ')}</Text>
+            <Text style={styles.headerTitle}>{tr('Your Week', 'Твоя неделя')}</Text>
             <Text style={styles.dateRange}>{weekData.dateRange}</Text>
           </View>
           
@@ -414,7 +424,7 @@ export default function ProgressScreen() {
             activeOpacity={0.7}
             onPress={() => setShowHelpModal(true)}
           >
-            <MaterialIcons name="help-outline" size={24} color="#342846" />
+            <MaterialIcons name="help-outline" size={20} color="#342846" />
           </TouchableOpacity>
         </View>
 
@@ -425,7 +435,7 @@ export default function ProgressScreen() {
         >
           {/* ============ ENGAGEMENT CARD ============ */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{tr('WEEKLY ENGAGEMENT', 'НЕДЕЛЬНАЯ АКТИВНОСТЬ')}</Text>
+            <Text style={styles.sectionTitle}>{tr('Weekly engagement', 'Недельная активность')}</Text>
             <View style={styles.engagementCard}>
               <FrostedCardLayer />
               <View style={styles.engagementHeader}>
@@ -437,36 +447,59 @@ export default function ProgressScreen() {
                   />
                 </View>
                 <View style={styles.engagementStats}>
-                  <Text style={styles.daysActiveNumber}>{weekData.loginCount}</Text>
-                  <Text style={styles.daysActiveLabel}>
-                    {isRussian ? `${weekData.loginCount} входов на этой неделе` : `${weekData.loginCount} logins this week`}
+                  <Text style={styles.loginsThisWeekText}>
+                    {isRussian ? `${weekData.daysActive} дней активности на этой неделе` : `${weekData.daysActive} days active this week`}
                   </Text>
+                </View>
+                <View style={styles.engagementCountPill}>
+                  <Text style={styles.engagementCountPillText}>{weekData.daysActive}/7</Text>
                 </View>
               </View>
               
-              {/* Progress bar */}
+              {/* Progress bar — one dot per day (Mon–Sun), filled if user opened the app that day */}
               <View style={styles.engagementProgressTrack}>
-                {[...Array(7)].map((_, i) => (
+                {weekData.activeDays.map((active, i) => (
                   <View 
                     key={i}
                     style={[
                       styles.engagementDot,
-                      { backgroundColor: i < Math.min(weekData.loginCount, 7) ? '#342846' : '#E8E8E8' }
+                      { backgroundColor: active ? '#342846' : '#E8E8E8' }
                     ]}
                   />
                 ))}
               </View>
 
+              {isEngagementEmpty && (
+                <Text style={styles.cardInstructionText}>
+                  {tr(
+                    'Please log in daily so you see your weekly engagement here.',
+                    'Пожалуйста, заходи в приложение каждый день, чтобы видеть здесь недельную активность.'
+                  )}
+                </Text>
+              )}
+
+              <View style={styles.engagementFooterRow}>
+                <Text style={styles.engagementFooterLabel}>
+                  {tr('Weekly badge', 'Недельный бейдж')}
+                </Text>
+                <Text style={styles.engagementFooterStatus}>
+                  {weeklyClaimedBadge
+                    ? tr('Claimed', 'Получено')
+                    : tr('Ready to claim', 'Готово к получению')}
+                </Text>
+              </View>
+
               {/* Badge section */}
               <View style={styles.badgeSection}>
-                <TouchableOpacity 
-                  style={styles.claimBadgeButton}
+                <TouchableOpacity
+                  style={[styles.claimBadgeButton, weeklyClaimedBadge && styles.claimBadgeButtonClaimed]}
                   onPress={handleClaimBadge}
+                  disabled={weeklyClaimedBadge}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.claimBadgeButtonText}>
+                  <Text style={[styles.claimBadgeButtonText, weeklyClaimedBadge && styles.claimBadgeButtonTextClaimed]}>
                     {weeklyClaimedBadge
-                      ? tr('Badge already claimed this week', 'Награда за эту неделю уже получена')
+                      ? tr('Badge already claimed', 'Награда уже получена')
                       : t('progress.claimYourBadge', { defaultValue: tr('Claim your badge', 'Забрать награду') })}
                   </Text>
                 </TouchableOpacity>
@@ -476,7 +509,7 @@ export default function ProgressScreen() {
 
           {/* ============ PATH PROGRESS ============ */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{tr('THIS WEEK ON YOUR PATH', 'ТВОЙ ПУТЬ НА ЭТОЙ НЕДЕЛЕ')}</Text>
+            <Text style={styles.sectionTitle}>{tr('Your main focus this week', 'Твой главный фокус на неделю')}</Text>
             
             <View style={styles.pathCard}>
               <FrostedCardLayer />
@@ -489,12 +522,28 @@ export default function ProgressScreen() {
                   />
                 </View>
                 <View style={styles.pathInfo}>
-                  <Text style={styles.pathName}>{weekData.pathName}</Text>
+                  <View style={styles.pathNameWrap}>
+                    <Text style={styles.pathName}>
+                      {isPathProgressEmpty
+                        ? tr('No active goal yet', 'Пока нет активной цели')
+                        : weekData.pathName}
+                    </Text>
+                    {!isPathProgressEmpty && <Text style={styles.pathNameDiamond}>💠</Text>}
+                  </View>
                   <Text style={styles.currentGoalLabel}>
-                    {tr('Main focus this week', 'Основной фокус недели')}
+                    {tr('Main goal this week', 'Главная цель этой недели')}
                   </Text>
                 </View>
               </View>
+
+              {isPathProgressEmpty && (
+                <Text style={styles.cardInstructionText}>
+                  {tr(
+                    'Please add and activate a goal in Goals so you see level progress here.',
+                    'Пожалуйста, добавь и активируй цель в разделе «Цели», чтобы видеть здесь прогресс уровня.'
+                  )}
+                </Text>
+              )}
               
               <View style={styles.levelProgress}>
                 <View style={styles.levelInfo}>
@@ -507,10 +556,15 @@ export default function ProgressScreen() {
               </View>
 
               <View style={styles.stepsCompleted}>
-                <Text style={styles.stepsIcon}>✓</Text>
-                <Text style={styles.stepsText}>
-                  {tr('Steps completed this week:', 'За неделю завершено шагов:')} {weekData.stepsCompletedThisWeek}
+                <View style={styles.stepsIconWrap}>
+                  <Text style={styles.stepsIcon}>✓</Text>
+                </View>
+                <Text style={styles.stepsLabel}>
+                  {tr('Steps completed this week', 'Шагов завершено за неделю')}
                 </Text>
+                <View style={styles.stepsCountPill}>
+                  <Text style={styles.stepsCountText}>{weekData.stepsCompletedThisWeek}</Text>
+                </View>
               </View>
 
               <TouchableOpacity 
@@ -535,7 +589,7 @@ export default function ProgressScreen() {
 
           {/* ============ REFLECTIONS SUMMARY ============ */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{tr('THIS WEEK REFLECTION', 'РЕФЛЕКСИЯ ЭТОЙ НЕДЕЛИ')}</Text>
+            <Text style={styles.sectionTitle}>{tr('This week reflection', 'Рефлексия этой недели')}</Text>
             
             <View style={styles.reflectionsGrid}>
               <ReflectionItem 
@@ -559,31 +613,51 @@ export default function ProgressScreen() {
                 count={weekData.reflections.focusSessions} 
               />
             </View>
+            {isReflectionsEmpty && (
+              <Text style={styles.cardInstructionText}>
+                {tr(
+                  'Please use Clarity Map, Question of the Day, Cosmic Insight, or Focus Sanctuary so you see reflection counts here.',
+                  'Пожалуйста, используй Карту ясности, Вопрос дня, Космический инсайт или Святилище фокуса, чтобы видеть здесь счетчики рефлексии.'
+                )}
+              </Text>
+            )}
           </View>
 
           {/* ============ MOOD SUMMARY ============ */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{tr('YOUR MOST FREQUENT MOOD', 'ТВОЕ САМОЕ ЧАСТОЕ НАСТРОЕНИЕ')}</Text>
+            <Text style={styles.sectionTitle}>{tr('Your most frequent mood', 'Твое самое частое настроение')}</Text>
             
             <View style={styles.moodCard}>
               <FrostedCardLayer />
-              <Text style={styles.moodEmoji}>{weekData.mostFrequentMood.emoji}</Text>
-              <View style={styles.moodInfo}>
-                <Text style={styles.moodLabel}>{weekData.mostFrequentMood.label}</Text>
-                <Text style={styles.moodCount}>
-                  {isRussian
-                    ? `${weekData.mostFrequentMood.count} раз за эту неделю`
-                    : `${weekData.mostFrequentMood.count} times this week`}
-                </Text>
+              <View style={styles.moodCardRow}>
+                <Text style={styles.moodEmoji}>{weekData.mostFrequentMood.emoji}</Text>
+                <View style={styles.moodInfo}>
+                  <Text style={styles.moodLabel}>
+                    {isMoodEmpty
+                      ? tr('No mood logged yet', 'Пока нет отмеченного настроения')
+                      : weekData.mostFrequentMood.label}
+                  </Text>
+                  <Text style={styles.moodCount}>
+                    {isRussian
+                      ? `${weekData.mostFrequentMood.count} раз за эту неделю`
+                      : `${weekData.mostFrequentMood.count} times this week`}
+                  </Text>
+                </View>
               </View>
+              {isMoodEmpty && (
+                <Text style={styles.cardInstructionTextCentered}>
+                  {tr(
+                    'Please log your mood on Home so you see your most frequent mood here.',
+                    'Пожалуйста, отмечай настроение на главном экране, чтобы видеть здесь самое частое настроение.'
+                  )}
+                </Text>
+              )}
             </View>
           </View>
 
           {/* ============ SMALL WINS ============ */}
           <View style={styles.section}>
-            <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionTitle}>{tr('SMALL WINS THIS WEEK', 'МАЛЕНЬКИЕ ПОБЕДЫ ЗА НЕДЕЛЮ')}</Text>
-            </View>
+            <Text style={styles.sectionTitle}>{tr('Small wins this week', 'Маленькие победы за неделю')}</Text>
             
             <View style={styles.winsCard}>
               <FrostedCardLayer />
@@ -1129,24 +1203,30 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   headerCenter: {
     alignItems: 'center',
   },
   headerTitle: {
     ...HeadingStyle,
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 1,
     marginBottom: 2.5,
   },
   dateRange: {
@@ -1155,14 +1235,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   helpButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1100,
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
 
   // Scroll content
@@ -1176,17 +1263,17 @@ const styles = StyleSheet.create({
 
   // Engagement Card
   engagementCard: {
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.56)',
     borderRadius: 20,
-    padding: 22,
+    padding: 18,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.65)',
+    borderColor: 'rgba(255,255,255,0.72)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.34,
-    shadowRadius: 22,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
     overflow: 'hidden',
   },
   engagementHeader: {
@@ -1211,6 +1298,30 @@ const styles = StyleSheet.create({
   engagementStats: {
     flex: 1,
     marginLeft: 14,
+    justifyContent: 'center',
+  },
+  loginsThisWeekText: {
+    ...HeadingStyle,
+    fontSize: 18,
+    lineHeight: 22,
+    color: '#342846',
+  },
+  engagementCountPill: {
+    minWidth: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(52,40,70,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  engagementCountPillText: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#342846',
+    fontWeight: '700',
   },
   daysActiveNumber: {
     ...HeadingStyle,
@@ -1228,48 +1339,85 @@ const styles = StyleSheet.create({
   engagementProgressTrack: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   engagementDot: {
     flex: 1,
-    height: 7,
+    height: 8,
     borderRadius: 999,
+  },
+  engagementFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  engagementFooterLabel: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#5C4A73',
+  },
+  engagementFooterStatus: {
+    ...BodyStyle,
+    fontSize: 12,
+    color: '#342846',
+    fontWeight: '700',
+  },
+  cardInstructionText: {
+    ...BodyStyle,
+    fontSize: 12,
+    lineHeight: 17,
+    color: 'rgba(52, 40, 70, 0.78)',
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  cardInstructionTextCentered: {
+    ...BodyStyle,
+    fontSize: 12,
+    lineHeight: 17,
+    color: 'rgba(52, 40, 70, 0.78)',
+    textAlign: 'center',
+    marginTop: 10,
   },
   badgeSection: {
     alignItems: 'center',
   },
   claimBadgeButton: {
     width: '100%',
-    paddingVertical: 13,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: 'rgba(255,255,255,0.66)',
+    backgroundColor: '#342846',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.75)',
-    borderRadius: 50,
+    borderColor: '#342846',
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  claimBadgeButtonClaimed: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderColor: 'rgba(52,40,70,0.22)',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   claimBadgeButtonText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     fontSize: 14,
     fontWeight: '600',
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
+  },
+  claimBadgeButtonTextClaimed: {
+    color: '#342846',
   },
 
   // Section
   section: {
     marginBottom: 24,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
   },
   sectionTitle: {
     ...HeadingStyle,
@@ -1320,6 +1468,10 @@ const styles = StyleSheet.create({
   pathInfo: {
     flex: 1,
   },
+  pathNameWrap: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
   pathName: {
     ...HeadingStyle,
     fontSize: 15,
@@ -1327,7 +1479,14 @@ const styles = StyleSheet.create({
     color: '#342846',
     marginBottom: 4,
     lineHeight: 20,
-    textTransform: 'uppercase',
+  },
+  pathNameDiamond: {
+    position: 'absolute',
+    left: -48,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    fontSize: 24,
+    opacity: 0.9,
   },
   currentGoalLabel: {
     ...BodyStyle,
@@ -1372,23 +1531,51 @@ const styles = StyleSheet.create({
   stepsCompleted: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 10,
+    gap: 10,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.14)',
     marginBottom: 14,
   },
-  stepsIcon: {
-    color: '#e1e1bb',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginRight: 8,
+  stepsIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(225,225,187,0.45)',
   },
-  stepsText: {
+  stepsIcon: {
+    color: '#6D7581',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  stepsLabel: {
     ...BodyStyle,
     fontSize: 13,
     color: '#342846',
+    flex: 1,
+  },
+  stepsCountPill: {
+    minWidth: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(52,40,70,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,40,70,0.18)',
+  },
+  stepsCountText: {
+    ...HeadingStyle,
+    fontSize: 13,
+    color: '#342846',
+    fontWeight: '700',
   },
   viewGoalMapButton: {
     width: '100%',
@@ -1400,7 +1587,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: '#342846',
-    borderRadius: 50,
+    borderRadius: 14,
   },
   viewGoalMapButtonText: {
     ...BodyStyle,
@@ -1483,9 +1670,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 16,
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    flexDirection: 'column',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.65)',
     shadowColor: '#342846',
@@ -1494,6 +1679,11 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 14,
     overflow: 'hidden',
+  },
+  moodCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   moodEmoji: {
     fontSize: 40,
@@ -1726,7 +1916,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   badgeTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#332D41',
@@ -1914,7 +2104,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#342846',
     marginBottom: 12,
-    textTransform: 'uppercase',
     textAlign: 'center',
     alignSelf: 'center',
     width: '100%',

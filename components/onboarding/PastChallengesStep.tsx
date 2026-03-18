@@ -41,7 +41,6 @@ export default function PastChallengesStep({ onContinue }: PastChallengesStepPro
       <View style={localStyles.headerSlot}>
         <Text
           style={[styles.aboutYouTitle, localStyles.screenHeader]}
-          numberOfLines={2}
         >
           {t('onboarding.yazioFlow.pastChallengesQuestion')}
         </Text>
@@ -99,12 +98,12 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   headerSlot: {
-    height: 108,
+    minHeight: 148,
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 2,
   },
   screenSubtitle: {

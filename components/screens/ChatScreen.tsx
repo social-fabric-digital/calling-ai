@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+    Alert,
     Animated,
     Dimensions,
     Image,
@@ -581,6 +582,44 @@ function AtlasChat({
     setTimeout(() => handleSend(), 100);
   };
 
+  const clearChatHistory = async () => {
+    try {
+      await AsyncStorage.removeItem(ATLAS_CHAT_HISTORY_KEY);
+      setMessages([]);
+      setInputText('');
+      setIsTyping(false);
+      setShowWelcome(true);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      }, 0);
+    } catch (error) {
+      console.error('Error clearing Atlas chat history:', error);
+    }
+  };
+
+  const handleClearChat = () => {
+    Alert.alert(
+      tr('Erase chat?', 'Очистить чат?'),
+      tr(
+        'This will permanently delete all Atlas messages on this device.',
+        'Это действие навсегда удалит все сообщения с Атласом на этом устройстве.'
+      ),
+      [
+        {
+          text: tr('Cancel', 'Отмена'),
+          style: 'cancel',
+        },
+        {
+          text: tr('Erase', 'Очистить'),
+          style: 'destructive',
+          onPress: () => {
+            void clearChatHistory();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -605,9 +644,18 @@ function AtlasChat({
             <Text style={styles.headerSubtitle}>{tr('Your guide', 'Твой проводник')}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <MaterialIcons name="close" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerActionButton}
+            onPress={handleClearChat}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="delete-outline" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
+            <MaterialIcons name="close" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Divider */}
@@ -766,9 +814,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 18,
+    fontSize: 24,
     color: COLORS.primary,
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   headerSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
@@ -778,6 +826,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerActionButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

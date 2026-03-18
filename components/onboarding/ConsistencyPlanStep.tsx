@@ -43,7 +43,6 @@ export default function ConsistencyPlanStep({ onContinue }: ConsistencyPlanStepP
       <View style={localStyles.headerSlot}>
         <Text
           style={[styles.aboutYouTitle, localStyles.screenHeader]}
-          numberOfLines={2}
         >
           {t('onboarding.yazioFlow.consistencyPlanQuestion')}
         </Text>
@@ -97,12 +96,12 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   headerSlot: {
-    height: 80,
+    minHeight: 120,
     justifyContent: 'center',
   },
   screenHeader: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 24,
+    lineHeight: 28,
     marginBottom: 0,
   },
   option: {

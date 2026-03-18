@@ -18,10 +18,27 @@ const { width, height } = Dimensions.get('window');
 const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
 
 type TimerDuration = 5 | 15 | 30 | 60;
+type CloudPattern = {
+  offsetMs: number;
+  cycleMs: number;
+  yPercent: number;
+  width: number;
+  height: number;
+  opacity: number;
+};
+
+const CLOUD_PATTERNS: CloudPattern[] = [
+  { offsetMs: 0, cycleMs: 72_000, yPercent: 18, width: 120, height: 44, opacity: 0.2 },
+  { offsetMs: 24_000, cycleMs: 88_000, yPercent: 25, width: 150, height: 54, opacity: 0.18 },
+  { offsetMs: 46_000, cycleMs: 96_000, yPercent: 32, width: 110, height: 40, opacity: 0.16 },
+];
 
 export default function FocusScreen() {
   const { t, i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
+  const focusSubtitlePrimary = isRussian
+    ? 'Это место, где ты превращаешься в ясность и рост, и фокусируешься на своих целях.'
+    : 'It is a place for you to transform into clarity and growth, while focusing on your goals.';
   const [selectedDuration, setSelectedDuration] = useState<TimerDuration | null>(null);
   const [preSelectedDuration, setPreSelectedDuration] = useState<TimerDuration | null>(null); // Duration selected but timer not started
   const [timeRemaining, setTimeRemaining] = useState<number>(0); // in seconds
@@ -54,6 +71,7 @@ export default function FocusScreen() {
   const [showAtlasPopup, setShowAtlasPopup] = useState(false);
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
   const [showSeed, setShowSeed] = useState(false); // Show seed for first 8% of timer
+  const [cloudTick, setCloudTick] = useState(0);
   const nextTreeIdRef = useRef(1); // Track next tree ID for continuous spawning
   const lastSpawnTimeRef = useRef(0); // Track when last tree was spawned
   
@@ -85,6 +103,13 @@ export default function FocusScreen() {
       });
     }, [])
   );
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCloudTick((value) => value + 1);
+    }, 120);
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Calculate center Y position - trees must be within 20px below heading and 20px above timer
   // Trees are positioned absolutely within treeContainer, which is flex: 1 between heading and timer
@@ -708,30 +733,48 @@ export default function FocusScreen() {
     require('../../assets/images/tree8.png'),
   ];
 
-  // Return a single frame image (original behavior: discrete image switching).
-  const getAnimationFrame = () => {
+  const getAnimationFrameIndex = (): number => {
     if (!selectedDuration || !isRunning) {
-      return animationImageMap[0];
+      return 0;
     }
 
     const totalSeconds = selectedDuration * 60;
     const elapsed = totalSeconds - timeRemaining;
     const progress = Math.min(Math.max(elapsed / totalSeconds, 0), 1);
     const imageIndex = Math.floor(progress * (animationImageMap.length - 1));
-    const clampedIndex = Math.min(Math.max(imageIndex, 0), animationImageMap.length - 1);
-    return animationImageMap[clampedIndex];
+    return Math.min(Math.max(imageIndex, 0), animationImageMap.length - 1);
   };
 
-  // Calculate stage based on progress
-  const getStage = (): { number: number; name: string } => {
-    if (!selectedDuration) return { number: 1, name: t('focus.stages.1') };
+  // Return a single frame image (original behavior: discrete image switching).
+  const getAnimationFrame = () => {
+    return animationImageMap[getAnimationFrameIndex()];
+  };
+
+  const getSessionProgress = (): number => {
+    if (!selectedDuration || !isRunning) {
+      return 0;
+    }
+
     const totalSeconds = selectedDuration * 60;
     const elapsed = totalSeconds - timeRemaining;
-    const progress = Math.min(Math.max(elapsed / totalSeconds, 0), 1);
+    return Math.min(Math.max(elapsed / totalSeconds, 0), 1);
+  };
 
-    // Split the session into 5 equal stage bands:
-    // 0-20% => Stage 1 ... 80-100% => Stage 5
-    const stageNumber = Math.min(5, Math.max(1, Math.floor(progress * 5) + 1));
+  // Keep stage updates synchronized with the live sanctuary growth phases.
+  const getStage = (): { number: number; name: string } => {
+    const progress = getSessionProgress();
+    let stageNumber = 1;
+
+    if (showDeer || progress >= 0.85) {
+      stageNumber = 5;
+    } else if (showForest || progress >= 0.65 || trees.length >= 12) {
+      stageNumber = 4;
+    } else if (progress >= 0.45 || trees.length >= 7) {
+      stageNumber = 3;
+    } else if (progress >= 0.2 || trees.length >= 2) {
+      stageNumber = 2;
+    }
+
     return { number: stageNumber, name: t(`focus.stages.${stageNumber}`) };
   };
 
@@ -756,7 +799,13 @@ export default function FocusScreen() {
   };
 
   const insets = useSafeAreaInsets();
+  const headerTopOffset = Math.max(60, insets.top + 20);
   const animationFrame = getAnimationFrame();
+  const currentStage = getStage();
+  const showDurationSelectionClouds = !selectedDuration && !isRunning;
+  const nowMs = Date.now();
+  const toNormalCase = (value: string) =>
+    value ? `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}` : value;
 
   return (
     <PaperTextureBackground baseColor="#1f1a2a">
@@ -771,20 +820,52 @@ export default function FocusScreen() {
           style={styles.backgroundImage}
           resizeMode="cover"
         />
+      {showDurationSelectionClouds && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {CLOUD_PATTERNS.map((cloud, index) => {
+            const cycle = (nowMs + cloud.offsetMs) % cloud.cycleMs;
+            const t = cycle / cloud.cycleMs;
+            const xPercent = -30 + t * 160;
+            const bobY = Math.sin(cloudTick * 0.06 + index) * 2;
+
+            return (
+              <Image
+                key={`focus-cloud-${index}`}
+                source={require('../../assets/images/cloud.png')}
+                style={{
+                  left: `${xPercent}%`,
+                  top: `${cloud.yPercent}%`,
+                  width: cloud.width,
+                  height: cloud.height,
+                  opacity: cloud.opacity * 0.8,
+                  transform: [{ translateY: bobY }],
+                  position: 'absolute',
+                }}
+                resizeMode="contain"
+              />
+            );
+          })}
+        </View>
+      )}
       <View style={styles.contentContainer}>
       {/* Header - Only show when timer is running */}
       {selectedDuration && isRunning && (
-        <View style={[styles.timerHeader, { paddingTop: insets.top + 20 }]}>
+        <View style={[styles.timerHeader, { paddingTop: headerTopOffset }]}>
           {/* Title - Centered */}
-          <Text style={styles.timerHeaderTitle}>{t('focus.focusSanctuary').toUpperCase()}</Text>
+          <Text style={styles.timerHeaderTitle}>{t('focus.focusSanctuary')}</Text>
         </View>
       )}
 
       {/* Focus Heading - Only show when timer is not running and portfolio is shown */}
       {!selectedDuration && !isRunning && (
-        <Text style={[styles.focusHeading, styles.initialContentShift]}>
-          {t('focus.focusSanctuary')}
-        </Text>
+        <View style={[styles.focusHeaderBlock, { marginTop: headerTopOffset - 60 }]}>
+          <Text style={styles.focusHeading}>
+            {t('focus.focusSanctuary')}
+          </Text>
+          <Text style={styles.focusSubtitlePrimary}>
+            {focusSubtitlePrimary}
+          </Text>
+        </View>
       )}
 
       {/* Tree Animation Container - Hide when timer is running (new design shows tree in circle) */}
@@ -980,7 +1061,7 @@ export default function FocusScreen() {
                 {/* Stage Badge */}
                 <View style={styles.stageBadge}>
                   <Text style={styles.stageBadgeText}>
-                    {t('focus.stage')} {getStage().number}: {getStage().name.toUpperCase()}
+                    {toNormalCase(t('focus.stage'))} {currentStage.number}: {toNormalCase(currentStage.name)}
                   </Text>
                 </View>
               </View>
@@ -992,7 +1073,7 @@ export default function FocusScreen() {
             <View style={styles.statsRow}>
               {/* Height */}
               <View style={[styles.statItem, styles.statItemLeft]}>
-                <Text style={styles.statLabel}>{t('focus.height').toUpperCase()}</Text>
+                <Text style={styles.statLabel}>{t('focus.height')}</Text>
                 <View style={styles.statValueContainer}>
                   <Text style={styles.statValue}>{getHeight()}</Text>
                   <Text style={styles.statUnit}>{isRussian ? 'см' : 'cm'}</Text>
@@ -1001,7 +1082,7 @@ export default function FocusScreen() {
 
               {/* Vitality */}
               <View style={[styles.statItem, styles.statItemRight]}>
-                <Text style={styles.statLabel}>{t('focus.vitality').toUpperCase()}</Text>
+                <Text style={styles.statLabel}>{t('focus.vitality')}</Text>
                 <View style={styles.statValueContainer}>
                   <Text style={[styles.statValue, styles.vitalityValue]}>{getVitality()}%</Text>
                 </View>
@@ -1028,7 +1109,14 @@ export default function FocusScreen() {
               resizeMode="contain"
             />
           </View>
-          <View style={[styles.durationSelectionFrame, styles.initialContentShift, isTabletLayout && styles.durationSelectionFrameTablet]}>
+          <View
+            style={[
+              styles.durationSelectionFrame,
+              !preSelectedDuration && styles.durationSelectionFrameCompact,
+              styles.initialContentShift,
+              isTabletLayout && styles.durationSelectionFrameTablet,
+            ]}
+          >
           <FrostedCardLayer />
           <Text style={styles.selectDurationText}>{t('focus.selectDuration')}</Text>
           
@@ -1263,12 +1351,26 @@ const styles = StyleSheet.create({
   initialContentShift: {
     transform: [{ translateY: -35 }],
   },
+  focusHeaderBlock: {
+    alignItems: 'center',
+    marginTop: 89,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+  },
   focusHeading: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 0,
-    marginTop: 89,
+    marginBottom: 10,
+    marginTop: 0,
+  },
+  focusSubtitlePrimary: {
+    ...BodyStyle,
+    color: 'rgba(255, 255, 255, 0.92)',
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: width - 24,
   },
   timerContainer: {
     alignItems: 'center',
@@ -1321,8 +1423,9 @@ const styles = StyleSheet.create({
   atlasPopupTitle: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '400',
+    opacity: 0.75,
     marginBottom: 2,
   },
   atlasPopupText: {
@@ -1358,6 +1461,9 @@ const styles = StyleSheet.create({
     elevation: 14,
     minHeight: 220,
     overflow: 'hidden',
+  },
+  durationSelectionFrameCompact: {
+    minHeight: 180,
   },
   durationSelectionFrameTablet: {
     width: '70%',
@@ -1445,37 +1551,39 @@ const styles = StyleSheet.create({
     marginTop: 45,
   },
   timerOptionCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 16,
-    borderWidth: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.44)',
+    backgroundColor: 'rgba(255, 255, 255, 0.32)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.32,
+    shadowRadius: 12,
+    elevation: 7,
   },
   timerOptionCircleTablet: {
     marginHorizontal: 0,
   },
   timerOptionCircleSelected: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowRadius: 18,
     elevation: 10,
   },
   timerOptionNumber: {
     ...HeadingStyle,
     color: '#342846',
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 0,
-    lineHeight: 30,
+    marginBottom: 1,
+    lineHeight: 24,
     textAlign: 'center',
     includeFontPadding: false,
     width: '100%',
@@ -1486,9 +1594,10 @@ const styles = StyleSheet.create({
   timerOptionLabel: {
     fontFamily: 'AnonymousPro-Bold',
     color: '#7a8a9a',
-    fontSize: 10,
-    lineHeight: 10,
-    textTransform: 'none', // Changed from 'uppercase' to keep 'min' lowercase
+    fontSize: 11,
+    lineHeight: 12,
+    letterSpacing: 0.2,
+    textTransform: 'capitalize',
     textAlign: 'center',
     includeFontPadding: false,
     width: '100%',
@@ -1815,7 +1924,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#fff',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: -0.6,
     textAlign: 'center',
   },
@@ -1854,7 +1963,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     color: '#7a8a9a',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 1,
     marginBottom: 4,
   },

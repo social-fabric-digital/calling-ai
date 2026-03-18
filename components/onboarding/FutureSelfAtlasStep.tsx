@@ -61,6 +61,7 @@ export default function FutureSelfAtlasStep({ onContinue }: FutureSelfAtlasStepP
   return (
     <Animated.View style={[localStyles.container, { opacity: fadeAnim }]}>
       <Text style={localStyles.heading}>{t('onboarding.yazioFlow.futureSelfAtlasTitle')}</Text>
+      <Text style={localStyles.headingSubtitle}>{t('onboarding.yazioFlow.futureSelfAtlasSubtitle')}</Text>
 
       <Animated.View style={[localStyles.speechWrap, { transform: [{ scale: bubbleAnim }, { translateY: 70 }] }]}>
         <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
@@ -101,8 +102,17 @@ const localStyles = StyleSheet.create({
     ...HeadingStyle,
     color: '#FFFFFF',
     textAlign: 'center',
+    marginBottom: 6,
+    textTransform: 'none',
+  },
+  headingSubtitle: {
+    ...BodyStyle,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.92,
+    lineHeight: 22,
     marginBottom: 8,
-    textTransform: 'uppercase',
+    paddingHorizontal: 14,
   },
   speechWrap: {
     width: '100%',

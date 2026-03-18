@@ -1,11 +1,9 @@
-import { BodyStyle, ButtonHeadingStyle, getHeadingFontFamily } from '@/constants/theme';
+import { BodyStyle, ButtonHeadingStyle, HeadingStyle, getHeadingFontFamily } from '@/constants/theme';
 import { generateClarityMapInsight } from '@/utils/clarityMapApi';
-import { generateGoalFromInsight } from '@/utils/goalGenerator';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { checkSubscriptionStatus } from '@/utils/superwall';
 import { isPremium as hasSubscriptionOrTrialAccess } from '@/utils/subscription';
@@ -21,7 +19,6 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
-    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -74,11 +71,10 @@ interface ClarityInsightProps {
   isGeneratingAiReport?: boolean;
   // Actions
   onSaveInsight?: () => void;
-  onTurnIntoPath?: () => void;
   onOpenAiReport?: () => void;
   onBack?: () => void;
   onClose?: () => void;
-  isCreatingPath?: boolean;
+  isSaving?: boolean;
 }
 
 interface ClarityMapProps {
@@ -86,6 +82,14 @@ interface ClarityMapProps {
 }
 
 type ClarityMapStage = 'dump' | 'categorize' | 'insight';
+
+const summarizeThoughtPreview = (text: string, maxLength = 42) => {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const firstClause = normalized.split(/[.!?;,\n]/)[0]?.trim() || normalized;
+  const source = firstClause.length >= 16 ? firstClause : normalized;
+  if (source.length <= maxLength) return source;
+  return `${source.slice(0, maxLength - 3).trimEnd()}...`;
+};
 
 // ============================================
 // Organic Blob SVG Component
@@ -219,7 +223,6 @@ function ThoughtBubble({ thought, index, isVisible, size = 'small' }: ThoughtBub
 // Insight Section Component
 // ============================================
 interface InsightSectionProps {
-  emoji: string;
   title: string;
   content: string;
   thoughts: Thought[];
@@ -229,7 +232,6 @@ interface InsightSectionProps {
 }
 
 function InsightSection({ 
-  emoji, 
   title, 
   content, 
   thoughts, 
@@ -274,17 +276,39 @@ function InsightSection({
     >
       {/* Section Header */}
       <View style={styles.insightHeader}>
-        <Text style={styles.insightEmoji}>{emoji}</Text>
-        <Text style={styles.insightTitle}>{title}</Text>
+        <View
+          style={[
+            styles.categorizeThoughtStatusBadge,
+            {
+              borderColor: accentColor,
+              backgroundColor: `${accentColor}12`,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.categorizeThoughtStatusDot,
+              { backgroundColor: accentColor },
+            ]}
+          />
+          <Text
+            style={[
+              styles.categorizeThoughtStatusText,
+              { color: accentColor },
+            ]}
+          >
+            {title}
+          </Text>
+        </View>
       </View>
 
-      {/* Related thoughts bubbles */}
+      {/* Related thought summaries */}
       {thoughts.length > 0 && (
         <View style={styles.relatedThoughts}>
-          {thoughts.slice(0, 3).map((thought, i) => (
+          {thoughts.slice(0, 3).map((thought) => (
             <View key={thought.id} style={styles.miniThought}>
               <Text style={styles.miniThoughtText} numberOfLines={1}>
-                {thought.text}
+                {summarizeThoughtPreview(thought.text)}
               </Text>
             </View>
           ))}
@@ -388,6 +412,118 @@ function PerspectiveShift({ content, isVisible }: PerspectiveShiftProps) {
   );
 }
 
+function SaveInsightCelebration({
+  visible,
+  title,
+  body,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  body: string;
+  onClose: () => void;
+}) {
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0.9)).current;
+  const confetti = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) {
+      overlayFade.setValue(0);
+      cardScale.setValue(0.9);
+      confetti.setValue(0);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(overlayFade, {
+        toValue: 1,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cardScale, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(confetti, {
+        toValue: 1,
+        duration: 1100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const timer = setTimeout(onClose, 2200);
+    return () => clearTimeout(timer);
+  }, [visible, overlayFade, cardScale, confetti, onClose]);
+
+  const pieces = [
+    { x: -108, y: -92, rotate: '-28deg', color: '#FF8AAE' },
+    { x: -72, y: -118, rotate: '18deg', color: '#FFD166' },
+    { x: -20, y: -126, rotate: '-14deg', color: '#7FDBFF' },
+    { x: 28, y: -122, rotate: '24deg', color: '#C9A7FF' },
+    { x: 82, y: -98, rotate: '-18deg', color: '#95D5B2' },
+    { x: 112, y: -52, rotate: '32deg', color: '#F4A261' },
+    { x: -116, y: -28, rotate: '-34deg', color: '#A0C4FF' },
+    { x: 118, y: -12, rotate: '14deg', color: '#F38BA8' },
+  ];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Animated.View style={[styles.saveCelebrationOverlay, { opacity: overlayFade }]}>
+        <View style={styles.saveCelebrationCenter}>
+          <Animated.View
+            style={[
+              styles.saveCelebrationCard,
+              {
+                opacity: overlayFade,
+                transform: [{ scale: cardScale }],
+              },
+            ]}
+          >
+            <Text style={styles.saveCelebrationEmoji}>✨</Text>
+            <Text style={styles.saveCelebrationTitle}>{title}</Text>
+            <Text style={styles.saveCelebrationBody}>{body}</Text>
+          </Animated.View>
+
+          {pieces.map((piece, index) => (
+            <Animated.View
+              key={`${piece.color}-${index}`}
+              style={[
+                styles.saveCelebrationConfetti,
+                {
+                  backgroundColor: piece.color,
+                  transform: [
+                    { translateX: piece.x },
+                    {
+                      translateY: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [piece.y + 20, piece.y],
+                      }),
+                    },
+                    { rotate: piece.rotate },
+                    {
+                      scale: confetti.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.4, 1],
+                      }),
+                    },
+                  ],
+                  opacity: confetti.interpolate({
+                    inputRange: [0, 0.2, 1],
+                    outputRange: [0, 1, 1],
+                  }),
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ============================================
 // Clarity Insight Screen Component (used internally)
 // ============================================
@@ -402,11 +538,10 @@ function ClarityInsightScreen({
   hasSafetyAlert = false,
   isGeneratingAiReport = false,
   onSaveInsight,
-  onTurnIntoPath,
   onOpenAiReport,
   onBack,
   onClose,
-  isCreatingPath = false,
+  isSaving = false,
 }: ClarityInsightProps) {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
@@ -479,39 +614,16 @@ function ClarityInsightScreen({
             },
           ]}
         >
-          <Text style={styles.mainTitle}>{t('clarityMap.yourClarityInsight')}</Text>
-          <Text style={styles.mainSubtitle}>
+          <Text style={styles.insightMainTitle}>{t('clarityMap.yourClarityInsight')}</Text>
+          <Text style={styles.insightMainSubtitle}>
             {t('clarityMap.whatYourThoughtsTellYou')}
           </Text>
-        </Animated.View>
-
-        {/* Visual Summary - Floating Bubbles */}
-        <Animated.View
-          style={[
-            styles.bubblesContainer,
-            {
-              opacity: headerFade,
-            },
-          ]}
-        >
-          <View style={styles.bubblesRow}>
-            {thoughts.slice(0, 4).map((thought, index) => (
-              <ThoughtBubble
-                key={thought.id}
-                thought={thought}
-                index={index}
-                isVisible={isVisible}
-                size="small"
-              />
-            ))}
-          </View>
         </Animated.View>
 
         <View style={styles.insightContentStack}>
           {/* Insight Sections */}
           {urgentThoughts.length > 0 && heartInsight && (
             <InsightSection
-              emoji="🤎"
               title={t('clarityMap.whatYourHeartSays')}
               content={heartInsight}
               thoughts={urgentThoughts}
@@ -523,7 +635,6 @@ function ClarityInsightScreen({
 
           {exploreThoughts.length > 0 && exploreInsight && (
             <InsightSection
-              emoji="🔍"
               title={t('clarityMap.worthExploring')}
               content={exploreInsight}
               thoughts={exploreThoughts}
@@ -535,7 +646,6 @@ function ClarityInsightScreen({
 
           {releaseThoughts.length > 0 && releaseInsight && (
             <InsightSection
-              emoji="🕊️"
               title={t('clarityMap.canLetGo')}
               content={releaseInsight}
               thoughts={releaseThoughts}
@@ -570,27 +680,19 @@ function ClarityInsightScreen({
         {userIsPremium && !hasSafetyAlert && (
           <Animated.View style={[styles.actionsContainer, { opacity: buttonsFade }]}>
             <TouchableOpacity
-              style={[styles.primaryButton, isCreatingPath && styles.primaryButtonDisabled]}
-              onPress={onTurnIntoPath}
-              activeOpacity={0.9}
-              disabled={!onTurnIntoPath || isCreatingPath}
-            >
-              {isCreatingPath ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={[styles.primaryButtonText, { marginLeft: 8 }]}>{t('clarityMap.creatingYourPath')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.primaryButtonText}>{t('clarityMap.turnIntoPath')}</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[styles.primaryButton, isSaving && styles.primaryButtonDisabled]}
               onPress={onSaveInsight}
               activeOpacity={0.9}
+              disabled={!onSaveInsight || isSaving}
             >
-              <Text style={styles.secondaryButtonText}>{t('clarityMap.saveInsight')}</Text>
+              {isSaving ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={[styles.primaryButtonText, { marginLeft: 8 }]}>{t('clarityMap.saveInsight')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.primaryButtonText}>{t('clarityMap.saveInsight')}</Text>
+              )}
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -637,21 +739,31 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   navButtonClose: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
 
   // Bubbles Summary
@@ -705,7 +817,7 @@ const styles = StyleSheet.create({
     marginTop: -80,
   },
   mainTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 26,
     color: '#342846',
     textAlign: 'center',
@@ -719,6 +831,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  categorizeMainTitle: {
+    ...HeadingStyle,
+    fontSize: 26,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  categorizeMainSubtitle: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 15,
+    color: '#FFFFFF',
+    opacity: 0.82,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  insightMainTitle: {
+    ...HeadingStyle,
+    fontSize: 26,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  insightMainSubtitle: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 15,
+    color: '#FFFFFF',
+    opacity: 0.82,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 
   // Insight Section
   insightSection: {
@@ -727,37 +869,31 @@ const styles = StyleSheet.create({
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 15,
     marginBottom: 12,
   },
-  insightEmoji: {
-    fontSize: 22,
-    marginRight: 10,
-  },
   insightTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 16,
-    color: '#342846',
-    letterSpacing: 0.5,
+    ...HeadingStyle,
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
   relatedThoughts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     marginBottom: 12,
   },
   miniThought: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.1)',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   miniThoughtText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 12,
     color: '#342846',
-    maxWidth: 120,
+    maxWidth: '100%',
+    opacity: 0.7,
   },
   insightCard: {
     backgroundColor: '#FFFFFF',
@@ -866,6 +1002,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -885,6 +1022,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveCelebrationOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(31, 26, 42, 0.48)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  saveCelebrationCenter: {
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveCelebrationConfetti: {
+    position: 'absolute',
+    width: 10,
+    height: 18,
+    borderRadius: 4,
+    zIndex: 3,
+    elevation: 18,
+  },
+  saveCelebrationCard: {
+    width: '100%',
+    backgroundColor: '#FFFDF8',
+    borderRadius: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 12,
+    zIndex: 1,
+    overflow: 'hidden',
+  },
+  saveCelebrationEmoji: {
+    fontSize: 28,
+    marginBottom: 10,
+  },
+  saveCelebrationTitle: {
+    ...HeadingStyle,
+    fontSize: 24,
+    color: '#342846',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  saveCelebrationBody: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 14,
+    color: '#5F5470',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   secondaryButton: {
     backgroundColor: '#FFFFFF',
@@ -1036,27 +1228,57 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   categorizeThoughtItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderRadius: 18,
+    padding: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.14)',
+    borderColor: 'rgba(52, 40, 70, 0.1)',
     shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  categorizeThoughtHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
+  categorizeThoughtStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 8,
+  },
+  categorizeThoughtStatusBadgeUnassigned: {
+    backgroundColor: 'rgba(52, 40, 70, 0.06)',
+    borderColor: 'rgba(52, 40, 70, 0.1)',
+  },
+  categorizeThoughtStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  categorizeThoughtStatusText: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 12,
+    color: '#5F5470',
+    fontWeight: '600',
   },
   categorizeThoughtText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 15,
     color: '#342846',
     lineHeight: 22,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   categoryButtons: {
-    gap: 8,
+    gap: 10,
     width: '100%',
   },
   categoryButtonsTopRow: {
@@ -1073,58 +1295,116 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
   },
   categoryButtonSelected: {
     borderWidth: 2,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
   },
   categoryButtonBottomCentered: {
     width: '52%',
   },
-  categoryButtonEmoji: {
-    fontSize: 16,
-    marginRight: 6,
+  categoryButtonSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
   },
   categoryButtonText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 13,
     color: '#342846',
-    fontWeight: '500',
-    flexShrink: 0,
+    fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   categoryButtonTextSelected: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   categorizeSummary: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderColor: 'rgba(52, 40, 70, 0.1)',
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  categorizeSummaryHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  categorizeSummaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  categorizeSummaryBadgePending: {
+    backgroundColor: 'rgba(52, 40, 70, 0.06)',
+    borderColor: 'rgba(52, 40, 70, 0.1)',
+  },
+  categorizeSummaryBadgeComplete: {
+    backgroundColor: 'rgba(107, 142, 107, 0.12)',
+    borderColor: 'rgba(107, 142, 107, 0.28)',
+  },
+  categorizeSummaryBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  categorizeSummaryBadgeDotPending: {
+    backgroundColor: '#342846',
+  },
+  categorizeSummaryBadgeDotComplete: {
+    backgroundColor: '#6B8E6B',
   },
   categorizeSummaryText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 14,
     color: '#342846',
     textAlign: 'center',
-    marginBottom: 12,
     fontWeight: '600',
   },
   categorizeSummaryCounts: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   categorizeSummaryCount: {
+    flex: 1,
     alignItems: 'center',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.08)',
+  },
+  categorizeSummaryCountDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginBottom: 10,
   },
   categorizeSummaryCountNumber: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 24,
     color: '#342846',
     marginBottom: 4,
@@ -1134,7 +1414,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     textTransform: 'none',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
   // Path Created Modal Styles
   modalOverlay: {
@@ -1470,12 +1751,12 @@ function CategorizeStage({
   const categoryColorMap = {
     important: '#342846',
     unclear: '#8A78A3',
-    not_important: '#A592B0',
+    not_important: '#CDBFD8',
   } as const;
   const categoryBackgroundMap = {
     important: 'rgba(52, 40, 70, 0.14)',
     unclear: 'rgba(138, 120, 163, 0.16)',
-    not_important: 'rgba(165, 146, 176, 0.16)',
+    not_important: 'rgba(205, 191, 216, 0.16)',
   } as const;
 
   const getThoughtWord = (count: number): string => {
@@ -1527,19 +1808,6 @@ function CategorizeStage({
     return categoryBackgroundMap[category];
   };
 
-  const getCategoryEmoji = (category: 'important' | 'unclear' | 'not_important' | null) => {
-    switch (category) {
-      case 'important':
-        return '🤎';
-      case 'unclear':
-        return '🔍';
-      case 'not_important':
-        return '🕊️';
-      default:
-        return '○';
-    }
-  };
-
   const getCategoryLabel = (category: 'important' | 'unclear' | 'not_important' | null) => {
     switch (category) {
       case 'important':
@@ -1586,8 +1854,8 @@ function CategorizeStage({
         >
           {/* Title */}
           <View style={styles.categorizeTitleContainer}>
-            <Text style={styles.mainTitle}>{t('clarityMap.distributeYourThoughts')}</Text>
-            <Text style={styles.mainSubtitle}>
+            <Text style={styles.categorizeMainTitle}>{t('clarityMap.distributeYourThoughts')}</Text>
+            <Text style={styles.categorizeMainSubtitle}>
               {t('clarityMap.tapCategoryForThought')}
             </Text>
           </View>
@@ -1611,7 +1879,44 @@ function CategorizeStage({
           {/* Thoughts List */}
           <View style={styles.thoughtsList}>
             {categorizedThoughts.map((thought) => (
-              <View key={thought.id} style={styles.categorizeThoughtItem}>
+              <View
+                key={thought.id}
+                style={[
+                  styles.categorizeThoughtItem,
+                  thought.category && {
+                    borderColor: getCategoryColor(thought.category),
+                    backgroundColor: getCategoryBackgroundColor(thought.category),
+                  },
+                ]}
+              >
+                <View style={styles.categorizeThoughtHeader}>
+                  <View
+                    style={[
+                      styles.categorizeThoughtStatusBadge,
+                      thought.category
+                        ? {
+                            borderColor: getCategoryColor(thought.category),
+                            backgroundColor: getCategoryBackgroundColor(thought.category),
+                          }
+                        : styles.categorizeThoughtStatusBadgeUnassigned,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.categorizeThoughtStatusDot,
+                        { backgroundColor: getCategoryColor(thought.category) },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.categorizeThoughtStatusText,
+                        thought.category && { color: getCategoryColor(thought.category) },
+                      ]}
+                    >
+                      {getCategoryLabel(thought.category)}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={styles.categorizeThoughtText}>{thought.text}</Text>
                 
                 {/* Category Buttons */}
@@ -1626,7 +1931,7 @@ function CategorizeStage({
                     ]}
                     onPress={() => handleCategorySelect(thought.id, 'important')}
                   >
-                    <Text style={styles.categoryButtonEmoji}>🤎</Text>
+                    <View style={[styles.categoryButtonSwatch, { backgroundColor: getCategoryColor('important') }]} />
                     <Text style={[
                       styles.categoryButtonText,
                       thought.category === 'important' && styles.categoryButtonTextSelected
@@ -1650,7 +1955,7 @@ function CategorizeStage({
                       handleCategorySelect(thought.id, 'unclear');
                     }}
                   >
-                    <Text style={styles.categoryButtonEmoji}>🔍</Text>
+                    <View style={[styles.categoryButtonSwatch, { backgroundColor: getCategoryColor('unclear') }]} />
                     <Text style={[
                       styles.categoryButtonText,
                       thought.category === 'unclear' && styles.categoryButtonTextSelected
@@ -1658,7 +1963,7 @@ function CategorizeStage({
                     numberOfLines={1}
                     ellipsizeMode="clip"
                     android_hyphenationFrequency="none">
-                      {t('clarityMap.explore')}
+                      {t('clarityMap.worthExploringShort')}
                     </Text>
                   </TouchableOpacity>
                   </View>
@@ -1674,7 +1979,7 @@ function CategorizeStage({
                     ]}
                     onPress={() => handleCategorySelect(thought.id, 'not_important')}
                   >
-                    <Text style={styles.categoryButtonEmoji}>🕊️</Text>
+                    <View style={[styles.categoryButtonSwatch, { backgroundColor: getCategoryColor('not_important') }]} />
                     <Text style={[
                       styles.categoryButtonText,
                       thought.category === 'not_important' && styles.categoryButtonTextSelected
@@ -1682,7 +1987,7 @@ function CategorizeStage({
                     numberOfLines={1}
                     ellipsizeMode="clip"
                     android_hyphenationFrequency="none">
-                      {t('clarityMap.letGo')}
+                      {t('clarityMap.canLetGoShort')}
                     </Text>
                   </TouchableOpacity>
                   </View>
@@ -1693,24 +1998,46 @@ function CategorizeStage({
 
           {/* Summary */}
           <View style={styles.categorizeSummary}>
-            <Text style={styles.categorizeSummaryText}>
-              {uncategorizedCount > 0 
-                ? t('clarityMap.remainingToDistribute', { count: uncategorizedCount, word: getThoughtWord(uncategorizedCount) })
-                : t('clarityMap.allThoughtsDistributed')
-              }
-            </Text>
+            <View style={styles.categorizeSummaryHeader}>
+              <View
+                style={[
+                  styles.categorizeSummaryBadge,
+                  uncategorizedCount === 0
+                    ? styles.categorizeSummaryBadgeComplete
+                    : styles.categorizeSummaryBadgePending,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.categorizeSummaryBadgeDot,
+                    uncategorizedCount === 0
+                      ? styles.categorizeSummaryBadgeDotComplete
+                      : styles.categorizeSummaryBadgeDotPending,
+                  ]}
+                />
+                <Text style={styles.categorizeSummaryText}>
+                  {uncategorizedCount > 0 
+                    ? t('clarityMap.remainingToDistribute', { count: uncategorizedCount, word: getThoughtWord(uncategorizedCount) })
+                    : t('clarityMap.allThoughtsDistributed')
+                  }
+                </Text>
+              </View>
+            </View>
             <View style={styles.categorizeSummaryCounts}>
-              <View style={styles.categorizeSummaryCount}>
+              <View style={[styles.categorizeSummaryCount, { backgroundColor: getCategoryBackgroundColor('important') }]}>
+                <View style={[styles.categorizeSummaryCountDot, { backgroundColor: getCategoryColor('important') }]} />
                 <Text style={styles.categorizeSummaryCountNumber}>{importantCount}</Text>
                 <Text style={styles.categorizeSummaryCountLabel}>{t('clarityMap.important')}</Text>
               </View>
-              <View style={styles.categorizeSummaryCount}>
+              <View style={[styles.categorizeSummaryCount, { backgroundColor: getCategoryBackgroundColor('unclear') }]}>
+                <View style={[styles.categorizeSummaryCountDot, { backgroundColor: getCategoryColor('unclear') }]} />
                 <Text style={styles.categorizeSummaryCountNumber}>{unclearCount}</Text>
-                <Text style={styles.categorizeSummaryCountLabel}>{t('clarityMap.study')}</Text>
+                <Text style={styles.categorizeSummaryCountLabel}>{t('clarityMap.worthExploringShort')}</Text>
               </View>
-              <View style={styles.categorizeSummaryCount}>
+              <View style={[styles.categorizeSummaryCount, { backgroundColor: getCategoryBackgroundColor('not_important') }]}>
+                <View style={[styles.categorizeSummaryCountDot, { backgroundColor: getCategoryColor('not_important') }]} />
                 <Text style={styles.categorizeSummaryCountNumber}>{releaseCount}</Text>
-                <Text style={styles.categorizeSummaryCountLabel}>{t('clarityMap.letGo')}</Text>
+                <Text style={styles.categorizeSummaryCountLabel}>{t('clarityMap.canLetGoShort')}</Text>
               </View>
             </View>
           </View>
@@ -1738,7 +2065,6 @@ function CategorizeStage({
 // Main ClarityMap Component (wrapper)
 // ============================================
 export default function ClarityMap({ onClose }: ClarityMapProps) {
-  const router = useRouter();
   const { t, i18n } = useTranslation();
   const [stage, setStage] = useState<ClarityMapStage>('dump');
   const [thoughts, setThoughts] = useState<Thought[]>([]);
@@ -1749,11 +2075,7 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCreatingPath, setIsCreatingPath] = useState(false);
-  const [showPathCreatedModal, setShowPathCreatedModal] = useState(false);
-  const [createdPathName, setCreatedPathName] = useState('');
-  const [createdPathId, setCreatedPathId] = useState<string>('');
-  const [isPathQueued, setIsPathQueued] = useState(false);
+  const [showSaveCelebration, setShowSaveCelebration] = useState(false);
   const [userIsPremium, setUserIsPremium] = useState<boolean>(true); // default true to avoid flash
   const [showOpenAiReportButton, setShowOpenAiReportButton] = useState(false);
   const [entitlementResolved, setEntitlementResolved] = useState(false);
@@ -1819,7 +2141,7 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
       setIsLoading(false);
       setIsGeneratingInsight(false);
       setIsSaving(false);
-      setIsCreatingPath(false);
+      setShowSaveCelebration(false);
     } catch (error) {
       console.error('Error resetting state:', error);
       // Even if there's an error, ensure we start fresh
@@ -1878,18 +2200,6 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
     return isRu
       ? `Ты поделился мыслью: "${shortThought}". Попробуй посмотреть на неё как на сигнал о том, что тебе важно, и сделай один маленький поддерживающий шаг сегодня.`
       : `You shared: "${shortThought}". Try viewing it as a signal of what matters to you, then take one small supportive step today.`;
-  };
-
-  const compactInsightGoalFear = (rawFear?: string): string => {
-    const cleaned = (rawFear || '')
-      .replace(/["'`]/g, '')
-      .replace(/[.,!?;:()[\]{}]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!cleaned) return 'Fear of failure';
-    const words = cleaned.split(' ').filter(Boolean);
-    if (words.length <= 3) return cleaned;
-    return words.slice(0, 3).join(' ');
   };
 
   const refreshEntitlementState = useCallback(async (): Promise<boolean> => {
@@ -2152,95 +2462,11 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
       await saveInsightSilently();
       
       setIsSaving(false);
-      
-      // Show success message with options
-      Alert.alert(
-        t('clarityMap.saved'),
-        t('clarityMap.insightSuccessfullySaved'),
-        [
-          {
-            text: t('clarityMap.openInMeSection'),
-            onPress: () => {
-              onClose();
-              router.push('/(tabs)/me');
-            },
-          },
-          {
-            text: 'Close',
-            style: 'cancel',
-          },
-        ]
-      );
+      setShowSaveCelebration(true);
     } catch (error) {
       console.error('Error saving insight:', error);
       setIsSaving(false);
       Alert.alert(t('clarityMap.error'), t('clarityMap.errorSavingInsight'));
-    }
-  };
-
-  const handleTurnIntoPath = async () => {
-    try {
-      setIsCreatingPath(true);
-      
-      // Combine all insights into a single text for goal generation
-      const combinedInsight = [
-        heartInsight && `What Deserves Your Energy: ${heartInsight}`,
-        exploreInsight && `What Needs Space: ${exploreInsight}`,
-        releaseInsight && `What to Let Go: ${releaseInsight}`,
-        perspectiveShift && `Forward Momentum: ${perspectiveShift}`,
-      ]
-        .filter(Boolean)
-        .join('\n\n');
-      
-      // Generate goal from insight
-      const generatedGoal = await generateGoalFromInsight(combinedInsight);
-      const compactGoalFear = compactInsightGoalFear(generatedGoal.fear);
-      
-      // Load existing goals
-      const existingGoalsData = await AsyncStorage.getItem('userGoals');
-      const existingGoals = existingGoalsData ? JSON.parse(existingGoalsData) : [];
-      
-      // Check how many active goals exist
-      const activeGoals = existingGoals.filter((g: any) => g.isActive === true);
-      const isQueued = activeGoals.length >= 3;
-      
-      // Create goal object
-      // Set currentStepIndex to -1 so only level 1 is unlocked initially (not completed)
-      const goalToSave = {
-        id: Date.now().toString(),
-        name: generatedGoal.name,
-        steps: generatedGoal.steps,
-        numberOfSteps: generatedGoal.numberOfSteps,
-        estimatedDuration: generatedGoal.estimatedDuration,
-        aiEstimatedDuration: generatedGoal.estimatedDuration,
-        hardnessLevel: generatedGoal.hardnessLevel,
-        fear: compactGoalFear,
-        obstacle: '',
-        progressPercentage: 0,
-        isActive: !isQueued,
-        isQueued: isQueued,
-        createdAt: new Date().toISOString(),
-        currentStepIndex: -1, // -1 means no levels completed, only level 1 is unlocked
-      };
-      
-      // Add new goal to the beginning of the list
-      const updatedGoals = [goalToSave, ...existingGoals];
-      await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
-      
-      setIsCreatingPath(false);
-      
-      // Save the insight silently (without showing alert)
-      await saveInsightSilently();
-      
-      // Store modal data and show white modal popup
-      setCreatedPathName(generatedGoal.name);
-      setCreatedPathId(goalToSave.id);
-      setIsPathQueued(isQueued);
-      setShowPathCreatedModal(true);
-    } catch (error) {
-      console.error('Error creating path:', error);
-      setIsCreatingPath(false);
-      Alert.alert(t('clarityMap.error'), t('clarityMap.failedToCreatePath'));
     }
   };
 
@@ -2294,67 +2520,20 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
         showOpenAiReportButton={entitlementResolved && showOpenAiReportButton}
         hasSafetyAlert={hasSafetyAlert}
         isGeneratingAiReport={isGeneratingAiReport}
-        onSaveInsight={userIsPremium && !hasSafetyAlert && !isSaving ? handleSaveInsight : undefined}
-        onTurnIntoPath={userIsPremium && !hasSafetyAlert ? (isCreatingPath ? undefined : handleTurnIntoPath) : undefined}
+        onSaveInsight={userIsPremium && !hasSafetyAlert ? handleSaveInsight : undefined}
         onOpenAiReport={entitlementResolved && showOpenAiReportButton && !hasSafetyAlert ? handleOpenAiReport : undefined}
         onClose={onClose}
-        isCreatingPath={isCreatingPath}
+        isSaving={isSaving}
       />
-      
-      {/* Path Created Success Modal */}
-      <Modal
-        visible={showPathCreatedModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPathCreatedModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowPathCreatedModal(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowPathCreatedModal(false)}
-              accessibilityRole="button"
-              accessibilityLabel={t('clarityMap.close')}
-            >
-              <MaterialIcons name="close" size={22} color="#342846" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{t('clarityMap.pathCreated')}</Text>
-            <Text style={styles.modalText}>
-              {isPathQueued
-                ? t('clarityMap.pathCreatedBodyQueuedSimple')
-                : t('clarityMap.pathCreatedBodyActiveSimple')}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalPrimaryButton}
-                onPress={() => {
-                  setShowPathCreatedModal(false);
-                  if (createdPathId) {
-                    router.push({
-                      pathname: '/goal-map',
-                      params: {
-                        goalName: createdPathName,
-                        goalId: createdPathId,
-                      },
-                    });
-                  } else {
-                    router.push('/(tabs)/goals');
-                  }
-                  // Close the clarity map after navigation
-                  setTimeout(() => {
-                    onClose();
-                  }, 100);
-                }}
-              >
-                <Text style={styles.modalPrimaryButtonText}>{t('clarityMap.goToGoals')}</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <SaveInsightCelebration
+        visible={showSaveCelebration}
+        title={t('clarityMap.saveCelebrationTitle')}
+        body={t('clarityMap.saveCelebrationBody')}
+        onClose={() => {
+          setShowSaveCelebration(false);
+          onClose();
+        }}
+      />
     </>
   );
 }

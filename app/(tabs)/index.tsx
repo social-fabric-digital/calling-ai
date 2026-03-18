@@ -1,25 +1,32 @@
+import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { GuideModal, shouldShowGuideOnStartup } from '@/components/GuideModal';
 import HomeWalkthrough, { WalkthroughTargetRect } from '@/components/HomeWalkthrough';
 import { MoodLoggedCard } from '@/components/MoodLoggedCard';
 import { MoodSelector } from '@/components/MoodSelector';
-import { FrostedCardLayer } from '@/components/FrostedCardLayer';
+import SkyBackground from '@/components/SkyBackground';
 import AtlasChat from '@/components/screens/ChatScreen';
-import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
+import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { trackReflectionEvent } from '@/utils/appTracking';
+import { getCachedAstrologyReport, getPersonalizedDailyInsight, getSunSign } from '@/utils/astrologyCache';
 import { ChatMessage } from '@/utils/claudeApi';
-import { getCachedAstrologyReport, getSunSign, getPersonalizedDailyInsight } from '@/utils/astrologyCache';
 import { getTodaysMood, MoodEntry } from '@/utils/moodStorage';
+import {
+  requestNotificationPermissions,
+  saveNotificationPreferences,
+  scheduleDailyNotification,
+} from '@/utils/notifications';
 import { trackDailyInsightViewAndMaybePromptReview } from '@/utils/storeReview';
 import { isPremium as hasSubscriptionAccess } from '@/utils/subscription';
 import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, KeyboardAvoidingView, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { ActivityIndicator, Animated, Dimensions, Image, ImageBackground, Keyboard, KeyboardAvoidingView, LayoutAnimation, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
@@ -27,8 +34,42 @@ const isTabletLayout = Platform.OS === 'ios' && (Platform.isPad || Math.max(widt
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
 const QUESTION_DAY_KEY = '@question_day';
 const LAST_QUESTION_DATE_KEY = '@last_question_date';
+const LAST_ANSWER_AT_KEY = '@last_answer_at';
+const LAST_ANSWER_LOCAL_DATE_KEY = '@last_answer_local_date';
 const HOME_WALKTHROUGH_DONE_KEY = '@home_walkthrough_done';
 const JUST_FINISHED_ONBOARDING_KEY = '@just_finished_onboarding';
+const HOME_NOTIFICATIONS_PROMPT_SHOWN_KEY = '@home_notifications_prompt_shown_v1';
+const DEFAULT_NOTIFICATION_HOUR = 9;
+const DEFAULT_NOTIFICATION_MINUTE = 0;
+const DAILY_ANSWER_VISIBILITY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const getLastAnswerTimestampMs = (
+  lastAnswerAt: string | null,
+  legacyLastAnswerDate: string | null
+): number | null => {
+  if (lastAnswerAt) {
+    const parsedTimestamp = Date.parse(lastAnswerAt);
+    if (Number.isFinite(parsedTimestamp)) {
+      return parsedTimestamp;
+    }
+  }
+
+  if (legacyLastAnswerDate) {
+    const parsedLegacyDate = Date.parse(legacyLastAnswerDate);
+    if (Number.isFinite(parsedLegacyDate)) {
+      return parsedLegacyDate;
+    }
+  }
+
+  return null;
+};
+
+const getLocalDateKey = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 
 export default function HomeScreen() {
@@ -44,28 +85,38 @@ export default function HomeScreen() {
     () => [
       {
         key: 'cosmicInsight',
-        title: isRussian ? 'ИНСАЙТ НА СЕГОДНЯ' : "TODAY'S INSIGHT",
-        description: isRussian ? 'Ежедневная подсказка для фокуса.' : 'Daily guidance for focus.',
+        title: isRussian ? 'Инсайт на сегодня' : "Today's Insight",
+        description: isRussian
+          ? 'Здесь ты видишь персональный инсайт дня: короткую подсказку, которая помогает выбрать фокус и настроиться на день.'
+          : 'See your personalized daily insight: a short guidance message to help you choose your focus and start the day with clarity.',
       },
       {
         key: 'clarityMap',
-        title: isRussian ? 'КАРТА ЯСНОСТИ' : 'CLARITY MAP',
-        description: isRussian ? 'Разбери мысли за 3 минуты.' : 'Sort your thoughts in 3 minutes.',
+        title: isRussian ? 'Карта ясности' : 'Clarity Map',
+        description: isRussian
+          ? 'Быстрая практика, чтобы выгрузить мысли, снизить шум в голове и выделить, что сейчас действительно важно.'
+          : 'A quick reflection tool to unload thoughts, reduce mental noise, and identify what matters most right now.',
       },
       {
         key: 'progress',
-        title: isRussian ? 'ПРОГРЕСС' : 'PROGRESS',
-        description: isRussian ? 'Смотри свои серии и импульс.' : 'See your streak and momentum.',
+        title: isRussian ? 'Прогресс' : 'Progress',
+        description: isRussian
+          ? 'Отслеживай серии, маленькие победы и общий импульс, чтобы видеть, как ты двигаешься вперед изо дня в день.'
+          : 'Track your streak, small wins, and momentum so you can clearly see your growth over time.',
       },
       {
         key: 'ikigai',
-        title: isRussian ? 'КОМПАС ИКИГАЙ' : 'IKIGAI COMPASS',
-        description: isRussian ? 'Вернись к своему предназначению.' : 'Reconnect with your purpose.',
+        title: isRussian ? 'Компас Икигай' : 'Ikigai Compass',
+        description: isRussian
+          ? 'Вернись к своим ответам по Икигай, обнови направление и проверь, насколько твои действия совпадают с твоими ценностями.'
+          : 'Revisit your Ikigai answers, refresh your direction, and check how your current actions align with your deeper purpose.',
       },
       {
         key: 'atlas',
-        title: isRussian ? 'ЧАТ С АТЛАСОМ' : 'CHAT WITH ATLAS',
-        description: isRussian ? 'Быстро разберись со стрессом.' : 'Get quick help with stress.',
+        title: isRussian ? 'Чат с Атласом' : 'Chat with Atlas',
+        description: isRussian
+          ? 'Когда тревожно или тяжело, Атлас поможет быстро успокоиться, разложить ситуацию и найти следующий маленький шаг.'
+          : 'When you feel anxious or stuck, Atlas helps you calm down, sort the situation, and choose one practical next step.',
       },
     ],
     [isRussian]
@@ -84,6 +135,7 @@ export default function HomeScreen() {
   const [answerCaptured, setAnswerCaptured] = useState(false);
   const [showEnvelope, setShowEnvelope] = useState(false);
   const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
+  const [lastAnswerTimestampMs, setLastAnswerTimestampMs] = useState<number | null>(null);
   const [questionDay, setQuestionDay] = useState<number>(1);
   const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
   // Persist daily-answer state consistently across dev/prod so the question
@@ -151,7 +203,70 @@ export default function HomeScreen() {
   const queueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueStartTimeRef = useRef<number | null>(null);
   const insightRequestIdRef = useRef(0);
+  const hasAttemptedInitialNotificationPromptRef = useRef(false);
   const [showAtlasChat, setShowAtlasChat] = useState(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const maybePromptForNotificationsOnFirstHomeVisit = async () => {
+      if (hasAttemptedInitialNotificationPromptRef.current) return;
+      hasAttemptedInitialNotificationPromptRef.current = true;
+
+      try {
+        const hasShownPrompt = await AsyncStorage.getItem(HOME_NOTIFICATIONS_PROMPT_SHOWN_KEY);
+        if (hasShownPrompt === 'true') return;
+
+        // Mark as shown before requesting permission so this prompt remains one-time.
+        await AsyncStorage.setItem(HOME_NOTIFICATIONS_PROMPT_SHOWN_KEY, 'true');
+
+        const granted = await requestNotificationPermissions();
+        if (isCancelled) return;
+
+        if (granted) {
+          await saveNotificationPreferences(
+            true,
+            DEFAULT_NOTIFICATION_HOUR,
+            DEFAULT_NOTIFICATION_MINUTE
+          );
+          await scheduleDailyNotification(DEFAULT_NOTIFICATION_HOUR, DEFAULT_NOTIFICATION_MINUTE);
+          return;
+        }
+
+        await saveNotificationPreferences(
+          false,
+          DEFAULT_NOTIFICATION_HOUR,
+          DEFAULT_NOTIFICATION_MINUTE
+        );
+      } catch (error) {
+        console.warn('Failed to run first-home notification prompt:', error);
+      }
+    };
+
+    void maybePromptForNotificationsOnFirstHomeVisit();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const hasPremiumAccessFast = useCallback(async (): Promise<boolean> => {
+    try {
+      // Fast path: local subscription flag is usually available immediately.
+      const localAccess = await hasSubscriptionAccess();
+      if (localAccess) return true;
+    } catch (error) {
+      console.warn('[TodayInsight] Local premium check failed:', error);
+    }
+
+    try {
+      // Fallback path: remote entitlement verification.
+      return await checkSubscriptionStatus();
+    } catch (error) {
+      console.warn('[TodayInsight] Remote premium check failed:', error);
+      return false;
+    }
+  }, []);
   
   // Animated values for rectangle button press effects
   const cosmicInsightScale = useRef(new Animated.Value(1)).current;
@@ -291,16 +406,27 @@ export default function HomeScreen() {
   // Debounce timer for detecting when user finishes typing
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMountedDailyQuestionLayoutRef = useRef(false);
+  const refreshUserName = useCallback(async () => {
+    try {
+      const storedName = ((await AsyncStorage.getItem('userName')) || '').trim();
+      setUserName(storedName);
+    } catch (error) {
+      console.error('Error refreshing user name:', error);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUserName();
+    }, [refreshUserName])
+  );
 
   // Load user name, question day, and check if answer was captured today
   useEffect(() => {
     const loadUserData = async () => {
       try {
         // Load user name
-        const name = await AsyncStorage.getItem('userName');
-        if (name) {
-          setUserName(name);
-        }
+        await refreshUserName();
         
         // Load active goal title
         const goalsData = await AsyncStorage.getItem('userGoals');
@@ -383,8 +509,29 @@ export default function HomeScreen() {
         setCurrentQuestion(QUESTION_BANK[questionIndex]);
         
         // Check if answer was already captured today and persist hidden state.
-        const lastAnswerDate = await AsyncStorage.getItem('lastAnswerDate');
-        if (!ignorePersistedDailyAnswerInDev && lastAnswerDate === today) {
+        const [lastAnswerAt, lastAnswerText] = await AsyncStorage.multiGet([
+          LAST_ANSWER_AT_KEY,
+          'lastAnswer',
+        ]).then((entries) => entries.map(([, value]) => value));
+        const persistedAnswerTimestampMs = getLastAnswerTimestampMs(lastAnswerAt, null);
+        setLastAnswerTimestampMs(persistedAnswerTimestampMs);
+        const hasNonEmptyStoredAnswer =
+          typeof lastAnswerText === 'string' && lastAnswerText.trim().length > 0;
+        const answeredWithin24Hours =
+          persistedAnswerTimestampMs !== null &&
+          Date.now() - persistedAnswerTimestampMs >= 0 &&
+          Date.now() - persistedAnswerTimestampMs < DAILY_ANSWER_VISIBILITY_WINDOW_MS;
+        const shouldHideDailyQuestion =
+          !ignorePersistedDailyAnswerInDev &&
+          hasNonEmptyStoredAnswer &&
+          answeredWithin24Hours;
+
+        // Self-heal stale keys so old data cannot keep the card hidden.
+        if (!shouldHideDailyQuestion) {
+          await AsyncStorage.multiRemove(['lastAnswerDate', LAST_ANSWER_LOCAL_DATE_KEY]);
+        }
+
+        if (shouldHideDailyQuestion) {
           setAnswerCapturedToday(true);
           setAnswerCaptured(true);
           setShowEnvelope(false);
@@ -392,13 +539,39 @@ export default function HomeScreen() {
           setAnswerCapturedToday(false);
           setAnswerCaptured(false);
           setShowEnvelope(false);
+          fieldOpacity.setValue(1);
+          questionOpacity.setValue(1);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
       }
     };
     loadUserData();
-  }, []);
+  }, [refreshUserName]);
+
+  useEffect(() => {
+    if (lastAnswerTimestampMs === null) {
+      return;
+    }
+
+    const remainingMs = DAILY_ANSWER_VISIBILITY_WINDOW_MS - (Date.now() - lastAnswerTimestampMs);
+    if (remainingMs <= 0) {
+      setAnswerCapturedToday(false);
+      setAnswerCaptured(false);
+      setShowEnvelope(false);
+      setDailyAnswer('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setAnswerCapturedToday(false);
+      setAnswerCaptured(false);
+      setShowEnvelope(false);
+      setDailyAnswer('');
+    }, remainingMs + 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [lastAnswerTimestampMs]);
 
   // Check if mood was already logged today
   useEffect(() => {
@@ -761,8 +934,24 @@ export default function HomeScreen() {
     if (answerCaptured) return;
     const normalizedAnswer = dailyAnswer.trim();
     if (!normalizedAnswer) return;
-    
+
+    Keyboard.dismiss();
+    fieldOpacity.setValue(1);
+    questionOpacity.setValue(1);
     setAnswerCaptured(true);
+
+    Animated.parallel([
+      Animated.timing(fieldOpacity, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.timing(questionOpacity, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+    ]).start();
     
     // Trigger confetti animation
     triggerConfetti();
@@ -775,10 +964,18 @@ export default function HomeScreen() {
     // Save the answer date to AsyncStorage after animation starts
     // (but don't set answerCapturedToday yet - let animation play first)
     try {
-      const today = new Date().toDateString();
-      const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      await AsyncStorage.setItem('lastAnswerDate', today);
-      await AsyncStorage.setItem('lastAnswer', normalizedAnswer);
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const today = now.toDateString();
+      const todayLocal = getLocalDateKey(now);
+      const todayISO = nowIso.split('T')[0]; // YYYY-MM-DD format
+      await AsyncStorage.multiSet([
+        ['lastAnswerDate', today],
+        [LAST_ANSWER_AT_KEY, nowIso],
+        [LAST_ANSWER_LOCAL_DATE_KEY, todayLocal],
+        ['lastAnswer', normalizedAnswer],
+      ]);
+      setLastAnswerTimestampMs(now.getTime());
       
       // Save to userAnswers array for the "Me" screen
       const answersData = await AsyncStorage.getItem('userAnswers');
@@ -1251,14 +1448,7 @@ export default function HomeScreen() {
         queueTimerRef.current = null;
       }
 
-      const userIsPremium = await (async () => {
-        // Treat active free-trial users as premium access for insight queue skipping.
-        const [superwallAccess, subscriptionAccess] = await Promise.all([
-          checkSubscriptionStatus(),
-          hasSubscriptionAccess(),
-        ]);
-        return superwallAccess || subscriptionAccess;
-      })();
+      const userIsPremium = await hasPremiumAccessFast();
 
       if (userIsPremium) {
         const cachedPremiumInsight = await AsyncStorage.getItem(premiumInsightCacheKey);
@@ -1516,13 +1706,7 @@ export default function HomeScreen() {
     const insightLanguage: 'en' | 'ru' = i18n.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
     const premiumInsightCacheKey = `premium-daily-report-${insightLanguage}-${todayKey}`;
     
-    const userIsPremium = await (async () => {
-      const [superwallAccess, subscriptionAccess] = await Promise.all([
-        checkSubscriptionStatus(),
-        hasSubscriptionAccess(),
-      ]);
-      return superwallAccess || subscriptionAccess;
-    })();
+    const userIsPremium = await hasPremiumAccessFast();
     console.log('[TodayInsight] Initial premium status before skip:', userIsPremium);
     if (!userIsPremium) {
       console.log('[TodayInsight] Free user detected, triggering paywall: skip_wait');
@@ -1584,24 +1768,8 @@ export default function HomeScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // After envelope flies away completely:
-        // 1. Fade out the question and field
-        Animated.parallel([
-          Animated.timing(fieldOpacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(questionOpacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          // 2. Hide question and field
-          setShowEnvelope(false);
-          setAnswerCapturedToday(true);
-        });
+        setShowEnvelope(false);
+        setAnswerCapturedToday(true);
       });
     });
   };
@@ -2000,15 +2168,27 @@ export default function HomeScreen() {
 
   const headerTopOffset = Math.max(50, insets.top + 10);
   const headerTotalHeight = headerTopOffset + headerContentHeight;
-  const isHomeAnsweredLayout = answerCapturedToday && !showEnvelope;
+  // Temporary screenshot override: keep Question of the Day visible
+  // even when already answered.
+  const forceShowQuestionCardForScreenshot = true;
+  const shouldShowDailyQuestionCard =
+    forceShowQuestionCardForScreenshot || (!answerCapturedToday && !showEnvelope);
+  const isHomeAnsweredLayout =
+    !forceShowQuestionCardForScreenshot && answerCapturedToday && !showEnvelope;
+  const greetingByTime = isRussian ? 'Привет' : 'Hey';
+  const dynamicHeaderColor = '#FFFFFF';
+  const dynamicDividerColor = 'rgba(255,255,255,0.75)';
+
+  useEffect(() => {
+    if (!isHomeAnsweredLayout) return;
+    requestAnimationFrame(() => {
+      homeScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [isHomeAnsweredLayout]);
 
   return (
-    <ImageBackground
-      source={require('../../assets/images/moon.star.png')}
-      style={styles.homeBackground}
-      imageStyle={styles.homeBackgroundImage}
-      resizeMode="cover"
-    >
+    <SkyBackground showClouds>
+      <View style={[styles.homeBackground, { backgroundColor: 'transparent' }]}>
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -2045,17 +2225,17 @@ export default function HomeScreen() {
         }}
       >
         {/* Date - Top Left */}
-        <Text style={styles.dateText}>
+        <Text style={[styles.dateText, { color: dynamicHeaderColor }]}>
           {new Date().toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </Text>
 
         {/* Greeting - Left Aligned - Fixed position below date */}
-        <Text style={styles.greeting}>
-          {trimmedUserName ? `${t('home.hello')}, ${trimmedUserName}` : t('home.hello')}
+        <Text style={[styles.greeting, { color: dynamicHeaderColor }]}>
+          {trimmedUserName ? `${greetingByTime}, ${trimmedUserName}` : greetingByTime}
         </Text>
 
         {/* Dividing Bar */}
-        <View style={styles.dividingBar} />
+        <View style={[styles.dividingBar, { backgroundColor: dynamicDividerColor, opacity: 1 }]} />
       </View>
       
       <View style={[styles.scrollContainer, { marginTop: headerTotalHeight }]}>
@@ -2070,28 +2250,32 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={false}
-          scrollEnabled={!isSliderInteracting && !isHomeAnsweredLayout}
+          scrollEnabled
         >
 
         {/* Reserve daily question space to avoid layout jumps below */}
         <View style={styles.dailyQuestionSection}>
-          {!answerCapturedToday && !showEnvelope && (
+          {shouldShowDailyQuestionCard && (
             <>
-              <Text style={styles.sectionHeading}>{t('home.questionOfTheDay')}</Text>
+              <Text style={[styles.sectionHeading, { color: dynamicHeaderColor }]}>{t('home.questionOfTheDay')}</Text>
               <View style={styles.questionCard}>
                 <FrostedCardLayer />
-                <Text style={styles.questionCardText}>{currentQuestion}</Text>
-                <View style={styles.answerFieldCard}>
-                  <TextInput
-                    style={styles.answerInputCard}
-                    value={dailyAnswer}
-                    onChangeText={handleAnswerChange}
-                    placeholder={t('home.enterAnswer')}
-                    placeholderTextColor="#999"
-                    multiline
-                    editable={!answerCaptured}
-                  />
-                </View>
+                <Animated.Text style={[styles.questionCardText, { opacity: questionOpacity }]}>
+                  {currentQuestion}
+                </Animated.Text>
+                <Animated.View style={{ opacity: fieldOpacity }}>
+                  <View style={styles.answerFieldCard}>
+                    <TextInput
+                      style={styles.answerInputCard}
+                      value={dailyAnswer}
+                      onChangeText={handleAnswerChange}
+                      placeholder={t('home.enterAnswer')}
+                      placeholderTextColor="#999"
+                      multiline
+                      editable={!answerCaptured}
+                    />
+                  </View>
+                </Animated.View>
                 {dailyAnswer.trim() && !answerCaptured && (
                   <TouchableOpacity
                     style={styles.saveEntryButton}
@@ -2171,12 +2355,13 @@ export default function HomeScreen() {
         )}
 
         <View style={isHomeAnsweredLayout ? [styles.homeAnsweredContent, isTabletLayout && styles.homeAnsweredContentTablet] : undefined}>
-          <View>
+          <View style={isHomeAnsweredLayout ? styles.homeAnsweredTopSection : undefined}>
             {/* Explore Heading */}
             <Text
               style={[
                 styles.sectionHeading,
-                answerCapturedToday && !showEnvelope && styles.exploreHeadingAnswered,
+                { color: dynamicHeaderColor },
+                isHomeAnsweredLayout && styles.exploreHeadingAnswered,
               ]}
             >
               {t('home.explore')}
@@ -2200,15 +2385,17 @@ export default function HomeScreen() {
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(cosmicInsightScale, handleCosmicInsightClick)}
                   >
-                    <ImageBackground
-                      source={require('../../assets/images/rectangle.png')}
-                      style={styles.buttonGradient}
-                      imageStyle={styles.buttonImageStyle}
-                    >
-                    <View style={styles.buttonTextContainer}>
-                      <Text style={styles.buttonTitle}>{t('home.cosmicInsight')}</Text>
+                    <View style={styles.exploreGridCard}>
+                      <View style={styles.exploreCardContent}>
+                        <Ionicons name="sparkles-outline" size={22} color="#FFFFFF" style={styles.exploreCardIcon} />
+                        <View style={styles.buttonTextContainer}>
+                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                            {tr("Today's Insight", 'Инсайт на сегодня')}
+                          </Text>
+                          <Text style={styles.buttonSubtitle}>{tr('Daily wisdom', 'Мудрость дня')}</Text>
+                        </View>
+                      </View>
                     </View>
-                    </ImageBackground>
                   </TouchableOpacity>
                 </Animated.View>
 
@@ -2226,15 +2413,17 @@ export default function HomeScreen() {
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(clarityMapScale, handleClarityMapPress)}
                   >
-                    <ImageBackground
-                      source={require('../../assets/images/rectangle.png')}
-                      style={styles.buttonGradient}
-                      imageStyle={styles.buttonImageStyle}
-                    >
-                      <View style={styles.buttonTextContainer}>
-                        <Text style={styles.buttonTitle}>{t('home.clarityMap')}</Text>
+                    <View style={styles.exploreGridCard}>
+                      <View style={styles.exploreCardContent}>
+                        <Ionicons name="ellipse-outline" size={22} color="#FFFFFF" style={styles.exploreCardIcon} />
+                        <View style={styles.buttonTextContainer}>
+                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                            {tr('Clear My Mind', 'Прояснить мысли')}
+                          </Text>
+                          <Text style={styles.buttonSubtitle}>{tr('Free writing', 'Свободное письмо')}</Text>
+                        </View>
                       </View>
-                    </ImageBackground>
+                    </View>
                   </TouchableOpacity>
                 </Animated.View>
               </View>
@@ -2255,15 +2444,17 @@ export default function HomeScreen() {
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(progressScale, () => router.push('/progress'))}
                   >
-                    <ImageBackground
-                      source={require('../../assets/images/rectangle.png')}
-                      style={styles.buttonGradient}
-                      imageStyle={styles.buttonImageStyle}
-                    >
-                      <View style={styles.buttonTextContainer}>
-                        <Text style={styles.buttonTitle}>{t('home.progressThisWeek')}</Text>
+                    <View style={styles.exploreGridCard}>
+                      <View style={styles.exploreCardContent}>
+                        <Ionicons name="diamond-outline" size={20} color="#FFFFFF" style={styles.exploreCardIcon} />
+                        <View style={styles.buttonTextContainer}>
+                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                            {tr('My Progress', 'Мой прогресс')}
+                          </Text>
+                          <Text style={styles.buttonSubtitle}>{tr('Your journey', 'Твой путь')}</Text>
+                        </View>
                       </View>
-                    </ImageBackground>
+                    </View>
                   </TouchableOpacity>
                 </Animated.View>
 
@@ -2281,21 +2472,25 @@ export default function HomeScreen() {
                     activeOpacity={1}
                     onPress={() => handleRectanglePress(ikigaiScale, () => router.push('/ikigai-compass'))}
                   >
-                    <ImageBackground
-                      source={require('../../assets/images/rectangle.png')}
-                      style={styles.buttonGradient}
-                      imageStyle={styles.buttonImageStyle}
-                    >
-                      <View style={styles.buttonTextContainer}>
-                        <Text style={styles.buttonTitle}>{t('home.ikigaiCompass')}</Text>
+                    <View style={styles.exploreGridCard}>
+                      <View style={styles.exploreCardContent}>
+                        <Ionicons name="compass-outline" size={20} color="#FFFFFF" style={styles.exploreCardIcon} />
+                        <View style={styles.buttonTextContainer}>
+                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                            {tr('My Path', 'Мой путь')}
+                          </Text>
+                          <Text style={styles.buttonSubtitle}>{tr('Purpose map', 'Карта смысла')}</Text>
+                        </View>
                       </View>
-                    </ImageBackground>
+                    </View>
                   </TouchableOpacity>
                 </Animated.View>
               </View>
             </View>
 
-            <Text style={styles.sectionHeading}>{tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}</Text>
+            <Text style={[styles.sectionHeading, { color: '#FFFFFF' }]}>
+              {tr('How are you feeling today?', 'Как ты себя сегодня чувствуешь?')}
+            </Text>
 
             {/* Mood Card - Show logged state or selector based on state */}
             {todaysMood && !showMoodSelector ? (
@@ -2390,7 +2585,7 @@ export default function HomeScreen() {
             collapsable={false}
             style={isTabletLayout ? styles.feelingAnxiousSectionTablet : undefined}
           >
-            <Text style={styles.sectionHeading}>{t('home.feelingAnxious')}</Text>
+            <Text style={[styles.sectionHeading, { color: '#FFFFFF' }]}>{t('home.feelingAnxious')}</Text>
             <TouchableOpacity 
               style={styles.feelingAnxiousCard}
               onPress={handleOpenAtlasChat}
@@ -2691,7 +2886,8 @@ export default function HomeScreen() {
           }, 220);
         }}
       />
-    </ImageBackground>
+      </View>
+    </SkyBackground>
   );
 }
 
@@ -2716,6 +2912,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   homeBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
   },
@@ -2739,6 +2940,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+  homeAnsweredTopSection: {
+    marginTop: 10,
+  },
   homeAnsweredContentTablet: {
     justifyContent: 'flex-start',
     width: '100%',
@@ -2751,9 +2955,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1100,
@@ -2769,9 +2973,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1100,
@@ -2850,12 +3054,15 @@ const styles = StyleSheet.create({
   questionCardText: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 18,
+    fontSize: 17,
+    fontStyle: 'italic',
+    lineHeight: 24,
+    opacity: 0.82,
     marginBottom: 16,
     textAlign: 'left',
   },
   exploreHeadingAnswered: {
-    marginTop: 20,
+    marginTop: 10,
   },
   answerFieldCard: {
     borderWidth: 0,
@@ -2983,15 +3190,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   feelingAnxiousCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.82)',
     padding: 20,
     marginBottom: 24,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    elevation: 3,
+    overflow: 'hidden',
   },
   feelingAnxiousSectionTablet: {
     marginTop: 30,
@@ -3149,7 +3359,7 @@ const styles = StyleSheet.create({
   },
   gridButton: {
     width: (((width - 50 - 24) / 2) + 50) * 0.9 * 0.8 * 1.1, // Width increased by 10% (multiply by 1.1) - fixed width for all rectangles (25px padding on each side)
-    height: ((72 * 1.4) + 45) * 0.75, // Original height (146px) decreased by 25% = ~110px - fixed height for all rectangles
+    height: ((72 * 1.4) + 45) * 0.78 + 8, // Add vertical room for wrapped RU labels
     borderRadius: 8,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 10 },
@@ -3176,6 +3386,25 @@ const styles = StyleSheet.create({
     width: '100%',
     flex: 1,
   },
+  exploreGridCard: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.82)',
+    overflow: 'hidden',
+  },
+  exploreCardContent: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    justifyContent: 'center',
+  },
+  exploreCardIcon: {
+    marginBottom: 10,
+    opacity: 0.95,
+  },
   buttonGradient: {
     width: '100%',
     height: '100%',
@@ -3190,29 +3419,32 @@ const styles = StyleSheet.create({
   },
   buttonTextContainer: {
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20 * 1.4, // Increased padding by 40% (from 20 to 28)
-    paddingVertical: 20 * 1.4,
+    alignItems: 'flex-start',
     width: '100%',
   },
   buttonTitle: {
-    ...ButtonHeadingStyle,
+    ...HomeHeadingStyle,
     color: '#342846',
-    fontSize: 16, // Reduced from 18
-    textAlign: 'center',
-    lineHeight: 20, // Added line height for better two-line text spacing
+    fontSize: 16,
+    textAlign: 'left',
+    lineHeight: 20,
     width: '100%',
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
+  },
+  buttonTitleRussian: {
+    fontSize: 15,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   buttonSubtitle: {
     ...BodyStyle,
     color: '#342846',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 5,
-    opacity: 0.7,
+    fontSize: 12,
+    textAlign: 'left',
+    marginTop: 2,
+    opacity: 1,
     flexShrink: 1,
-    lineHeight: 14,
+    lineHeight: 16,
   },
   moodQuestion: {
     ...BodyStyle,

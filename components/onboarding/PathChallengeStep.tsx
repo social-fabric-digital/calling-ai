@@ -177,7 +177,7 @@ export default function PathChallengeStep({ pathName, selectedGoalFear, onContin
             </LinearGradient>
           </View>
 
-          <Text style={styles.stepTitle}>{isRussian ? 'ТВОЙ ВЫЗОВ' : 'YOUR CHALLENGE'}</Text>
+          <Text style={styles.stepTitle}>{isRussian ? 'Твой вызов' : 'Your challenge'}</Text>
           <Text style={styles.stepSubtitle}>
             {isRussian
               ? conversationalGoalName
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepTitle: {
-    fontFamily: 'BricolageGrotesque-Bold',
+    ...HeadingStyle,
     fontSize: 26,
     color: '#FFFFFF',
     textAlign: 'center',

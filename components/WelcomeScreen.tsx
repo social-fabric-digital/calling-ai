@@ -1,5 +1,5 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
-import { BodyStyle, ButtonHeadingStyle } from '@/constants/theme';
+import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { changeLanguage } from '@/utils/i18n';
 import * as superwallUtils from '@/utils/superwall';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -343,8 +343,8 @@ const WelcomeScreen = () => {
   }, [i18n.language]);
 
   const languages = [
-    { code: 'en' as LanguageCode, name: 'English', flag: '🇬🇧' },
-    { code: 'ru' as LanguageCode, name: 'Русский', flag: '🇷🇺' },
+    { code: 'en' as LanguageCode, name: 'English' },
+    { code: 'ru' as LanguageCode, name: 'Русский' },
   ];
 
   const currentLanguage = languages.find(l => l.code === selectedLanguage);
@@ -371,7 +371,7 @@ const WelcomeScreen = () => {
   // Localized content
   const content: Record<LanguageCode, Content> = {
     en: {
-      welcome: 'WELCOME TO CALLING',
+      welcome: 'Welcome to Calling',
       subtitle: 'Congratulations on taking one extra step towards your calling.',
       mascotMessage: "Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.",
       startButton: 'Start my journey',
@@ -379,8 +379,8 @@ const WelcomeScreen = () => {
       loginLink: 'Login'
     },
     ru: {
-      welcome: 'ДОБРО ПОЖАЛОВАТЬ В ПРЕДНАЗНАЧЕНИЕ',
-      subtitle: 'Поздравляем! Вы сделали ещё один шаг к своему предназначению.',
+      welcome: 'Добро пожаловать в Calling',
+      subtitle: 'Поздравляем! Вы на правильном пути к наполненной жизни',
       mascotMessage: 'Привет! Я Атлас, и я буду твоим добрым проводником в этом путешествии самопознания.',
       startButton: 'Начать путешествие',
       loginText: 'Уже есть аккаунт?',
@@ -537,9 +537,7 @@ const WelcomeScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>
-              {t.loginText}{' '}
-            </Text>
+            <Text style={styles.loginText}>{t.loginText}</Text>
             <TouchableOpacity 
               activeOpacity={0.7}
               onPress={() => router.push('/email-login')}
@@ -565,7 +563,6 @@ const WelcomeScreen = () => {
           onPress={() => setShowLanguageMenu(!showLanguageMenu)}
           activeOpacity={0.8}
         >
-          <Text style={styles.languageFlag}>{currentLanguage?.flag}</Text>
           <Text style={styles.languageName}>{currentLanguage?.name}</Text>
           <MaterialIcons
             name="keyboard-arrow-down"
@@ -590,7 +587,6 @@ const WelcomeScreen = () => {
                 onPress={() => handleLanguageChange(lang.code)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.optionFlag}>{lang.flag}</Text>
                 <Text style={styles.optionName}>{lang.name}</Text>
                 {selectedLanguage === lang.code && (
                   <MaterialIcons name="check" size={16} color="#342846" />
@@ -699,10 +695,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  languageFlag: {
-    fontSize: 18,
-    marginRight: 8,
-  },
   languageName: {
     fontFamily: Platform.select({
       ios: 'AnonymousPro-Regular',
@@ -711,7 +703,8 @@ const styles = StyleSheet.create({
     }),
     fontSize: 14,
     color: '#342846',
-    marginRight: 8,
+    marginRight: 6,
+    flexShrink: 0,
   },
   languageDropdown: {
     position: 'absolute',
@@ -739,10 +732,6 @@ const styles = StyleSheet.create({
   languageOptionSelected: {
     backgroundColor: '#F8F9FA',
   },
-  optionFlag: {
-    fontSize: 20,
-    marginRight: 12,
-  },
   optionName: {
     fontFamily: Platform.select({
       ios: 'AnonymousPro-Regular',
@@ -767,21 +756,19 @@ const styles = StyleSheet.create({
 
   // Welcome Section
   welcomeSection: {
+    alignSelf: 'stretch',
     alignItems: 'center',
     marginBottom: 32,
   },
   welcomeTitle: {
-    fontFamily: Platform.select({
-      ios: 'BricolageGrotesque-Bold',
-      android: 'BricolageGrotesque-Bold',
-      default: 'sans-serif',
-    }),
-    fontSize: 28,
+    ...HeadingStyle,
+    fontSize: 24,
     fontWeight: '700',
     color: '#342846',
     marginBottom: 16,
-    letterSpacing: 1,
+    letterSpacing: 0,
     textAlign: 'center',
+    alignSelf: 'stretch',
   },
   welcomeTitleRussian: {
     letterSpacing: 0,
@@ -793,9 +780,9 @@ const styles = StyleSheet.create({
       default: 'monospace',
     }),
     fontSize: 16,
-    color: '#7A8A9A',
-    lineHeight: 22.8, // Reduced by 5% from 24px (24 * 0.95 = 22.8)
-    maxWidth: 300,
+    color: '#342846',
+    lineHeight: 24,
+    alignSelf: 'stretch',
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -806,22 +793,25 @@ const styles = StyleSheet.create({
   // Mascot Section
   mascotSection: {
     alignItems: 'center',
+    alignSelf: 'stretch',
+    overflow: 'visible',
   },
   speechBubble: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    maxWidth: 280,
+    alignSelf: 'stretch',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 4,
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: 'rgba(52,40,70,0.06)',
     position: 'relative',
+    overflow: 'visible',
   },
   speechText: {
     fontFamily: Platform.select({
@@ -911,10 +901,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   startButtonText: {
-    ...ButtonHeadingStyle,
+    ...BodyStyle,
     color: '#FFFFFF',
     marginRight: 12,
-    lineHeight: 18,
   },
   startButtonArrow: {
     fontSize: 18,
@@ -924,6 +913,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   loginText: {
     fontFamily: Platform.select({
@@ -934,6 +925,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7A8A9A',
     textAlign: 'center',
+    flexShrink: 1,
   },
   loginLink: {
     fontFamily: Platform.select({

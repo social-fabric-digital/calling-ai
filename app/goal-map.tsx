@@ -428,11 +428,11 @@ export default function GoalMapScreen() {
   const bannerTop = height - tabBarHeight - bottomElementsHeight;
   
   // Circle and card dimensions
+  const stageContainerSize = scaleLevelIcon(85);
   const level1CircleHeight = scaleLevelIcon(49); // Level 1 circle is smaller (30% reduction)
   const otherCircleHeight = scaleLevelIcon(70); // Other levels use standard circle size
-  // Card height: padding (12*2=24) + label (~15) + heading (~26) = ~65px
-  // Reduced by 25%: 65 * 0.75 = 49px, then reduced by another 25%: 49 * 0.75 = 37px
-  const cardHeight = scaleLevelCard(37); // iPad cards are 50% larger
+  // Keep the absolute layout in sync with the rendered card height.
+  const cardHeight = scaleLevelCard(50);
   const circleToCardSpacing = 21; // Space between circle and its card (increased by 15px from 6px to 21px)
   
   // Layout: Levels go down vertically in order: 1 → 2 → 3 → 4
@@ -503,18 +503,28 @@ export default function GoalMapScreen() {
   // Generate stage positions dynamically based on number of stages
   // Apply 165px upward offset to move all level cards and icons up (135px + 30px)
   const LEVEL_OFFSET = -195; // Move levels up to reduce excessive top gap under "ТВОЙ ПУТЬ"
+  const LEVEL1_TOP_MARGIN = 12; // Prevent top clipping for level 1 icon/card
   const iPadCardsVerticalOffset = isTabletLayout ? 70 : 0;
-  const iPadLevelIconsExtraDown = isTabletLayout ? 50 : 0;
   const iPadLevel2ExtraOffset = isTabletLayout ? 80 : 0;
   const iPadLevel3ExtraOffset = isTabletLayout ? 100 : 0;
   const iPadLevel4ExtraOffset = isTabletLayout ? 135 : 0;
+  const stageVerticalOffsets = [LEVEL1_TOP_MARGIN, iPadLevel2ExtraOffset, iPadLevel3ExtraOffset, iPadLevel4ExtraOffset];
+  const renderedCardTops = [level1CardTopFinal, level2CardTopFinal, level3CardTopFinal, level4CardTopFinal].map(
+    (top, index) => top + LEVEL_OFFSET + iPadCardsVerticalOffset + stageVerticalOffsets[index]
+  );
+  const renderedCircleTops = renderedCardTops.map(
+    (cardTop) => cardTop + (cardHeight / 2) - (stageContainerSize / 2)
+  );
+  const renderedCardCenters = renderedCardTops.map((cardTop) => cardTop + (cardHeight / 2));
+  const renderedCircleCenters = renderedCircleTops.map((circleTop) => circleTop + (stageContainerSize / 2));
+  const [level1CardRenderedTop, , , level4CardRenderedTop] = renderedCardTops;
+  const [level2CircleRenderedCenter, level3CircleRenderedCenter, level4CircleRenderedCenter] = renderedCircleCenters.slice(1);
   
   // Calculate level 4 card bottom position (with offset) for scroll limiting
   // level4CardTopFinal is calculated from screen top, but when used in ScrollView with absolute positioning,
   // it's relative to ScrollView content (which starts at y=0 after header/progress)
   // So the actual rendered top position in ScrollView content is: level4CardTopFinal + LEVEL_OFFSET
   // And the bottom is: (level4CardTopFinal + LEVEL_OFFSET) + cardHeight
-  const level4CardRenderedTop = level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset;
   const level4CardBottom = level4CardRenderedTop + cardHeight;
   // Content height needs to be at least the bottom of level 4 card plus some padding
   // Ensure it's at least as tall as the visible area to allow proper scrolling
@@ -523,8 +533,6 @@ export default function GoalMapScreen() {
   
   const generateStagePositions = (numStages: number) => {
     const positions = [];
-    const cardTops = [level1CardTopFinal, level2CardTopFinal, level3CardTopFinal, level4CardTopFinal];
-    const circleTops = [level1CircleTopFinal, level2CircleTopFinal, level3CircleTopFinal, level4CircleTopFinal];
     const circleLefts = [level1CircleLeft, level2CircleLeft, level3CircleLeft, level4CircleLeft];
     const cardLefts = [level1CardLeft, level2CardLeft, level3CardLeft, level4CardLeft];
     const cardSides: ('left' | 'right')[] = ['right', 'left', 'right', 'left'];
@@ -535,8 +543,8 @@ export default function GoalMapScreen() {
       const lockedCircleAdjustment = regularCircleWidth - lockedCircleWidth;
       
       positions.push({
-        circleTop: circleTops[i] + LEVEL_OFFSET + (stageNumber === 2 ? iPadLevel2ExtraOffset : 0) + (stageNumber === 3 ? iPadLevel3ExtraOffset : 0) + (stageNumber === 4 ? iPadLevel4ExtraOffset : 0) + (stageNumber >= 2 ? iPadLevelIconsExtraDown : 0),
-        cardTop: cardTops[i] + LEVEL_OFFSET + iPadCardsVerticalOffset + (stageNumber === 2 ? iPadLevel2ExtraOffset : 0) + (stageNumber === 3 ? iPadLevel3ExtraOffset : 0) + (stageNumber === 4 ? iPadLevel4ExtraOffset : 0),
+        circleTop: renderedCircleTops[i],
+        cardTop: renderedCardTops[i],
         circleLeft: circleLefts[i],
         cardLeft: cardLefts[i],
         cardSide: cardSides[i],
@@ -556,8 +564,7 @@ export default function GoalMapScreen() {
         minWidth: scaleLevelCard(140),
         maxWidth: scaleLevelCard(210),
         borderRadius: scaleLevelCard(16),
-        marginTop: scaleLevelCard(8),
-        marginBottom: scaleLevelCard(25),
+        minHeight: scaleLevelCard(50),
       }
     : null;
   const iPadCardRightStyle = isTabletLayout
@@ -567,14 +574,14 @@ export default function GoalMapScreen() {
     : null;
   const iPadCompletedCardPaddingStyle = isTabletLayout
     ? {
-        padding: scaleLevelCard(12),
-        paddingTop: scaleLevelCard(15),
+        paddingHorizontal: scaleLevelCard(10),
+        paddingVertical: scaleLevelCard(10),
       }
     : null;
   const iPadCurrentCardPaddingStyle = isTabletLayout
     ? {
-        padding: scaleLevelCard(14),
-        paddingTop: scaleLevelCard(16),
+        paddingHorizontal: scaleLevelCard(10),
+        paddingVertical: scaleLevelCard(10),
       }
     : null;
   const iPadLockedCardStyle = isTabletLayout
@@ -582,10 +589,9 @@ export default function GoalMapScreen() {
         minWidth: scaleLevelCard(140),
         maxWidth: scaleLevelCard(210),
         borderRadius: scaleLevelCard(16),
-        paddingHorizontal: scaleLevelCard(14),
-        paddingVertical: scaleLevelCard(12),
-        marginTop: scaleLevelCard(12),
-        marginBottom: scaleLevelCard(37.5),
+        minHeight: scaleLevelCard(50),
+        paddingHorizontal: scaleLevelCard(10),
+        paddingVertical: scaleLevelCard(10),
       }
     : null;
   const iPadStageContainerStyle = isTabletLayout
@@ -802,10 +808,9 @@ export default function GoalMapScreen() {
         <TouchableOpacity
           style={styles.backButtonHeader}
           onPress={() => router.push('/(tabs)/goals')}
+          activeOpacity={0.8}
         >
-          <View style={styles.circularButtonWhite}>
-            <MaterialIcons name="arrow-back" size={20} color="#342846" />
-          </View>
+          <MaterialIcons name="arrow-back" size={20} color="#342846" />
         </TouchableOpacity>
         
         <View 
@@ -826,11 +831,9 @@ export default function GoalMapScreen() {
             console.log('Helper button pressed, setting showInfoModal to true');
             setShowInfoModal(true);
           }}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
-          <View style={styles.circularButtonWhite}>
-            <MaterialIcons name="help-outline" size={20} color="#342846" />
-          </View>
+          <MaterialIcons name="help-outline" size={20} color="#342846" />
         </TouchableOpacity>
       </View>
 
@@ -904,7 +907,7 @@ export default function GoalMapScreen() {
             {/* Full path (dashed) - starts at level 1 card, ends at level 4 card */}
             {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
             <Path
-              d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
+              d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${width * 0.3},${level2CircleRenderedCenter} ${width/2},${level2CircleRenderedCenter}`}
               stroke="url(#pathGradient)"
               strokeWidth="3.45"
               fill="none"
@@ -913,7 +916,7 @@ export default function GoalMapScreen() {
             />
             {/* Second segment: Level 2 circle to Level 3 circle */}
             <Path
-              d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
+              d={`M${width/2},${level2CircleRenderedCenter} Q${width * 0.7},${level3CircleRenderedCenter} ${width/2},${level3CircleRenderedCenter}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -922,7 +925,7 @@ export default function GoalMapScreen() {
             />
             {/* Third segment: Level 3 circle to Level 4 card */}
             <Path
-              d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + iPadLevel4ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset + cardHeight/2}`}
+              d={`M${width/2},${level3CircleRenderedCenter} Q${width * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
               stroke="url(#pathGradient)"
               strokeWidth="3"
               fill="none"
@@ -934,7 +937,7 @@ export default function GoalMapScreen() {
               <>
                 {/* First segment: Level 1 card to Level 2 circle (15% wider) */}
                 <Path
-                  d={`M${level1CardLeft + cardMinWidth/2},${level1CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + cardHeight/2} Q${width * 0.3},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
+                  d={`M${level1CardLeft + cardMinWidth/2},${renderedCardCenters[0]} Q${width * 0.3},${level2CircleRenderedCenter} ${width/2},${level2CircleRenderedCenter}`}
                   stroke="url(#completedGradient)"
                   strokeWidth="4.6"
                   fill="none"
@@ -942,7 +945,7 @@ export default function GoalMapScreen() {
                 {/* Second segment: Level 2 circle to Level 3 circle (if completed) */}
                 {completedCount >= 2 && (
                   <Path
-                    d={`M${width/2},${level2CircleTopFinal + LEVEL_OFFSET + iPadLevel2ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.7},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2}`}
+                    d={`M${width/2},${level2CircleRenderedCenter} Q${width * 0.7},${level3CircleRenderedCenter} ${width/2},${level3CircleRenderedCenter}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -951,7 +954,7 @@ export default function GoalMapScreen() {
                 {/* Third segment: Level 3 circle to Level 4 card (if completed) */}
                 {completedCount >= 3 && (
                   <Path
-                    d={`M${width/2},${level3CircleTopFinal + LEVEL_OFFSET + iPadLevel3ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} Q${width * 0.3},${level4CircleTopFinal + LEVEL_OFFSET + iPadLevel4ExtraOffset + iPadLevelIconsExtraDown + otherCircleHeight/2} ${level4CardLeft + cardMinWidth/2},${level4CardTopFinal + LEVEL_OFFSET + iPadCardsVerticalOffset + iPadLevel4ExtraOffset + cardHeight/2}`}
+                    d={`M${width/2},${level3CircleRenderedCenter} Q${width * 0.3},${level4CircleRenderedCenter} ${level4CardLeft + cardMinWidth/2},${renderedCardCenters[3]}`}
                     stroke="url(#completedGradient)"
                     strokeWidth="4"
                     fill="none"
@@ -1058,8 +1061,15 @@ export default function GoalMapScreen() {
                       { flexShrink: 0 },
                     ]}
                   >
-                    <Text style={styles.completedLevelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
-                    <Text style={styles.completedStatusLabel}>{tr('Completed', 'Завершен')}</Text>
+                    <Text
+                      style={[styles.completedLevelLabel, isRussian && styles.levelLabelRussian]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                    >
+                      {tr('Level', 'Уровень')} {stageNumber}
+                    </Text>
+                    <Text style={styles.completedLevelNameHeading}>{stageName}</Text>
                   </View>
                 ) : status === 'current' ? (
                   <View
@@ -1072,7 +1082,14 @@ export default function GoalMapScreen() {
                       { flexShrink: 0 },
                     ]}
                   >
-                    <Text style={styles.currentLevelLabelPurple}>{tr('Level', 'Уровень')} {stageNumber}</Text>
+                    <Text
+                      style={[styles.currentLevelLabelPurple, isRussian && styles.levelLabelRussian]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                    >
+                      {tr('Level', 'Уровень')} {stageNumber}
+                    </Text>
                     <Text style={styles.currentLevelNamePurple}>{stageName}</Text>
                   </View>
                 ) : status === 'unlocked' ? (
@@ -1087,7 +1104,14 @@ export default function GoalMapScreen() {
                       { flexShrink: 0 },
                     ]}
                   >
-                    <Text style={styles.incompleteLevelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
+                    <Text
+                      style={[styles.incompleteLevelLabel, isRussian && styles.levelLabelRussian]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                    >
+                      {tr('Level', 'Уровень')} {stageNumber}
+                    </Text>
                     <Text style={styles.unlockedLevelNameHeading}>{stageName}</Text>
                   </View>
                 ) : (
@@ -1100,7 +1124,14 @@ export default function GoalMapScreen() {
                       { flexShrink: 0 },
                     ]}
                   >
-                    <Text style={styles.levelLabel}>{tr('Level', 'Уровень')} {stageNumber}</Text>
+                    <Text
+                      style={[styles.levelLabel, isRussian && styles.levelLabelRussian]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                    >
+                      {tr('Level', 'Уровень')} {stageNumber}
+                    </Text>
                     <Text style={styles.levelNameHeading}>{stageName}</Text>
                   </View>
                 )}
@@ -1146,7 +1177,7 @@ export default function GoalMapScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.continueButtonText}>
-            {completedCount >= 4 ? tr('Goal completed', 'Цель завершена') : `${tr('Continue level', 'Продолжить уровень')} ${currentLevelData.number}`}
+            {completedCount >= 4 ? tr('Goal completed', 'Цель завершена') : `${tr('Continue Level', 'Продолжить уровень')} ${currentLevelData.number}`}
           </Text>
           {completedCount < 4 && (
             <View style={{ marginLeft: 10 }}>
@@ -1448,7 +1479,7 @@ interface LevelDetailModalProps {
 
 const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail, onLevelComplete }: LevelDetailModalProps) => {
   const router = useRouter();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
@@ -1847,7 +1878,9 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
               <Text style={styles.levelModalNumber}>{level.number}</Text>
             </View>
             
-            <Text style={styles.levelModalLabel}>{tr('LEVEL', 'УРОВЕНЬ')} {level.number}</Text>
+            <Text style={styles.levelModalLabel}>
+              {tr('Level', 'Уровень')} {level.number}
+            </Text>
             <Text style={styles.levelModalTitle}>{level.name}</Text>
             <Text style={styles.levelModalDesc}>{level.description}</Text>
           </ExpoLinearGradient>
@@ -1866,7 +1899,9 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
             ]}
           >
             <View style={styles.stepsHeader}>
-              <Text style={styles.stepsTitle}>{tr('Steps to complete', 'Шаги для завершения')}</Text>
+              <Text style={[styles.stepsTitle, isRussian && styles.stepsTitleRussian]}>
+                {tr('Steps to complete', 'Шаги для завершения')}
+              </Text>
               {!isLoadingSteps && <Text style={styles.stepsCount}>{completedStepsCount}/{steps.length}</Text>}
             </View>
 
@@ -1919,7 +1954,9 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
                   { width: `${progress}%` }
                 ]} />
               </View>
-              <Text style={styles.levelModalProgressText}>{progress}% complete</Text>
+              <Text style={styles.levelModalProgressText}>
+                {progress}% {tr('complete', 'завершено')}
+              </Text>
             </View>
 
             {/* Focus Sanctuary CTA */}
@@ -1966,7 +2003,9 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
                 </View>
                 <View style={styles.chatAtlasContent}>
                   <Text style={styles.chatAtlasTitle}>{tr('CHAT WITH ATLAS', 'ЧАТ С АТЛАСОМ')}</Text>
-                  <Text style={styles.chatAtlasSubtitle}>{tr('Stuck? I am here to help!', 'Застрял? Я рядом, чтобы помочь!')}</Text>
+                  <Text style={[styles.chatAtlasSubtitle, isRussian && styles.chatAtlasSubtitleRussian]}>
+                    {tr('Stuck? I am here to help!', 'Застрял? Я рядом, чтобы помочь!')}
+                  </Text>
                 </View>
                 <View style={styles.chatAtlasChevron}>
                   <MaterialIcons name="chevron-right" size={18} color="#342846" />
@@ -2113,20 +2152,39 @@ const styles = StyleSheet.create({
   },
   backButtonHeader: {
     flexShrink: 0,
+    zIndex: 1100,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   helperButtonHeader: {
     flexShrink: 0,
-    zIndex: 100,
-  },
-  circularButtonWhite: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    zIndex: 1100,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: '#342846',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    opacity: 1,
+    elevation: 11,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   helperButtonText: {
     fontSize: 18,
@@ -2147,6 +2205,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     letterSpacing: 1,
+    lineHeight: 18,
+    includeFontPadding: false,
+    paddingVertical: 0,
+    marginVertical: 0,
   },
   progressSection: {
     paddingHorizontal: 24,
@@ -2358,12 +2420,11 @@ const styles = StyleSheet.create({
   currentLevelBox: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 12,
-    paddingTop: 15,
-    marginTop: 8,
-    marginBottom: 25,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     minWidth: 140, // Reduced by 30% from 200 (200 * 0.7 = 140)
     maxWidth: 196, // Reduced by 30% from 280 (280 * 0.7 = 196)
+    minHeight: 50,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     shadowColor: '#000',
@@ -2372,6 +2433,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 3,
     alignSelf: 'flex-start', // Ensure card wraps content height
+    justifyContent: 'center',
   },
   level2Card: {
     marginTop: 8, // FIXED - same as level1Card to prevent movement
@@ -2394,25 +2456,28 @@ const styles = StyleSheet.create({
     maxWidth: 196, // Reduced by 30% from 280 (280 * 0.7 = 196)
   },
   levelLabel: {
-    ...BodyStyle,
+    ...HeadingStyle,
     color: '#FFFFFF', // White for locked levels
-    fontSize: 11,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    fontSize: 12,
+    marginBottom: 2,
+    lineHeight: 14,
+    includeFontPadding: false,
   },
   completedLevelLabel: {
-    ...BodyStyle,
+    ...HeadingStyle,
     color: '#342846', // Purple for completed cards
-    fontSize: 11,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    fontSize: 12,
+    marginBottom: 2,
+    lineHeight: 14,
+    includeFontPadding: false,
   },
   incompleteLevelLabel: {
-    ...BodyStyle,
+    ...HeadingStyle,
     color: '#342846', // Purple for unlocked/incomplete cards (on white background)
-    fontSize: 11,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    fontSize: 12,
+    marginBottom: 2,
+    lineHeight: 14,
+    includeFontPadding: false,
   },
   incompleteCard: {
     backgroundColor: '#fff', // White background for unlocked levels
@@ -2420,9 +2485,11 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
     minWidth: 140, // Reduced by 30% from 200 (200 * 0.7 = 140)
     maxWidth: 210, // Reduced by 30% from 300 (300 * 0.7 = 210)
-    padding: 14, // Increased padding
-    paddingTop: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 50,
     alignSelf: 'flex-start', // Ensure card wraps content height
+    justifyContent: 'center',
   },
   levelName: {
     ...BodyStyle,
@@ -2432,39 +2499,46 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   levelNameHeading: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#FFFFFF', // White for locked levels (on dark background)
-    fontSize: 13, // Reduced by 30% from 18 (18 * 0.7 = 12.6, rounded to 13)
-    marginBottom: 8,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 0,
+    includeFontPadding: false,
   },
   unlockedLevelNameHeading: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#342846', // Purple for unlocked levels (on white card)
-    fontSize: 11, // Reduced by 30% from 16 (16 * 0.7 = 11.2, rounded to 11)
-    marginBottom: 8,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 0,
+    includeFontPadding: false,
   },
   completedLevelNameHeading: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#342846', // Purple for completed levels (on white card)
-    fontSize: 13, // Reduced by 30% from 18 (18 * 0.7 = 12.6, rounded to 13)
-    marginBottom: 4,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 0,
+    includeFontPadding: false,
   },
   completedStatusLabel: {
     ...HeadingStyle,
     color: '#6B8E6B', // Green for completed status
     fontSize: 10,
     textTransform: 'uppercase',
-    marginTop: 4,
+    lineHeight: 11,
+    marginTop: 0,
+    includeFontPadding: false,
   },
   currentLevelBoxWhite: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 14, // Increased from 12 to give more space
-    paddingTop: 16, // Increased from 15
-    marginTop: 8,
-    marginBottom: 25,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     minWidth: 140, // Reduced by 30% from 200 (200 * 0.7 = 140)
     maxWidth: 210, // Reduced by 30% from 300 (300 * 0.7 = 210)
+    minHeight: 50,
     borderWidth: 2,
     borderColor: '#faecb3',
     shadowColor: '#faecb3',
@@ -2473,19 +2547,27 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 6,
     alignSelf: 'flex-start', // Ensure card wraps content height
+    justifyContent: 'center',
   },
   currentLevelLabelPurple: {
-    ...BodyStyle,
+    ...HeadingStyle,
     color: '#342846', // Purple for current level label
+    fontSize: 12,
+    marginBottom: 2,
+    lineHeight: 14,
+    includeFontPadding: false,
+  },
+  levelLabelRussian: {
     fontSize: 11,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    lineHeight: 14,
   },
   currentLevelNamePurple: {
-    ...HeadingStyle,
+    ...BodyStyle,
     color: '#342846', // Purple for current level name
-    fontSize: 11, // Reduced by 30% from 16 (16 * 0.7 = 11.2, rounded to 11)
-    marginBottom: 8,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 0,
+    includeFontPadding: false,
   },
   progressRow: {
     flexDirection: 'row',
@@ -2554,17 +2636,17 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
     borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     minWidth: 112, // Reduced by 30% from 160 (160 * 0.7 = 112)
-    marginTop: 8,
-    marginBottom: 25,
+    minHeight: 50,
     alignSelf: 'flex-start', // Ensure card wraps content height
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    justifyContent: 'center',
   },
   // Modal Styles
   unlockModalOverlay: {
@@ -2806,7 +2888,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
-    borderRadius: 43,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2818,7 +2900,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   continueButtonText: {
-    ...HeadingStyle,
+    ...BodyStyle,
     fontSize: 14,
     fontWeight: '600',
     color: '#342846',
@@ -3117,7 +3199,7 @@ const styles = StyleSheet.create({
   stepsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
   stepsTitle: {
@@ -3125,6 +3207,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#342846',
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  stepsTitleRussian: {
+    fontSize: 13,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   stepsCount: {
     ...BodyStyle,
@@ -3314,6 +3403,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8B8178',
     lineHeight: 20, // Reduced by 15% from default 24 (24 * 0.85 = 20.4)
+    flexShrink: 1,
+  },
+  chatAtlasSubtitleRussian: {
+    fontSize: 12,
+    lineHeight: 17,
+    includeFontPadding: false,
   },
   chatAtlasChevron: {
     width: 36,

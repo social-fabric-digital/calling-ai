@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...HeadingStyle,
-    fontSize: 20,
+    fontSize: 24,
     color: '#FFFFFF',
   },
   scroll: {
