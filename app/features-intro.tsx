@@ -13,6 +13,7 @@ import {
     Image,
     NativeScrollEvent,
     NativeSyntheticEvent,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -1040,7 +1041,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     lineHeight: 19,
-    maxWidth: 300,
+    maxWidth: Platform.isPad ? 350 : 300,
+    alignSelf: 'center',
   },
 
   // Visual Container

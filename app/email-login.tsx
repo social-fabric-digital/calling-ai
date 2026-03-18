@@ -327,7 +327,8 @@ const styles = StyleSheet.create({
     ...BodyStyle,
     color: '#7A8A9A',
     textAlign: 'center',
-    width: 270,
+    maxWidth: Platform.isPad ? 350 : 270,
+    alignSelf: 'center',
   },
   errorContainer: {
     backgroundColor: '#FDF2F2',

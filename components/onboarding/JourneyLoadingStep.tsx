@@ -526,13 +526,17 @@ const loaderStyles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     marginBottom: 20,
     gap: 16,
+    width: '100%',
+    maxWidth: 340,
+    paddingHorizontal: 16,
   },
   itemText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#342846',
     flex: 1,
   },
 });

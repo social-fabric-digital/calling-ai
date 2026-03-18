@@ -3,7 +3,7 @@ import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -362,6 +362,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    maxWidth: Platform.isPad ? 350 : undefined,
+    alignSelf: 'center',
   },
   headerTitle: {
     ...HeadingStyle,

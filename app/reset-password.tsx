@@ -447,6 +447,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.92)',
     textAlign: 'center',
     marginBottom: 16,
+    maxWidth: Platform.isPad ? 350 : undefined,
+    alignSelf: 'center',
   },
   loadingBox: {
     marginTop: 24,

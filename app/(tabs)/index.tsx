@@ -41,28 +41,7 @@ const JUST_FINISHED_ONBOARDING_KEY = '@just_finished_onboarding';
 const HOME_NOTIFICATIONS_PROMPT_SHOWN_KEY = '@home_notifications_prompt_shown_v1';
 const DEFAULT_NOTIFICATION_HOUR = 9;
 const DEFAULT_NOTIFICATION_MINUTE = 0;
-const DAILY_ANSWER_VISIBILITY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-const getLastAnswerTimestampMs = (
-  lastAnswerAt: string | null,
-  legacyLastAnswerDate: string | null
-): number | null => {
-  if (lastAnswerAt) {
-    const parsedTimestamp = Date.parse(lastAnswerAt);
-    if (Number.isFinite(parsedTimestamp)) {
-      return parsedTimestamp;
-    }
-  }
-
-  if (legacyLastAnswerDate) {
-    const parsedLegacyDate = Date.parse(legacyLastAnswerDate);
-    if (Number.isFinite(parsedLegacyDate)) {
-      return parsedLegacyDate;
-    }
-  }
-
-  return null;
-};
 
 const getLocalDateKey = (date: Date = new Date()): string => {
   const year = date.getFullYear();
@@ -135,7 +114,6 @@ export default function HomeScreen() {
   const [answerCaptured, setAnswerCaptured] = useState(false);
   const [showEnvelope, setShowEnvelope] = useState(false);
   const [answerCapturedToday, setAnswerCapturedToday] = useState(false);
-  const [lastAnswerTimestampMs, setLastAnswerTimestampMs] = useState<number | null>(null);
   const [questionDay, setQuestionDay] = useState<number>(1);
   const [currentQuestion, setCurrentQuestion] = useState<string>(QUESTION_BANK[0]);
   // Persist daily-answer state consistently across dev/prod so the question
@@ -415,10 +393,58 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Refresh daily-question visibility every time the home screen gains focus.
+  // This handles the case where the user logs out and back in without the tab
+  // component fully unmounting (React Navigation keeps tab screens in memory).
+  // Single source of truth: show the card unless the user answered on TODAY's
+  // calendar date. No 24-hour windows, no user-ID checks, no race conditions.
+  const refreshDailyQuestionState = useCallback(async () => {
+    if (answerCaptured && !answerCapturedToday) return; // mid-submission animation — leave alone
+    try {
+      const todayLocal = getLocalDateKey(new Date());
+      const [lastAnswerLocalDate, lastAnswerText] = await AsyncStorage.multiGet([
+        LAST_ANSWER_LOCAL_DATE_KEY,
+        'lastAnswer',
+      ]).then((entries) => entries.map(([, value]) => value));
+
+      const answeredToday =
+        lastAnswerLocalDate === todayLocal &&
+        typeof lastAnswerText === 'string' &&
+        lastAnswerText.trim().length > 0;
+
+      if (answeredToday) {
+        setAnswerCapturedToday(true);
+        setAnswerCaptured(true);
+        setShowEnvelope(false);
+      } else {
+        // Wipe any stale answer keys so they can't interfere later
+        await AsyncStorage.multiRemove([
+          'lastAnswerDate',
+          LAST_ANSWER_LOCAL_DATE_KEY,
+          LAST_ANSWER_AT_KEY,
+          'lastAnswer',
+        ]);
+        setAnswerCapturedToday(false);
+        setAnswerCaptured(false);
+        setShowEnvelope(false);
+        fieldOpacity.setValue(1);
+        questionOpacity.setValue(1);
+      }
+    } catch (e) {
+      // On any error always show the card
+      setAnswerCapturedToday(false);
+      setAnswerCaptured(false);
+      setShowEnvelope(false);
+      fieldOpacity.setValue(1);
+      questionOpacity.setValue(1);
+    }
+  }, [answerCaptured, answerCapturedToday, fieldOpacity, questionOpacity]);
+
   useFocusEffect(
     useCallback(() => {
       void refreshUserName();
-    }, [refreshUserName])
+      void refreshDailyQuestionState();
+    }, [refreshUserName, refreshDailyQuestionState])
   );
 
   // Load user name, question day, and check if answer was captured today
@@ -495,8 +521,9 @@ export default function HomeScreen() {
           currentDay = parseInt(storedDay, 10);
         }
         
-        // Check if it's a new day
-        if (lastQuestionDate !== today) {
+        // Check if it's a new calendar day
+        const isNewDay = lastQuestionDate !== today;
+        if (isNewDay) {
           // New day - increment question day (cycle through 40 questions)
           currentDay = currentDay >= 40 ? 1 : currentDay + 1;
           await AsyncStorage.setItem(QUESTION_DAY_KEY, currentDay.toString());
@@ -508,34 +535,31 @@ export default function HomeScreen() {
         const questionIndex = currentDay - 1;
         setCurrentQuestion(QUESTION_BANK[questionIndex]);
         
-        // Check if answer was already captured today and persist hidden state.
-        const [lastAnswerAt, lastAnswerText] = await AsyncStorage.multiGet([
-          LAST_ANSWER_AT_KEY,
+        // Show the card unless the user answered on TODAY's calendar date.
+        const todayLocal = getLocalDateKey(new Date());
+        const [lastAnswerLocalDate, lastAnswerText] = await AsyncStorage.multiGet([
+          LAST_ANSWER_LOCAL_DATE_KEY,
           'lastAnswer',
         ]).then((entries) => entries.map(([, value]) => value));
-        const persistedAnswerTimestampMs = getLastAnswerTimestampMs(lastAnswerAt, null);
-        setLastAnswerTimestampMs(persistedAnswerTimestampMs);
-        const hasNonEmptyStoredAnswer =
-          typeof lastAnswerText === 'string' && lastAnswerText.trim().length > 0;
-        const answeredWithin24Hours =
-          persistedAnswerTimestampMs !== null &&
-          Date.now() - persistedAnswerTimestampMs >= 0 &&
-          Date.now() - persistedAnswerTimestampMs < DAILY_ANSWER_VISIBILITY_WINDOW_MS;
-        const shouldHideDailyQuestion =
+
+        const answeredToday =
           !ignorePersistedDailyAnswerInDev &&
-          hasNonEmptyStoredAnswer &&
-          answeredWithin24Hours;
+          lastAnswerLocalDate === todayLocal &&
+          typeof lastAnswerText === 'string' &&
+          lastAnswerText.trim().length > 0;
 
-        // Self-heal stale keys so old data cannot keep the card hidden.
-        if (!shouldHideDailyQuestion) {
-          await AsyncStorage.multiRemove(['lastAnswerDate', LAST_ANSWER_LOCAL_DATE_KEY]);
-        }
-
-        if (shouldHideDailyQuestion) {
+        if (answeredToday) {
           setAnswerCapturedToday(true);
           setAnswerCaptured(true);
           setShowEnvelope(false);
         } else {
+          // Wipe stale answer keys
+          await AsyncStorage.multiRemove([
+            'lastAnswerDate',
+            LAST_ANSWER_LOCAL_DATE_KEY,
+            LAST_ANSWER_AT_KEY,
+            'lastAnswer',
+          ]);
           setAnswerCapturedToday(false);
           setAnswerCaptured(false);
           setShowEnvelope(false);
@@ -544,34 +568,32 @@ export default function HomeScreen() {
         }
       } catch (error) {
         console.error('Error loading user data:', error);
+        // On any error, show the question card rather than leave it permanently hidden
+        setAnswerCapturedToday(false);
+        setAnswerCaptured(false);
+        setShowEnvelope(false);
+        fieldOpacity.setValue(1);
+        questionOpacity.setValue(1);
       }
     };
     loadUserData();
   }, [refreshUserName]);
 
+  // Re-show the question card at the next calendar midnight so a new day's
+  // question appears automatically without the user needing to restart the app.
   useEffect(() => {
-    if (lastAnswerTimestampMs === null) {
-      return;
-    }
-
-    const remainingMs = DAILY_ANSWER_VISIBILITY_WINDOW_MS - (Date.now() - lastAnswerTimestampMs);
-    if (remainingMs <= 0) {
-      setAnswerCapturedToday(false);
-      setAnswerCaptured(false);
-      setShowEnvelope(false);
-      setDailyAnswer('');
-      return;
-    }
-
+    if (!answerCapturedToday) return;
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime() + 500;
     const timeoutId = setTimeout(() => {
       setAnswerCapturedToday(false);
       setAnswerCaptured(false);
       setShowEnvelope(false);
       setDailyAnswer('');
-    }, remainingMs + 100);
-
+    }, msUntilMidnight);
     return () => clearTimeout(timeoutId);
-  }, [lastAnswerTimestampMs]);
+  }, [answerCapturedToday]);
 
   // Check if mood was already logged today
   useEffect(() => {
@@ -975,7 +997,6 @@ export default function HomeScreen() {
         [LAST_ANSWER_LOCAL_DATE_KEY, todayLocal],
         ['lastAnswer', normalizedAnswer],
       ]);
-      setLastAnswerTimestampMs(now.getTime());
       
       // Save to userAnswers array for the "Me" screen
       const answersData = await AsyncStorage.getItem('userAnswers');
@@ -3351,34 +3372,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
-    gap: 24, // Increased gap from 16 to 24 for more spacing between cards
+    gap: 12,
   },
   gridRowTablet: {
     justifyContent: 'center',
     gap: 16,
   },
   gridButton: {
-    width: (((width - 50 - 24) / 2) + 50) * 0.9 * 0.8 * 1.1, // Width increased by 10% (multiply by 1.1) - fixed width for all rectangles (25px padding on each side)
-    height: ((72 * 1.4) + 45) * 0.78 + 8, // Add vertical room for wrapped RU labels
+    flex: 1,
+    height: ((72 * 1.4) + 45) * 0.78 + 8,
     borderRadius: 8,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.6,
     shadowRadius: 20,
-    elevation: 12, // For Android
+    elevation: 12,
   },
   gridButtonTablet: {
-    width: 260,
     maxWidth: '100%',
   },
-  gridButtonColumnTablet: {
-    marginLeft: 0,
-  },
+  gridButtonColumnTablet: {},
   gridButtonLeft: {
-    marginLeft: -5, // Move left column 5px to the left
+    flex: 1,
   },
   gridButtonRight: {
-    marginLeft: -50, // Move right column 50px to the left
+    flex: 1,
   },
   gridButtonInner: {
     borderRadius: 8,

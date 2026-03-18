@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
-    minWidth: 110,
+    minWidth: Platform.isPad ? 140 : 110,
   },
   languageName: {
     fontFamily: Platform.select({
@@ -771,8 +771,8 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontFamily: Platform.select({
-      ios: 'BricolageGrotesque-Bold',
-      android: 'BricolageGrotesque-Bold',
+      ios: 'DMSans_700Bold',
+      android: 'DMSans_700Bold',
       default: 'sans-serif',
     }),
     fontSize: Platform.isPad ? 36 : 24,
@@ -792,12 +792,14 @@ const styles = StyleSheet.create({
       android: 'AnonymousPro-Regular',
       default: 'monospace',
     }),
-    fontSize: 16,
+    fontSize: Platform.isPad ? 18 : 16,
     color: '#342846',
-    lineHeight: 24,
-    alignSelf: 'stretch',
+    lineHeight: Platform.isPad ? 28 : 24,
+    alignSelf: 'center',
     textAlign: 'center',
     marginBottom: 12,
+    flexShrink: 0,
+    maxWidth: Platform.isPad ? 350 : undefined,
   },
   butterflyEmoji: {
     fontSize: 32,
@@ -897,7 +899,7 @@ const styles = StyleSheet.create({
   startButton: {
     width: '100%',
     paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     backgroundColor: '#342846',
     borderRadius: 50,
     flexDirection: 'row',
@@ -912,8 +914,11 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     ...BodyStyle,
+    fontSize: Platform.isPad ? 18 : 16,
     color: '#FFFFFF',
     marginRight: 12,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   startButtonArrow: {
     fontSize: 18,

@@ -75,14 +75,10 @@ const screenOptions = {
 };
 
 const styles = StyleSheet.create({
-  // Fills the full iPad screen; brand colour shows in the side gutters on wide devices.
   outerContainer: {
     flex: 1,
-    backgroundColor: '#342846',
-    alignItems: 'center',
+    backgroundColor: '#1f1a2a',
   },
-  // maxWidth is applied dynamically (only on tablets) — see maxContentWidth above.
-  // No overflow: 'hidden' here — it can intercept scroll gestures on iPad.
   innerContainer: {
     flex: 1,
     width: '100%',
@@ -279,7 +275,7 @@ export default function RootLayout() {
   if (!fontsLoaded) {
     return (
       <View style={styles.outerContainer}>
-        <View style={[styles.innerContainer, { maxWidth: maxContentWidth }]}>
+        <View style={styles.innerContainer}>
           {navigator}
         </View>
         <AnimatedSplashScreen progress={0} onFinish={() => {}} />
@@ -289,7 +285,7 @@ export default function RootLayout() {
 
   return (
     <View style={styles.outerContainer}>
-      <View style={[styles.innerContainer, { maxWidth: maxContentWidth }]}>
+      <View style={styles.innerContainer}>
         {navigator}
       </View>
       {!splashDone && (

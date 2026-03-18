@@ -242,9 +242,10 @@ export default function SettingsScreen() {
     void hapticMedium();
     try {
       await supabase.auth.signOut();
+      await AsyncStorage.clear();
       setShowLogoutConfirmModal(false);
       void hapticSuccess();
-      router.replace('/onboarding');
+      router.replace('/landing');
     } catch (error) {
       console.error('Logout error:', error);
       void hapticError();
@@ -298,7 +299,7 @@ export default function SettingsScreen() {
       await AsyncStorage.clear();
       setShowDeleteConfirmModal(false);
       void hapticSuccess();
-      router.replace('/onboarding');
+      router.replace('/landing');
     } catch (error) {
       console.error('Delete account error:', error);
       void hapticError();

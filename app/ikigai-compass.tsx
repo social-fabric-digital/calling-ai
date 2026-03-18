@@ -1016,7 +1016,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.95,
     lineHeight: 22,
-    maxWidth: 270,
+    maxWidth: Platform.isPad ? 350 : 270,
     alignSelf: 'center',
     marginBottom: 24,
   },

@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Badge {
@@ -1815,7 +1815,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     opacity: 0.95,
-    maxWidth: 270,
+    maxWidth: Platform.isPad ? 350 : 270,
+    alignSelf: 'center',
   },
   portfolioContainer: {
     marginBottom: 24,

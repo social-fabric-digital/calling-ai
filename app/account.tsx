@@ -3,7 +3,7 @@ import { BodyStyle, ButtonHeadingStyle, HeadingStyle, SubtitleStyle } from '@/co
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 const LANGUAGE_STORAGE_KEY = '@selected_language';
@@ -91,6 +91,9 @@ const styles = StyleSheet.create({
     ...SubtitleStyle,
     color: '#666',
     paddingTop: 12,
+    maxWidth: Platform.isPad ? 350 : undefined,
+    alignSelf: 'center',
+    textAlign: 'center',
   },
   section: {
     marginTop: 32,

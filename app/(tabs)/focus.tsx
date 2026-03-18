@@ -1363,7 +1363,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     lineHeight: 22,
-    maxWidth: width - 24,
+    maxWidth: Platform.isPad ? 350 : width - 24,
+    alignSelf: 'center',
   },
   timerContainer: {
     alignItems: 'center',

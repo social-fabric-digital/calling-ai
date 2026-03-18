@@ -37,7 +37,6 @@ export const Fonts = Platform.select({
     rounded: 'ui-rounded',
     /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
-    /** Match Home screen heading font globally */
     heading: 'DMSans_700Bold',
     headingNonEnglish: 'DMSans_700Bold',
     /** Anonymous Pro for body and subtitle text */

@@ -4,7 +4,7 @@ import { height, width } from './constants';
 
 // On iPad, _layout.tsx constrains content to 74% of window width.
 // Use the same ratio so the cake image scales to the actual column, not the full window.
-const cakeImageSize = Platform.isPad ? Math.round(width * 0.74 * 0.6885) : width * 0.6885;
+const cakeImageSize = width * 0.6885;
 
 export const styles = StyleSheet.create({
   container: {
@@ -1709,13 +1709,14 @@ export const styles = StyleSheet.create({
     textTransform: 'none',
   },
   journeyDeerImage: {
-    width: Platform.isPad ? Math.round(width * 0.74 * 0.35) : width * 0.5,
-    height: Platform.isPad ? Math.round(width * 0.74 * 0.35) : width * 0.5,
+    width: Platform.isPad ? width * 0.35 : width * 0.5,
+    height: Platform.isPad ? width * 0.35 : width * 0.5,
     marginBottom: 40,
   },
   journeyLoadingList: {
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   journeyLoadingItem: {
     marginBottom: 12,

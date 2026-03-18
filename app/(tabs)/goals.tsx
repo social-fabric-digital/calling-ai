@@ -17,13 +17,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 // On iPad (width >= 768) the app is constrained to 74% of window width by _layout.tsx.
-const CONTENT_WIDTH = width >= 768 ? Math.round(width * 0.74) : width;
+const CONTENT_WIDTH = width;
 const ACTIVE_GOAL_CARD_TOP_SPACING = 15;
 const GOAL_ACTION_VERTICAL_GAP = 15;
 const CARD_TO_CONTINUE_VISUAL_COMPENSATION = 15;
@@ -2063,7 +2063,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginTop: 0,
-    maxWidth: 270,
+    maxWidth: Platform.isPad ? 350 : 270,
+    alignSelf: 'center',
   },
   subtitleRussian: {
     lineHeight: 18,

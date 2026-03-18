@@ -17,7 +17,7 @@ import Svg, { Defs, Path, Stop, LinearGradient as SvgLinearGradient } from 'reac
 
 const { width, height } = Dimensions.get('window');
 // On iPad the app is constrained to 74% of window width; use this for level positioning.
-const effectiveWidth = Platform.isPad ? Math.round(width * 0.74) : width;
+const effectiveWidth = width;
 
 // File-level fallback translator to avoid runtime ReferenceError in nested scopes.
 const tr = (en: string, ru: string) =>

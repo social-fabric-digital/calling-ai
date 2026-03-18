@@ -101,7 +101,7 @@ export default function OnboardingScreen() {
   const { width: windowWidth } = useWindowDimensions();
   // On iPad, _layout.tsx constrains content to 74% of window width.
   // Use the same ratio for slide dimensions so each step fits its visible container.
-  const slideWidth = Platform.isPad ? Math.round(windowWidth * 0.74) : windowWidth;
+  const slideWidth = windowWidth;
   const iosConstants = (Platform.constants as { interfaceIdiom?: string } | undefined);
   const nativePlatformConstants = NativeModules?.PlatformConstants as { interfaceIdiom?: string } | undefined;
   const interfaceIdiom = iosConstants?.interfaceIdiom || nativePlatformConstants?.interfaceIdiom;
