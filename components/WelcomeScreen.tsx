@@ -539,7 +539,7 @@ const WelcomeScreen = () => {
             activeOpacity={0.8}
             onPress={handleStartJourney}
           >
-            <Text style={styles.startButtonText}>{t.startButton}</Text>
+            <Text style={styles.startButtonText} numberOfLines={1}>{t.startButton}</Text>
             <Text style={styles.startButtonArrow}>→</Text>
           </TouchableOpacity>
 
@@ -570,7 +570,7 @@ const WelcomeScreen = () => {
           onPress={() => setShowLanguageMenu(!showLanguageMenu)}
           activeOpacity={0.8}
         >
-          <Text style={styles.languageName}>{currentLanguage?.name}</Text>
+          <Text style={styles.languageName} numberOfLines={1}>{currentLanguage?.name}</Text>
           <MaterialIcons
             name="keyboard-arrow-down"
             size={16}
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E8E8E8',
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
-    minWidth: Platform.isPad ? 140 : 110,
+    minWidth: Platform.isPad ? 140 : 136,
   },
   languageName: {
     fontFamily: Platform.select({
@@ -712,8 +712,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#342846',
     marginRight: 6,
-    flexShrink: 0,
-    flexGrow: 1,
+    flexShrink: 1,
+    flexGrow: 0,
   },
   languageDropdown: {
     position: 'absolute',
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     alignSelf: 'stretch',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     }),
     fontSize: 14,
     color: '#342846',
-    lineHeight: 20.9, // Reduced by 5% from 22px (22 * 0.95 = 20.9)
+    lineHeight: 22,
     textAlign: 'center',
   },
   speechTail: {
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   startButton: {
     width: '100%',
     paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
     backgroundColor: '#342846',
     borderRadius: 50,
     flexDirection: 'row',

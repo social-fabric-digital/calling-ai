@@ -4,6 +4,10 @@
     "slug": "calling-app",
     "version": "1.0.1",
     "orientation": "portrait",
+    "updates": {
+      "enabled": true,
+      "url": "https://u.expo.dev/8b40653a-d8bf-4e02-87f7-05af2e06abd4"
+    },
     "icon": "./assets/images/calling.logo.png",
     "scheme": "calling",
     "userInterfaceStyle": "automatic",
@@ -43,17 +47,6 @@
           "backgroundColor": "#342846",
           "dark": {
             "backgroundColor": "#342846"
-          }
-        }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "minSdkVersion": 21
-          },
-          "ios": {
-            "deploymentTarget": "15.1"
           }
         }
       ],

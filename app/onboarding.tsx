@@ -64,7 +64,13 @@ import { Alert, Animated, Dimensions, Image, Keyboard, Modal, NativeModules, Pla
 import { supabase } from '../lib/supabase';
 
 const USE_YAZIO_FLOW = true;
-const YAZIO_FLOW_STEPS = [
+const APP_STORE_REVIEW_MODE = false; // Set to false after approval
+const REVIEW_NAME = 'Friend';
+const REVIEW_BIRTH_MONTH = '1';
+const REVIEW_BIRTH_DATE = '1';
+const REVIEW_BIRTH_YEAR = '1995';
+
+const BASE_YAZIO_FLOW_STEPS = [
   'aboutYou',
   'welcomeAtlas',
   'whyHere',
@@ -94,7 +100,12 @@ const YAZIO_FLOW_STEPS = [
   'pathExploration',
   'paywall',
 ] as const;
-type YazioFlowStepKey = (typeof YAZIO_FLOW_STEPS)[number];
+type YazioFlowStepKey = (typeof BASE_YAZIO_FLOW_STEPS)[number];
+const YAZIO_FLOW_STEPS: YazioFlowStepKey[] = APP_STORE_REVIEW_MODE
+  ? BASE_YAZIO_FLOW_STEPS.filter(
+      (step): step is Exclude<YazioFlowStepKey, 'aboutYou'> => step !== 'aboutYou'
+    )
+  : [...BASE_YAZIO_FLOW_STEPS];
 
 export default function OnboardingScreen() {
   const { t, i18n } = useTranslation();
@@ -170,10 +181,10 @@ export default function OnboardingScreen() {
   }, [params.step, slideWidth, ONBOARDING_STEPS, slideAnim, isAddGoalFlow]);
   
   // Form state for About You step
-  const [name, setName] = useState('');
-  const [birthMonth, setBirthMonth] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [birthYear, setBirthYear] = useState('');
+  const [name, setName] = useState(APP_STORE_REVIEW_MODE ? REVIEW_NAME : '');
+  const [birthMonth, setBirthMonth] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_MONTH : '');
+  const [birthDate, setBirthDate] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_DATE : '');
+  const [birthYear, setBirthYear] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_YEAR : '');
   const [birthHour, setBirthHour] = useState('');
   const [birthMinute, setBirthMinute] = useState('');
   const [birthAmPm, setBirthAmPm] = useState('AM');
@@ -395,6 +406,31 @@ export default function OnboardingScreen() {
           await supabase.auth.signOut();
           // Ensure a different account starts from clean local state.
           await resetLocalDataForFreshOnboarding();
+        }
+        if (APP_STORE_REVIEW_MODE) {
+          await AsyncStorage.multiSet([
+            ['userName', REVIEW_NAME],
+            ['birthMonth', REVIEW_BIRTH_MONTH],
+            ['birthDate', REVIEW_BIRTH_DATE],
+            ['birthYear', REVIEW_BIRTH_YEAR],
+            ['birthCity', ''],
+            ['birthLatitude', ''],
+            ['birthLongitude', ''],
+            ['birthTimezone', ''],
+            ['birthHour', ''],
+            ['birthMinute', ''],
+            ['birthPeriod', ''],
+          ]);
+          setName(REVIEW_NAME);
+          setBirthMonth(REVIEW_BIRTH_MONTH);
+          setBirthDate(REVIEW_BIRTH_DATE);
+          setBirthYear(REVIEW_BIRTH_YEAR);
+          setBirthCity('');
+          setBirthLatitude('');
+          setBirthLongitude('');
+          setBirthTimezone('');
+          setBirthHour('');
+          setBirthMinute('');
         }
       }
       const premium = await checkSubscriptionStatus();
