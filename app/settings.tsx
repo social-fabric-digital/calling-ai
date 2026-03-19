@@ -12,6 +12,7 @@ import {
 } from '@/utils/haptics';
 import { changeLanguage } from '@/utils/i18n';
 import { capitalizeUserName } from '@/utils/nameFormat';
+import { restorePurchases } from '@/utils/superwall';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   cancelAllNotifications,
@@ -30,6 +31,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
+  ActivityIndicator,
   Linking,
   Modal,
   Platform,
@@ -67,7 +69,7 @@ export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isPremium, isLoading } = useSubscription();
+  const { isPremium, isLoading, refreshSubscription } = useSubscription();
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -81,6 +83,7 @@ export default function SettingsScreen() {
   const [isTrialActive, setIsTrialActive] = useState(false);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const profileDisplayName = userName.trim() || userEmail.trim().split('@')[0] || '';
@@ -236,6 +239,39 @@ export default function SettingsScreen() {
             : 'Unable to open the payment page. Please try again.',
         })
       );
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (isRestoringPurchases) return;
+    void hapticLight();
+    setIsRestoringPurchases(true);
+    try {
+      await restorePurchases();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await refreshSubscription();
+        void hapticSuccess();
+        Alert.alert('', t('settings.restorePurchasesSuccess'));
+      } else {
+        void hapticSuccess();
+        Alert.alert(
+          '',
+          t('settings.restorePurchasesSignInPrompt'),
+          [
+            {
+              text: t('settings.signIn'),
+              onPress: () => router.replace('/landing'),
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.warn('Restore purchases failed:', error);
+      void hapticWarning();
+      Alert.alert('', t('settings.restorePurchasesNoPurchasesFound'));
+    } finally {
+      setIsRestoringPurchases(false);
     }
   };
 
@@ -505,6 +541,25 @@ export default function SettingsScreen() {
               <Text style={styles.upgradeButtonText}>{t('settings.upgradeToPremium')}</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={[styles.upgradeButton, styles.restorePurchasesButton, isRestoringPurchases && styles.restorePurchasesButtonDisabled]}
+            onPress={handleRestorePurchases}
+            disabled={isRestoringPurchases}
+            activeOpacity={0.7}
+          >
+            {isRestoringPurchases ? (
+              <View style={styles.restorePurchasesLoadingRow}>
+                <ActivityIndicator size="small" color="#342846" />
+                <Text style={[styles.upgradeButtonText, styles.restorePurchasesButtonText]}>
+                  {t('settings.restoringPurchases')}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.upgradeButtonText, styles.restorePurchasesButtonText]}>
+                {t('settings.restorePurchases')}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* ── Preferences ── */}
@@ -835,6 +890,24 @@ const styles = StyleSheet.create({
     ...ButtonHeadingStyle,
     color: '#FFFFFF',
     fontSize: 16,
+  },
+  restorePurchasesButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#342846',
+    marginTop: 12,
+  },
+  restorePurchasesButtonDisabled: {
+    opacity: 0.7,
+  },
+  restorePurchasesButtonText: {
+    color: '#342846',
+  },
+  restorePurchasesLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 
   // Birth chart

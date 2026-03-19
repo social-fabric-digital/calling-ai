@@ -327,6 +327,22 @@ export async function checkSubscriptionStatus(): Promise<boolean> {
 }
 
 /**
+ * Restore purchases from the store account (Apple ID / Google account).
+ */
+export async function restorePurchases(): Promise<void> {
+  const ready = await ensureSuperwallInitialized();
+  if (!ready) {
+    throw new Error('Superwall not initialized');
+  }
+  const superwall = await getSuperwall();
+  if (!superwall) {
+    throw new Error('Superwall unavailable');
+  }
+
+  await superwall.shared.restorePurchases();
+}
+
+/**
  * Identify the user (call after auth/signup)
  * This syncs user data with Superwall for targeting
  */
