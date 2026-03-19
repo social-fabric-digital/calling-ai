@@ -19,6 +19,7 @@ import {
 import { trackDailyInsightViewAndMaybePromptReview } from '@/utils/storeReview';
 import { isPremium as hasSubscriptionAccess } from '@/utils/subscription';
 import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -387,7 +388,7 @@ export default function HomeScreen() {
   const refreshUserName = useCallback(async () => {
     try {
       const storedName = ((await AsyncStorage.getItem('userName')) || '').trim();
-      setUserName(storedName);
+      setUserName(capitalizeUserName(storedName));
     } catch (error) {
       console.error('Error refreshing user name:', error);
     }

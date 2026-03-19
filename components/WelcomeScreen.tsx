@@ -381,7 +381,7 @@ const WelcomeScreen = () => {
     en: {
       welcome: 'Welcome to Calling',
       subtitle: 'Congratulations on taking one extra step towards your calling.',
-      mascotMessage: "Hi there! I'm Atlas, and I'll be your gentle guide on this journey of self-discovery.",
+      mascotMessage: "Hi there! I'm Atlas, your gentle guide on this journey.",
       startButton: 'Start my journey',
       loginText: 'Already have an account?',
       loginLink: 'Login'
@@ -389,7 +389,7 @@ const WelcomeScreen = () => {
     ru: {
       welcome: 'Добро пожаловать в Calling',
       subtitle: 'Поздравляем! Вы на правильном пути к наполненной жизни',
-      mascotMessage: 'Привет! Я Атлас, и я буду твоим добрым проводником в этом путешествии самопознания.',
+      mascotMessage: 'Привет! Я Атлас, твой добрый проводник в этом путешествии.',
       startButton: 'Начать путешествие',
       loginText: 'Уже есть аккаунт?',
       loginLink: 'Войти'
@@ -950,7 +950,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
     rowGap: 2,
-    columnGap: 4,
+    columnGap: 8,
+    paddingHorizontal: 8,
   },
   loginText: {
     fontFamily: Platform.select({
@@ -961,7 +962,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7A8A9A',
     textAlign: 'center',
-    flexShrink: 0,
+    flexShrink: 1,
+    marginRight: 8,
   },
   loginLink: {
     fontFamily: Platform.select({

@@ -4,6 +4,7 @@ import { BodyStyle, HeadingStyle } from '@/constants/theme';
 import { generateGoalMotivationalSentence, generateLevelStepInstructions } from '@/utils/claudeApi';
 import { markGoalAsCompleted, trackLevelCompletionEvent, trackStepCompletionEvent } from '@/utils/goalTracking';
 import i18nInstance from '@/utils/i18n';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1667,7 +1668,7 @@ const LevelDetailModal = ({ level, goalName, goalId, onClose, onNavigateToDetail
         
         // Set userName for AtlasChat
         if (savedUserName) {
-          setUserName(savedUserName);
+          setUserName(capitalizeUserName(savedUserName));
         }
 
         // Get total levels from goal data

@@ -558,6 +558,17 @@ export default function PathsAlignedStep({
         
         if (storedPaths && storedPathsSignature === currentPathsSignature) {
           const generatedPaths = JSON.parse(storedPaths);
+          const hasGenericFallbackTitles = Array.isArray(generatedPaths) && generatedPaths.some((path: any) => {
+            const title = String(path?.title || '').trim().toLowerCase();
+            return (
+              title === 'creative direction' ||
+              title === 'personal growth' ||
+              title === 'purposeful impact' ||
+              title === 'творческий вектор' ||
+              title === 'личный рост' ||
+              title === 'ценный вклад'
+            );
+          });
 
           // Convert stored paths to PathData format
           // Define color palette for cards: #342846, #a592b0, #baccd7
@@ -570,7 +581,7 @@ export default function PathsAlignedStep({
               return !hasCyrillic(combinedText);
             });
 
-          if (shouldUseLocalizedFallback) {
+          if (shouldUseLocalizedFallback || hasGenericFallbackTitles) {
             try {
               const regeneratedProfile = await generateUnifiedDestinyProfile(
                 birthMonth,
@@ -608,7 +619,7 @@ export default function PathsAlignedStep({
                 return;
               }
             } catch {
-              // Fall through to localized fallback cards if regeneration fails.
+              // Fall through to fallback cards if regeneration fails.
             }
           }
 

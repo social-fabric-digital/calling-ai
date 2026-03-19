@@ -1857,6 +1857,7 @@ export async function generateCallingPaths(
   whatExcites?: string
 ): Promise<GeneratedPath[]> {
   const apiKey = getApiKey();
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1892,6 +1893,74 @@ export async function generateCallingPaths(
     else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
     else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
   }
+
+  const toPathTitle = (value: string | undefined, fallback: string): string => {
+    const normalized = String(value || '')
+      .replace(/["'.,!?;:()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!normalized) return fallback;
+    return normalized
+      .split(' ')
+      .slice(0, 4)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const fallbackPathA = toPathTitle(
+    whatExcites || whatYouLove,
+    isRussianLocale ? 'Творческий вектор' : 'Creative Direction'
+  );
+  const fallbackPathB = toPathTitle(
+    whatYouGoodAt || whatCanBePaidFor,
+    isRussianLocale ? 'Сильные навыки' : 'Core Strength Path'
+  );
+  const fallbackPathC = toPathTitle(
+    whatWorldNeeds || fear,
+    isRussianLocale ? 'Ценный вклад' : 'Meaningful Impact'
+  );
+
+  const personalizedFallbackPaths: GeneratedPath[] = isRussianLocale
+    ? [
+        {
+          id: 1,
+          title: fallbackPathA,
+          description: `Развивай "${fallbackPathA}" через ясные ежедневные шаги.`,
+          glowColor: '#cdbad8',
+        },
+        {
+          id: 2,
+          title: fallbackPathB,
+          description: `Опирайся на свои сильные стороны в "${fallbackPathB}".`,
+          glowColor: '#baccd7',
+        },
+        {
+          id: 3,
+          title: fallbackPathC,
+          description: `В "${fallbackPathC}" ты сможешь приносить реальную пользу.`,
+          glowColor: '#a6a76c',
+        },
+      ]
+    : [
+        {
+          id: 1,
+          title: fallbackPathA,
+          description: `Develop "${fallbackPathA}" through clear daily action.`,
+          glowColor: '#cdbad8',
+        },
+        {
+          id: 2,
+          title: fallbackPathB,
+          description: `Use your strongest abilities in "${fallbackPathB}".`,
+          glowColor: '#baccd7',
+        },
+        {
+          id: 3,
+          title: fallbackPathC,
+          description: `Create practical value for others in "${fallbackPathC}".`,
+          glowColor: '#a6a76c',
+        },
+      ];
 
   // Build prompt conditionally based on available data
   const sunSignSection = hasSunSign 
@@ -1978,50 +2047,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         if (shouldLog) {
           console.warn('API unavailable, using fallback paths');
         }
-        return [
-          {
-            id: 1,
-            title: 'Creative Expression',
-            description: 'A path aligned with your unique talents and passions.',
-            glowColor: '#cdbad8',
-          },
-          {
-            id: 2,
-            title: 'Personal Growth',
-            description: 'A journey that helps you overcome fears and reach your potential.',
-            glowColor: '#baccd7',
-          },
-          {
-            id: 3,
-            title: 'Purposeful Impact',
-            description: 'A way to make a meaningful difference in the world.',
-            glowColor: '#a6a76c',
-          },
-        ];
+        return personalizedFallbackPaths;
       }
       
       // For other errors, still return fallback but log the error
       console.error(`API error: ${response.status} - ${errorMessage}`);
-      return [
-        {
-          id: 1,
-          title: 'Creative Expression',
-          description: 'A path aligned with your unique talents and passions.',
-          glowColor: '#cdbad8',
-        },
-        {
-          id: 2,
-          title: 'Personal Growth',
-          description: 'A journey that helps you overcome fears and reach your potential.',
-          glowColor: '#baccd7',
-        },
-        {
-          id: 3,
-          title: 'Purposeful Impact',
-          description: 'A way to make a meaningful difference in the world.',
-          glowColor: '#a6a76c',
-        },
-      ];
+      return personalizedFallbackPaths;
     }
 
     // Parse the JSON response only if response is ok
@@ -2054,52 +2085,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     } catch (parseError: any) {
       console.error('Error parsing paths JSON:', parseError);
       // Fallback to default paths on parse error
-      paths = [
-        {
-          id: 1,
-          title: 'Creative Expression',
-          description: 'A path aligned with your unique talents and passions.',
-          glowColor: '#cdbad8',
-        },
-        {
-          id: 2,
-          title: 'Personal Growth',
-          description: 'A journey that helps you overcome fears and reach your potential.',
-          glowColor: '#baccd7',
-        },
-        {
-          id: 3,
-          title: 'Purposeful Impact',
-          description: 'A way to make a meaningful difference in the world.',
-          glowColor: '#a6a76c',
-        },
-      ];
+      paths = personalizedFallbackPaths;
     }
 
     return paths;
   } catch (error) {
     console.error('Error generating calling paths:', error);
     // Return fallback paths
-    return [
-      {
-        id: 1,
-        title: 'Creative Expression',
-        description: 'A path aligned with your unique talents and passions.',
-        glowColor: '#cdbad8',
-        },
-        {
-          id: 2,
-          title: 'Personal Growth',
-          description: 'A journey that helps you overcome fears and reach your potential.',
-          glowColor: '#baccd7',
-        },
-        {
-          id: 3,
-          title: 'Purposeful Impact',
-          description: 'A way to make a meaningful difference in the world.',
-          glowColor: '#a6a76c',
-      },
-    ];
+    return personalizedFallbackPaths;
   }
 }
 
@@ -3078,36 +3071,92 @@ export async function generatePathContent(
   const outputLanguageLabel = isRussianLocale ? 'Russian' : 'English';
   const notProvidedLabel = isRussianLocale ? 'Не указано' : 'Not provided';
   const hasCyrillic = (value?: string) => /[А-Яа-яЁё]/.test(value || '');
-  const russianFallbackContent = (): PathContent => ({
-    whyFitsYou: [
-      `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`,
-      'Твои ответы Икигай хорошо сочетаются с этим фокусом.',
-      'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.',
-    ],
-    goals: [
-      {
-        id: 1,
-        title: 'Сделай первый профессиональный рывок',
-        fear: fear || 'А вдруг не получится?',
-        timeFrame: 'три месяца, четыре шага',
-        description: 'Собери понятный план действий и запусти первые шаги к устойчивому результату.',
-      },
-      {
-        id: 2,
-        title: 'Запусти проект в этом направлении',
-        fear: fear || 'А если я ошибусь?',
-        timeFrame: 'шесть месяцев, восемь шагов',
-        description: 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.',
-      },
-      {
-        id: 3,
-        title: 'Покажи результаты публично',
-        fear: fear || 'А если никто не откликнется?',
-        timeFrame: 'два месяца, три шага',
-        description: 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.',
-      },
-    ],
-  });
+  const sanitizeWords = (value: string | undefined, maxWords = 3, fallback = ''): string => {
+    const normalized = String(value || '')
+      .replace(/["'.,!?;:()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!normalized) return fallback;
+    return normalized.split(' ').slice(0, maxWords).join(' ');
+  };
+  const shortPathTitle = sanitizeWords(pathTitle, 3, isRussianLocale ? 'этом пути' : 'this path');
+  const shortFocus = sanitizeWords(whatExcites || whatYouLove || whatYouGoodAt, 3, isRussianLocale ? 'сильной стороне' : 'your strongest focus');
+  const fallbackFear = fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I fail?');
+  const isGenericGoalTitle = (title: string): boolean => {
+    const normalized = title.trim().toLowerCase();
+    return (
+      normalized === 'become a full-time professional in this path' ||
+      normalized === 'launch your own venture in this field' ||
+      normalized === 'create and share your work online' ||
+      normalized === 'сделай первый профессиональный рывок' ||
+      normalized === 'запусти проект в этом направлении' ||
+      normalized === 'покажи результаты публично'
+    );
+  };
+  const buildPersonalizedFallbackContent = (): PathContent => {
+    if (isRussianLocale) {
+      return {
+        whyFitsYou: [
+          `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} хорошо подходят для пути «${shortPathTitle}».`,
+          `Твои ответы Икигай усиливают направление «${shortPathTitle}».`,
+          `Этот путь учитывает твой страх и опирается на то, что тебя вдохновляет: ${shortFocus}.`,
+        ],
+        goals: [
+          {
+            id: 1,
+            title: `Сделай старт в ${shortPathTitle}`,
+            fear: fallbackFear,
+            timeFrame: 'три месяца, четыре шага',
+            description: `Определи конкретную цель в «${shortPathTitle}» и выполни первые 4 шага по понятному плану.`,
+          },
+          {
+            id: 2,
+            title: `Собери систему в ${shortPathTitle}`,
+            fear: fallbackFear,
+            timeFrame: 'шесть месяцев, восемь шагов',
+            description: `Выстрой устойчивый ритм действий в «${shortPathTitle}» и закрепи измеримый прогресс.`,
+          },
+          {
+            id: 3,
+            title: `Покажи результат в ${shortPathTitle}`,
+            fear: fallbackFear,
+            timeFrame: 'два месяца, три шага',
+            description: `Оформи и представь результаты в «${shortPathTitle}», чтобы получить обратную связь и усилить движение.`,
+          },
+        ],
+      };
+    }
+    return {
+      whyFitsYou: [
+        `Your ${sunSign ? `${sunSign} ` : ''}strengths align with the "${shortPathTitle}" direction.`,
+        `Your Ikigai responses reinforce this "${shortPathTitle}" path.`,
+        `This direction respects your fear while building on what excites you: ${shortFocus}.`,
+      ],
+      goals: [
+        {
+          id: 1,
+          title: `Start strong in ${shortPathTitle}`,
+          fear: fallbackFear,
+          timeFrame: 'three months, four steps',
+          description: `Set one concrete outcome for "${shortPathTitle}" and complete your first four practical milestones.`,
+        },
+        {
+          id: 2,
+          title: `Build a system for ${shortPathTitle}`,
+          fear: fallbackFear,
+          timeFrame: 'six months, eight steps',
+          description: `Create a sustainable weekly plan for "${shortPathTitle}" and track measurable progress.`,
+        },
+        {
+          id: 3,
+          title: `Show results from ${shortPathTitle}`,
+          fear: fallbackFear,
+          timeFrame: 'two months, three steps',
+          description: `Package and share outcomes from "${shortPathTitle}" to get feedback and momentum.`,
+        },
+      ],
+    };
+  };
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -3247,67 +3296,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       }
       
       // Return fallback content for API errors
-      return isRussianLocale
-        ? {
-            whyFitsYou: [
-              `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`,
-              'Твои ответы Икигай хорошо сочетаются с этим фокусом.',
-              'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.',
-            ],
-            goals: [
-              {
-                id: 1,
-                title: 'Сделай первый профессиональный рывок',
-                fear: fear || 'А вдруг не получится?',
-                timeFrame: 'три месяца, четыре шага',
-                description: 'Собери понятный план действий и запусти первые шаги к устойчивому результату.',
-              },
-              {
-                id: 2,
-                title: 'Запусти проект в этом направлении',
-                fear: fear || 'А если я ошибусь?',
-                timeFrame: 'шесть месяцев, восемь шагов',
-                description: 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.',
-              },
-              {
-                id: 3,
-                title: 'Покажи результаты публично',
-                fear: fear || 'А если никто не откликнется?',
-                timeFrame: 'два месяца, три шага',
-                description: 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.',
-              },
-            ],
-          }
-        : {
-            whyFitsYou: [
-              `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-              'Your Ikigai responses show alignment with this direction.',
-              'This path addresses your fears while pursuing what excites you.',
-            ],
-            goals: [
-              {
-                id: 1,
-                title: 'Become a full-time professional in this path',
-                fear: fear || 'What if I go broke?',
-                timeFrame: 'three months, four steps',
-                description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
-              },
-              {
-                id: 2,
-                title: 'Launch your own venture in this field',
-                fear: fear || 'What if I fail?',
-                timeFrame: 'six months, eight steps',
-                description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
-              },
-              {
-                id: 3,
-                title: 'Create and share your work online',
-                fear: fear || 'What if no one buys it?',
-                timeFrame: 'two months, three steps',
-                description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
-              },
-            ],
-          };
+      return buildPersonalizedFallbackContent();
     }
 
     // Parse the JSON response only if response is ok
@@ -3364,11 +3353,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       content = {
         whyFitsYou: Array.isArray(parsed.whyFitsYou) && parsed.whyFitsYou.length === 3
           ? parsed.whyFitsYou
-          : [
-              `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-              'Your Ikigai responses show alignment with this direction.',
-              'This path addresses your fears while pursuing what excites you.',
-            ],
+          : buildPersonalizedFallbackContent().whyFitsYou,
         goals: Array.isArray(parsed.goals) && parsed.goals.length === 3
           ? parsed.goals.map((goal: any, index: number) => ({
               id: index + 1,
@@ -3377,30 +3362,11 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
               timeFrame: goal.timeFrame || 'three months, four steps',
               description: goal.description || '',
             }))
-          : [
-              {
-                id: 1,
-                title: 'Become a full-time professional in this path',
-                fear: fear || 'What if I go broke?',
-                timeFrame: 'three months, four steps',
-                description: 'Design and launch internal startups to diversify company portfolio and revenue streams.',
-              },
-              {
-                id: 2,
-                title: 'Launch your own venture in this field',
-                fear: fear || 'What if I fail?',
-                timeFrame: 'six months, eight steps',
-                description: 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
-              },
-              {
-                id: 3,
-                title: 'Create and share your work online',
-                fear: fear || 'What if no one buys it?',
-                timeFrame: 'two months, three steps',
-                description: 'Establish your digital presence and monetize your creative work through strategic content and community building.',
-              },
-            ],
+          : buildPersonalizedFallbackContent().goals,
       };
+      if (content.goals.some((goal) => isGenericGoalTitle(goal.title))) {
+        content.goals = buildPersonalizedFallbackContent().goals;
+      }
 
       if (isRussianLocale) {
         const allWhyFitsAreEnglish = content.whyFitsYou.every((item) => !hasCyrillic(item));
@@ -3418,87 +3384,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     } catch (parseError) {
       console.warn('Path content response was not valid JSON, using fallback content:', parseError);
       // Fallback content
-      content = {
-        whyFitsYou: [
-          isRussianLocale
-            ? `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`
-            : `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-          isRussianLocale
-            ? 'Твои ответы Икигай хорошо сочетаются с этим фокусом.'
-            : 'Your Ikigai responses show alignment with this direction.',
-          isRussianLocale
-            ? 'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.'
-            : 'This path addresses your fears while pursuing what excites you.',
-        ],
-        goals: [
-          {
-            id: 1,
-            title: isRussianLocale ? 'Сделай первый профессиональный рывок' : 'Become a full-time professional in this path',
-            fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I go broke?'),
-            timeFrame: isRussianLocale ? 'три месяца, четыре шага' : 'three months, four steps',
-            description: isRussianLocale
-              ? 'Собери понятный план действий и запусти первые шаги к устойчивому результату.'
-              : 'Design and launch internal startups to diversify company portfolio and revenue streams.',
-          },
-          {
-            id: 2,
-            title: isRussianLocale ? 'Запусти проект в этом направлении' : 'Launch your own venture in this field',
-            fear: fear || (isRussianLocale ? 'А если я ошибусь?' : 'What if I fail?'),
-            timeFrame: isRussianLocale ? 'шесть месяцев, восемь шагов' : 'six months, eight steps',
-            description: isRussianLocale
-              ? 'Сформируй рабочую модель, которая соответствует твоим ценностям и приносит практическую пользу.'
-              : 'Build a sustainable business model that aligns with your values and creates meaningful impact.',
-          },
-          {
-            id: 3,
-            title: isRussianLocale ? 'Покажи результаты публично' : 'Create and share your work online',
-            fear: fear || (isRussianLocale ? 'А если никто не откликнется?' : 'What if no one buys it?'),
-            timeFrame: isRussianLocale ? 'два месяца, три шага' : 'two months, three steps',
-            description: isRussianLocale
-              ? 'Укрепи присутствие в онлайне и оформи свой опыт так, чтобы он создавал ценность для людей.'
-              : 'Establish your digital presence and monetize your creative work through strategic content and community building.',
-          },
-        ],
-      };
+      content = buildPersonalizedFallbackContent();
     }
 
     return content;
   } catch (error) {
     console.error('Error generating path content:', error);
     // Return fallback content
-    return {
-      whyFitsYou: [
-        isRussianLocale
-          ? `Твои сильные стороны ${sunSign ? `знака ${sunSign}` : ''} поддерживают это направление.`
-          : `Your ${sunSign} sun sign gives you natural strengths for this path.`,
-        isRussianLocale
-          ? 'Твои ответы Икигай хорошо сочетаются с этим фокусом.'
-          : 'Your Ikigai responses show alignment with this direction.',
-        isRussianLocale
-          ? 'Этот путь учитывает твои страхи и опирается на то, что тебя вдохновляет.'
-          : 'This path addresses your fears while pursuing what excites you.',
-      ],
-      goals: [
-        {
-          id: 1,
-          title: isRussianLocale ? 'Сделай первый профессиональный рывок' : 'Become a full-time professional in this path',
-          fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I go broke?'),
-          timeFrame: isRussianLocale ? 'три месяца, четыре шага' : 'three months, four steps',
-        },
-        {
-          id: 2,
-          title: isRussianLocale ? 'Запусти проект в этом направлении' : 'Launch your own venture in this field',
-          fear: fear || (isRussianLocale ? 'А если я ошибусь?' : 'What if I fail?'),
-          timeFrame: isRussianLocale ? 'шесть месяцев, восемь шагов' : 'six months, eight steps',
-        },
-        {
-          id: 3,
-          title: isRussianLocale ? 'Покажи результаты публично' : 'Create and share your work online',
-          fear: fear || (isRussianLocale ? 'А если никто не откликнется?' : 'What if no one buys it?'),
-          timeFrame: isRussianLocale ? 'два месяца, три шага' : 'two months, three steps',
-        },
-      ],
-    };
+    return buildPersonalizedFallbackContent();
   }
 }
 

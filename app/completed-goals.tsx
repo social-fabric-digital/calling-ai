@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { capitalizeUserName } from '@/utils/nameFormat';
 
 const { width } = Dimensions.get('window');
 
@@ -40,7 +41,7 @@ export default function CompletedGoalsScreen() {
     try {
       const name = await AsyncStorage.getItem('userName');
       if (name) {
-        setUserName(name);
+        setUserName(capitalizeUserName(name));
       }
     } catch (error) {
       console.error('Error loading user name:', error);

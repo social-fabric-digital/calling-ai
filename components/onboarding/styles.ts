@@ -1703,7 +1703,7 @@ export const styles = StyleSheet.create({
   },
   journeyLoadingTitle: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     marginBottom: 40,
     textAlign: 'center',
     textTransform: 'none',
@@ -1723,7 +1723,7 @@ export const styles = StyleSheet.create({
   },
   journeyLoadingItemText: {
     ...BodyStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     fontSize: 18,
     textAlign: 'center',
   },

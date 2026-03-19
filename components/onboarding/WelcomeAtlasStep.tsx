@@ -112,7 +112,7 @@ const localStyles = StyleSheet.create({
   atlasWrap: {
     width: '100%',
     alignItems: 'center',
-    marginTop: -16,
+    marginTop: 6,
   },
   thoughtBubbleWrap: {
     width: '100%',
@@ -131,8 +131,7 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'none',
     letterSpacing: 0,
-    marginBottom: 0,
-    transform: [{ translateY: -100 }],
+    marginBottom: 18,
   },
   subheading: {
     ...BodyStyle,

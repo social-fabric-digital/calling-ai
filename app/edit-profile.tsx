@@ -1,6 +1,7 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -51,7 +52,7 @@ export default function EditProfileScreen() {
     if (!canSave || loading) return;
     setLoading(true);
     try {
-      const trimmedName = name.trim();
+      const trimmedName = capitalizeUserName(name);
       const trimmedEmail = email.trim().toLowerCase();
 
       const {

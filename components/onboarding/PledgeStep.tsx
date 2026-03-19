@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import { PledgeStepProps } from './types';
 import { styles } from './styles';
 
@@ -78,7 +79,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
   // Sync displayName with name prop immediately when it changes
   useEffect(() => {
     if (name && name.trim()) {
-      setDisplayName(name.trim());
+      setDisplayName(capitalizeUserName(name));
     }
   }, [name]);
 
@@ -90,7 +91,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         try {
           const savedName = await AsyncStorage.getItem('userName');
           if (savedName && savedName.trim()) {
-            setDisplayName(savedName.trim());
+            setDisplayName(capitalizeUserName(savedName));
           }
         } catch (error) {
           // Error loading name - continue without saved name
@@ -107,7 +108,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
         try {
           const savedName = await AsyncStorage.getItem('userName');
           if (savedName && savedName.trim()) {
-            setDisplayName(savedName.trim());
+            setDisplayName(capitalizeUserName(savedName));
           }
         } catch (error) {
           // Error loading name - continue without saved name
@@ -203,9 +204,9 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
           <Text style={[styles.pledgeText, isSmallPhone && localStyles.pledgeTextSmall]}>
             {t('onboarding.pledgeText', {
               name: (name && name.trim())
-                ? name.trim()
+                ? capitalizeUserName(name)
                 : ((displayName && displayName.trim())
-                    ? displayName.trim()
+                    ? capitalizeUserName(displayName)
                     : t('onboarding.pledgeNamePlaceholder'))
             })}
           </Text>

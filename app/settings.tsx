@@ -11,6 +11,7 @@ import {
   hapticWarning,
 } from '@/utils/haptics';
 import { changeLanguage } from '@/utils/i18n';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   cancelAllNotifications,
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
       AsyncStorage.getItem('birthMinute'),
       AsyncStorage.getItem('birthPeriod'),
     ]);
-    setUserName(name ?? '');
+    setUserName(capitalizeUserName(name ?? ''));
     setBirthMonth(month ?? '');
     setBirthDate(date ?? '');
     setBirthYear(year ?? '');

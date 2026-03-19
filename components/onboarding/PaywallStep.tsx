@@ -88,8 +88,10 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
         }
 
         if (!shown && !purchased) {
-          console.error(
-            'PAYWALL STILL NOT SHOWN. Check Superwall dashboard placement/audience and API key injection in EAS env.'
+          // Not always a bug: placement rules can intentionally skip paywall.
+          // Keep this as a warning so production logs are less noisy.
+          console.warn(
+            'Paywall not shown for onboarding_paywall placement. Continuing free flow.'
           );
         }
 

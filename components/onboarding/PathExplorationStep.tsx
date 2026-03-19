@@ -65,7 +65,7 @@ interface GoalData {
 }
 
 const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
-const PATH_EXPLORATION_CONTENT_VERSION = 3;
+const PATH_EXPLORATION_CONTENT_VERSION = 4;
 
 // ============================================
 // Animated Aura Component (behind path icon)
@@ -596,7 +596,18 @@ export default function PathExplorationStep({
             const cached = JSON.parse(cachedRaw);
             const cachedGoals = Array.isArray(cached?.goals) ? (cached.goals as GoalData[]) : [];
             const cachedWhyFits = Array.isArray(cached?.whyItFits) ? (cached.whyItFits as string[]) : [];
-            if (cached?.signature === inputSignature && cachedGoals.length > 0) {
+            const hasGenericPlaceholderGoals = cachedGoals.some((goal) => {
+              const title = String(goal?.title || '').trim().toLowerCase();
+              return (
+                title.includes('become a full-time professional in this path') ||
+                title.includes('launch your own venture in this field') ||
+                title.includes('create and share your work online') ||
+                title.includes('сделай первый профессиональный рывок') ||
+                title.includes('запусти проект в этом направлении') ||
+                title.includes('покажи результаты публично')
+              );
+            });
+            if (cached?.signature === inputSignature && cachedGoals.length > 0 && !hasGenericPlaceholderGoals) {
               setGoals(cachedGoals);
               setWhyItFits(cachedWhyFits);
               setIsInitialContentLoading(false);

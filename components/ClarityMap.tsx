@@ -9,6 +9,7 @@ import { checkSubscriptionStatus } from '@/utils/superwall';
 import { isPremium as hasSubscriptionOrTrialAccess } from '@/utils/subscription';
 import { getRandomReflectionPrompt, getRandomEncouragement } from '@/utils/contentBanks';
 import { hapticLight } from '@/utils/haptics';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -2105,7 +2106,7 @@ export default function ClarityMap({ onClose }: ClarityMapProps) {
         const minute = await AsyncStorage.getItem('birthMinute');
         const period = await AsyncStorage.getItem('birthPeriod');
         
-        if (name) setUserName(name);
+        if (name) setUserName(capitalizeUserName(name));
         if (month) setBirthMonth(month);
         if (date) setBirthDate(date);
         if (year) setBirthYear(year);

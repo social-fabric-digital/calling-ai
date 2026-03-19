@@ -41,6 +41,7 @@ import PaywallStep from '@/components/onboarding/PaywallStep';
 import { checkSubscriptionStatus } from '@/utils/superwall';
 import { generateUnifiedDestinyProfile } from '@/utils/claudeApi';
 import { trackLoginEvent } from '@/utils/appTracking';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import {
   hapticError,
   hapticHeavy,
@@ -182,6 +183,7 @@ export default function OnboardingScreen() {
   
   // Form state for About You step
   const [name, setName] = useState(APP_STORE_REVIEW_MODE ? REVIEW_NAME : '');
+  const normalizedName = capitalizeUserName(name);
   const [birthMonth, setBirthMonth] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_MONTH : '');
   const [birthDate, setBirthDate] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_DATE : '');
   const [birthYear, setBirthYear] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_YEAR : '');
@@ -211,7 +213,7 @@ export default function OnboardingScreen() {
           const savedName = await AsyncStorage.getItem('userName');
           if (savedName && savedName.trim()) {
             // Always update name when on pledge step to ensure it's current
-            setName(savedName.trim());
+            setName(capitalizeUserName(savedName));
           }
         } catch (error) {
           console.error('Error loading name for pledge:', error);
@@ -1064,7 +1066,7 @@ export default function OnboardingScreen() {
           if (profileExists) {
             const { error: profileError } = await runWithNetworkRetry(() =>
               supabase.from('profiles').update({
-                name: name.trim() || null,
+                name: normalizedName || null,
                 birth_date: (birthYear?.trim() && birthMonth?.trim() && birthDate?.trim())
                   ? `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}`
                   : null,
@@ -1161,7 +1163,7 @@ export default function OnboardingScreen() {
 
       if (stepKey === 'aboutYou') {
         const missingCore =
-          !name.trim() ||
+          !normalizedName ||
           !birthMonth.trim() ||
           !birthDate.trim() ||
           !birthYear.trim() ||
@@ -1196,7 +1198,7 @@ export default function OnboardingScreen() {
       try {
         if (stepKey === 'aboutYou') {
           await AsyncStorage.multiSet([
-            ['userName', name.trim()],
+            ['userName', normalizedName],
             ['birthMonth', birthMonth.trim()],
             ['birthDate', birthDate.trim()],
             ['birthYear', birthYear.trim()],
@@ -1217,7 +1219,7 @@ export default function OnboardingScreen() {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             await supabase.from('profiles').update({
-              name: name.trim() || null,
+              name: normalizedName || null,
               birth_date: `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}`,
               birth_time: (!hideBirthTimeFields && birthHour && birthMinute)
                 ? `${birthHour.trim()}:${birthMinute.trim()} ${birthAmPm}`
@@ -1304,7 +1306,7 @@ export default function OnboardingScreen() {
 
     if (step === 1) {
       const missingCore =
-        !name.trim() ||
+        !normalizedName ||
         !birthMonth.trim() ||
         !birthDate.trim() ||
         !birthYear.trim() ||
@@ -1367,7 +1369,7 @@ export default function OnboardingScreen() {
       if (step === 1) {
       // Fields validated above — save to AsyncStorage
       try {
-        await AsyncStorage.setItem('userName', name.trim());
+        await AsyncStorage.setItem('userName', normalizedName);
         await AsyncStorage.setItem('birthMonth', birthMonth.trim());
         await AsyncStorage.setItem('birthDate', birthDate.trim());
         await AsyncStorage.setItem('birthYear', birthYear.trim());
@@ -1390,7 +1392,7 @@ export default function OnboardingScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase.from('profiles').update({
-            name: name.trim() || null,
+            name: normalizedName || null,
             birth_date: (birthYear?.trim() && birthMonth?.trim() && birthDate?.trim()) 
               ? `${birthYear.trim()}-${birthMonth.trim().padStart(2, '0')}-${birthDate.trim().padStart(2, '0')}` 
               : null,
@@ -1517,8 +1519,8 @@ export default function OnboardingScreen() {
     } else {
       // Ensure name and birth date are saved before navigating (if available, not required)
       try {
-        if (name && name.trim()) {
-          await AsyncStorage.setItem('userName', name.trim());
+        if (normalizedName) {
+          await AsyncStorage.setItem('userName', normalizedName);
         }
         // Save birth date components if available (not required)
         if (birthMonth && birthMonth.trim()) await AsyncStorage.setItem('birthMonth', birthMonth.trim());

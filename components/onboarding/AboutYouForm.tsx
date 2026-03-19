@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { fetchTimezoneByCoordinates } from '@/utils/astrologyApi';
+import { capitalizeUserName } from '@/utils/nameFormat';
 import { AboutYouFormProps, CityData } from './types';
 import { styles } from './styles';
 
@@ -130,11 +131,12 @@ function AboutYouForm({
 
   // Handle name change and save to AsyncStorage immediately
   const handleNameChange = async (text: string) => {
-    setName(text);
+    const normalizedName = capitalizeUserName(text);
+    setName(normalizedName);
     // Save to AsyncStorage immediately so it's available for pledge step
-    if (text.trim()) {
+    if (normalizedName) {
       try {
-        await AsyncStorage.setItem('userName', text.trim());
+        await AsyncStorage.setItem('userName', normalizedName);
       } catch (error) {
         // Error saving name - continue anyway
       }

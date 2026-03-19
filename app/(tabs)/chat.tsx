@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChatScreenComponent from '@/components/screens/ChatScreen';
+import { capitalizeUserName } from '@/utils/nameFormat';
 
 export default function ChatScreen() {
   const [userName, setUserName] = useState<string>('');
@@ -17,7 +18,7 @@ export default function ChatScreen() {
         const storedName = await AsyncStorage.getItem('userName');
         const goalsData = await AsyncStorage.getItem('userGoals');
         if (storedName) {
-          setUserName(storedName);
+          setUserName(capitalizeUserName(storedName));
         }
         if (goalsData) {
           const goals = JSON.parse(goalsData);
