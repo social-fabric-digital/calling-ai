@@ -35,6 +35,9 @@ const WelcomeScreen = () => {
   const rawDeerWidth = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85;
   const DEER_IMAGE_WIDTH = Math.min(rawDeerWidth, MAX_DEER_WIDTH);
   const DEER_IMAGE_HEIGHT = DEER_IMAGE_WIDTH * (180 / 220);
+  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH - 32, 420);
+  const BUBBLE_WIDTH = Math.min(SCREEN_WIDTH - 24, 430);
+  const LANGUAGE_BUTTON_WIDTH = Math.min(Math.max(150, SCREEN_WIDTH * 0.4), 190);
 
   const { i18n } = useTranslation();
   const normalizeLanguage = (lang?: string): LanguageCode =>
@@ -457,7 +460,7 @@ const WelcomeScreen = () => {
           ]}
         >
           {/* Welcome Text */}
-          <View style={styles.welcomeSection}>
+          <View style={[styles.welcomeSection, { width: CONTENT_WIDTH }]}>
             <Text style={[styles.welcomeTitle, selectedLanguage === 'ru' && styles.welcomeTitleRussian]}>{t.welcome}</Text>
             <Text style={styles.welcomeSubtitle}>{t.subtitle}</Text>
           </View>
@@ -476,8 +479,10 @@ const WelcomeScreen = () => {
             ]}
           >
             {/* Speech Bubble */}
-            <View style={styles.speechBubble}>
-              <Text style={styles.speechText}>{t.mascotMessage}</Text>
+            <View style={[styles.speechBubble, { width: BUBBLE_WIDTH }]}>
+              <Text style={styles.speechText}>
+                {t.mascotMessage}
+              </Text>
               <View style={styles.speechTail} />
             </View>
 
@@ -528,6 +533,7 @@ const WelcomeScreen = () => {
         <Animated.View 
           style={[
             styles.bottomSection,
+            { width: CONTENT_WIDTH },
             {
               opacity: bottomFadeAnim,
               transform: [{ translateY: bottomSlideAnim }],
@@ -539,17 +545,23 @@ const WelcomeScreen = () => {
             activeOpacity={0.8}
             onPress={handleStartJourney}
           >
-            <Text style={styles.startButtonText} numberOfLines={1}>{t.startButton}</Text>
+            <Text style={styles.startButtonText} numberOfLines={2}>
+              {t.startButton}
+            </Text>
             <Text style={styles.startButtonArrow}>→</Text>
           </TouchableOpacity>
 
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>{t.loginText}</Text>
+            <Text style={styles.loginText} maxFontSizeMultiplier={1}>
+              {t.loginText}
+            </Text>
             <TouchableOpacity 
               activeOpacity={0.7}
               onPress={() => router.push('/email-login')}
             >
-              <Text style={styles.loginLink}>{t.loginLink}</Text>
+              <Text style={styles.loginLink} maxFontSizeMultiplier={1}>
+                {t.loginLink}
+              </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -566,11 +578,16 @@ const WelcomeScreen = () => {
       {/* Language Selector - keep outside ScrollView so overlay can't intercept options */}
       <View style={styles.languageSelector}>
         <TouchableOpacity
-          style={styles.languageButton}
+          style={[styles.languageButton, { width: LANGUAGE_BUTTON_WIDTH }]}
           onPress={() => setShowLanguageMenu(!showLanguageMenu)}
           activeOpacity={0.8}
         >
-          <Text style={styles.languageName} numberOfLines={1}>{currentLanguage?.name}</Text>
+          <Text
+            style={styles.languageName}
+            numberOfLines={1}
+          >
+            {currentLanguage?.name}
+          </Text>
           <MaterialIcons
             name="keyboard-arrow-down"
             size={16}
@@ -690,6 +707,7 @@ const styles = StyleSheet.create({
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
@@ -701,7 +719,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
-    minWidth: Platform.isPad ? 140 : 136,
+    minWidth: Platform.isPad ? 140 : 150,
   },
   languageName: {
     fontFamily: Platform.select({
@@ -713,7 +731,8 @@ const styles = StyleSheet.create({
     color: '#342846',
     marginRight: 6,
     flexShrink: 1,
-    flexGrow: 0,
+    flexGrow: 1,
+    textAlign: 'left',
   },
   languageDropdown: {
     position: 'absolute',
@@ -758,7 +777,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 100,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
     zIndex: 10,
   },
@@ -815,8 +834,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 16,
-    paddingHorizontal: 14,
-    alignSelf: 'stretch',
+    paddingHorizontal: 10,
+    alignSelf: 'center',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -834,9 +853,9 @@ const styles = StyleSheet.create({
       android: 'AnonymousPro-Regular',
       default: 'monospace',
     }),
-    fontSize: 14,
+    fontSize: Platform.isPad ? 18 : 16,
     color: '#342846',
-    lineHeight: 22,
+    lineHeight: Platform.isPad ? 28 : 24,
     textAlign: 'center',
   },
   speechTail: {
@@ -891,7 +910,8 @@ const styles = StyleSheet.create({
 
   // Bottom Section
   bottomSection: {
-    paddingHorizontal: 24,
+    alignSelf: 'center',
+    paddingHorizontal: 0,
     paddingTop: 24,
     paddingBottom: 48,
     zIndex: 10,
@@ -899,7 +919,7 @@ const styles = StyleSheet.create({
   startButton: {
     width: '100%',
     paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     backgroundColor: '#342846',
     borderRadius: 50,
     flexDirection: 'row',
@@ -914,10 +934,10 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     ...BodyStyle,
-    fontSize: Platform.isPad ? 18 : 16,
+    fontSize: Platform.isPad ? 18 : 15,
     color: '#FFFFFF',
     marginRight: 12,
-    flexShrink: 1,
+    flex: 1,
     textAlign: 'center',
   },
   startButtonArrow: {
@@ -929,7 +949,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    rowGap: 2,
+    columnGap: 4,
   },
   loginText: {
     fontFamily: Platform.select({
@@ -940,7 +961,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7A8A9A',
     textAlign: 'center',
-    flexShrink: 1,
+    flexShrink: 0,
   },
   loginLink: {
     fontFamily: Platform.select({

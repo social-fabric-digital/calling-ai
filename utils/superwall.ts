@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { NativeModulesProxy } from 'expo-modules-core';
 import i18n from './i18n';
 import { Platform } from 'react-native';
 
@@ -9,17 +10,31 @@ let cachedSuperwall: SuperwallType | null | undefined;
 let cachedCompatModule: SuperwallCompatModule | null | undefined;
 let superwallConfigured = false;
 let configureInFlight: Promise<boolean> | null = null;
+let loggedMissingNativeSuperwall = false;
+
+function hasNativeSuperwallModule(): boolean {
+  return Boolean((NativeModulesProxy as Record<string, unknown> | undefined)?.SuperwallExpo);
+}
 
 async function loadCompatModule(): Promise<SuperwallCompatModule | null> {
   if (cachedCompatModule !== undefined) {
     return cachedCompatModule;
   }
 
+  if (!hasNativeSuperwallModule()) {
+    if (!loggedMissingNativeSuperwall) {
+      loggedMissingNativeSuperwall = true;
+      console.warn('[Superwall] Native module unavailable in this build. Paywalls are disabled.');
+    }
+    cachedCompatModule = null;
+    return null;
+  }
+
   try {
     const mod = await import('expo-superwall/compat');
     cachedCompatModule = mod;
   } catch (error) {
-    console.error('[Superwall] Failed to load native module:', error);
+    console.warn('[Superwall] Failed to load compat module. Paywalls are disabled.');
     cachedCompatModule = null;
   }
 
@@ -113,7 +128,7 @@ export async function ensureSuperwallInitialized(): Promise<boolean> {
     try {
       const Superwall = superwall as any;
       if (typeof Superwall.configure !== 'function') {
-        console.error('[Superwall] configure is not a function on the loaded module');
+        console.warn('[Superwall] configure is not available on loaded module');
         return false;
       }
       await Superwall.configure({ apiKey });
