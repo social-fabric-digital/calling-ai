@@ -315,6 +315,22 @@ export default function AIGoalPickerScreen() {
       return;
     }
 
+    if (mode === 'initial') {
+      try {
+        const cachedRaw = await AsyncStorage.getItem('generatedPaths');
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw) as GeneratedPath[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            generatedPathsRef.current = parsed;
+            setPathsVersion((prev) => prev + 1);
+            return;
+          }
+        }
+      } catch {
+        // Cache corrupted — fall through to API call
+      }
+    }
+
     setErrorMessage('');
     try {
       const profileData = await generateUnifiedDestinyProfile(
@@ -342,6 +358,7 @@ export default function AIGoalPickerScreen() {
 
       // Keep shared onboarding data key in sync so onboarding component renders identical cards.
       await AsyncStorage.setItem('destinyProfile_paths', JSON.stringify(nextPaths));
+      await AsyncStorage.setItem('generatedPaths', JSON.stringify(nextPaths));
 
       if (mode === 'regenerate') {
         await incrementRegenerationCount();
@@ -399,46 +416,59 @@ export default function AIGoalPickerScreen() {
     void hapticMedium();
     const safeGoalTitle = (goalTitle || '').trim() || selectedPath.title;
 
+    const stepsCacheKey = `generatedSteps_${selectedPath.id}_${safeGoalTitle}`;
+
     setIsSavingGoal(true);
     try {
       let aiEstimatedDuration = '';
       let steps = getFallbackSteps(safeGoalTitle);
 
       try {
-        const generated = await generateGoalSteps(
-          safeGoalTitle,
-          profile.birthMonth || '1',
-          profile.birthDate || '1',
-          profile.birthYear || '2000',
-          profile.birthCity || undefined,
-          profile.birthHour || undefined,
-          profile.birthMinute || undefined,
-          profile.birthPeriod || undefined,
-          profile.whatYouLove || undefined,
-          profile.whatYouGoodAt || undefined,
-          profile.whatWorldNeeds || undefined,
-          profile.whatCanBePaidFor || undefined,
-          profile.fear || undefined,
-          profile.whatExcites || undefined,
-          selectedPath.title,
-          selectedPath.description
-        );
+        const cachedStepsRaw = await AsyncStorage.getItem(stepsCacheKey);
+        if (cachedStepsRaw) {
+          const cached = JSON.parse(cachedStepsRaw);
+          aiEstimatedDuration = cached.estimatedDuration || '';
+          if (Array.isArray(cached.steps) && cached.steps.length > 0) {
+            steps = cached.steps;
+          }
+        } else {
+          const generated = await generateGoalSteps(
+            safeGoalTitle,
+            profile.birthMonth || '1',
+            profile.birthDate || '1',
+            profile.birthYear || '2000',
+            profile.birthCity || undefined,
+            profile.birthHour || undefined,
+            profile.birthMinute || undefined,
+            profile.birthPeriod || undefined,
+            profile.whatYouLove || undefined,
+            profile.whatYouGoodAt || undefined,
+            profile.whatWorldNeeds || undefined,
+            profile.whatCanBePaidFor || undefined,
+            profile.fear || undefined,
+            profile.whatExcites || undefined,
+            selectedPath.title,
+            selectedPath.description
+          );
 
-        aiEstimatedDuration = generated.estimatedDuration || '';
-        if (Array.isArray(generated.steps) && generated.steps.length > 0) {
-          steps = generated.steps.map((step: any, index: number) => {
-            const rawName = step?.name || step?.text || '';
-            const cleanName = String(rawName).trim() || fallbackStepNames[index] || `Step ${index + 1}`;
-            return {
-              name: cleanName,
-              description:
-                String(step?.description || '').trim() ||
-                `Complete ${cleanName.toLowerCase()} to move forward.`,
-              order: Number(step?.order) || index + 1,
-              number: Number(step?.number) || index + 1,
-              text: cleanName,
-            };
-          });
+          aiEstimatedDuration = generated.estimatedDuration || '';
+          if (Array.isArray(generated.steps) && generated.steps.length > 0) {
+            steps = generated.steps.map((step: any, index: number) => {
+              const rawName = step?.name || step?.text || '';
+              const cleanName = String(rawName).trim() || fallbackStepNames[index] || `Step ${index + 1}`;
+              return {
+                name: cleanName,
+                description:
+                  String(step?.description || '').trim() ||
+                  `Complete ${cleanName.toLowerCase()} to move forward.`,
+                order: Number(step?.order) || index + 1,
+                number: Number(step?.number) || index + 1,
+                text: cleanName,
+              };
+            });
+          }
+
+          await AsyncStorage.setItem(stepsCacheKey, JSON.stringify({ estimatedDuration: aiEstimatedDuration, steps }));
         }
       } catch (error) {
         console.warn('Failed to generate AI steps, fallback steps used:', error);

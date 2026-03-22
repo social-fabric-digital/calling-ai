@@ -6,7 +6,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_DEER_WIDTH = 260;
 // Module-level screen width used only for static StyleSheet values (can't use hooks here).
@@ -31,13 +32,16 @@ type Content = {
 
 const WelcomeScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const IS_SHORT_SCREEN = SCREEN_HEIGHT < 760;
+  const IS_TABLET_LAYOUT = Platform.isPad || (Platform.OS === 'android' && SCREEN_WIDTH >= 768);
   const rawDeerWidth = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85;
-  const DEER_IMAGE_WIDTH = Math.min(rawDeerWidth, MAX_DEER_WIDTH);
+  const DEER_IMAGE_WIDTH = Math.min(rawDeerWidth, MAX_DEER_WIDTH) * (IS_SHORT_SCREEN ? 0.82 : 1);
   const DEER_IMAGE_HEIGHT = DEER_IMAGE_WIDTH * (180 / 220);
-  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH - 32, 420);
-  const BUBBLE_WIDTH = Math.min(SCREEN_WIDTH - 24, 430);
-  const LANGUAGE_BUTTON_WIDTH = Math.min(Math.max(150, SCREEN_WIDTH * 0.4), 190);
+  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH - 40, IS_TABLET_LAYOUT ? 560 : 420);
+  const BUBBLE_WIDTH = Math.min(SCREEN_WIDTH - 40, IS_TABLET_LAYOUT ? 560 : 440);
+  const LANGUAGE_BUTTON_WIDTH = Math.min(Math.max(168, SCREEN_WIDTH * 0.48), 220);
 
   const { i18n } = useTranslation();
   const normalizeLanguage = (lang?: string): LanguageCode =>
@@ -381,8 +385,8 @@ const WelcomeScreen = () => {
     en: {
       welcome: 'Welcome to Calling',
       subtitle: 'Congratulations on taking one extra step towards your calling.',
-      mascotMessage: "Hi there! I'm Atlas, your gentle guide on this journey.",
-      startButton: 'Start my journey',
+      mascotMessage: "Hi there! I'm Atlas, and I'll be your gentle guide on this journey.",
+      startButton: 'Start your journey',
       loginText: 'Already have an account?',
       loginLink: 'Login'
     },
@@ -407,9 +411,11 @@ const WelcomeScreen = () => {
           style={styles.backgroundImage}
           resizeMode="cover"
         />
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        <View
+          style={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(28, insets.bottom + 16) },
+          ]}
         >
         {/* Subtle background texture and elements */}
         <View style={styles.backgroundElements}>
@@ -454,13 +460,18 @@ const WelcomeScreen = () => {
           style={[
             styles.mainContent,
             {
+              justifyContent: IS_SHORT_SCREEN ? 'flex-start' : 'center',
+              paddingTop: IS_SHORT_SCREEN ? 92 : 110,
+              paddingBottom: IS_SHORT_SCREEN ? 12 : 24,
+            },
+            {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
             }
           ]}
         >
           {/* Welcome Text */}
-          <View style={[styles.welcomeSection, { width: CONTENT_WIDTH }]}>
+          <View style={[styles.welcomeSection, { width: CONTENT_WIDTH }, IS_SHORT_SCREEN && { marginBottom: 18 }]}>
             <Text style={[styles.welcomeTitle, selectedLanguage === 'ru' && styles.welcomeTitleRussian]}>{t.welcome}</Text>
             <Text style={styles.welcomeSubtitle}>{t.subtitle}</Text>
           </View>
@@ -479,8 +490,8 @@ const WelcomeScreen = () => {
             ]}
           >
             {/* Speech Bubble */}
-            <View style={[styles.speechBubble, { width: BUBBLE_WIDTH }]}>
-              <Text style={styles.speechText}>
+            <View style={[styles.speechBubble, { width: BUBBLE_WIDTH }, IS_SHORT_SCREEN && { marginBottom: 12 }]}>
+            <Text style={styles.speechText} maxFontSizeMultiplier={1}>
                 {t.mascotMessage}
               </Text>
               <View style={styles.speechTail} />
@@ -535,6 +546,10 @@ const WelcomeScreen = () => {
             styles.bottomSection,
             { width: CONTENT_WIDTH },
             {
+              paddingTop: IS_SHORT_SCREEN ? 12 : 20,
+              paddingBottom: 40,
+            },
+            {
               opacity: bottomFadeAnim,
               transform: [{ translateY: bottomSlideAnim }],
             }
@@ -545,10 +560,17 @@ const WelcomeScreen = () => {
             activeOpacity={0.8}
             onPress={handleStartJourney}
           >
-            <Text style={styles.startButtonText} numberOfLines={2}>
-              {t.startButton}
-            </Text>
-            <Text style={styles.startButtonArrow}>→</Text>
+            <View style={styles.startButtonContent}>
+              <Text
+                style={styles.startButtonText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.78}
+              >
+                {t.startButton}
+              </Text>
+              <Text style={styles.startButtonArrow}>→</Text>
+            </View>
           </TouchableOpacity>
 
           <View style={styles.loginContainer}>
@@ -556,6 +578,7 @@ const WelcomeScreen = () => {
               {t.loginText}
             </Text>
             <TouchableOpacity 
+              style={styles.loginLinkButton}
               activeOpacity={0.7}
               onPress={() => router.push('/email-login')}
             >
@@ -565,7 +588,7 @@ const WelcomeScreen = () => {
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </ScrollView>
+      </View>
 
       {/* Overlay to close language menu */}
       {showLanguageMenu && (
@@ -575,7 +598,7 @@ const WelcomeScreen = () => {
           activeOpacity={1}
         />
       )}
-      {/* Language Selector - keep outside ScrollView so overlay can't intercept options */}
+      {/* Language selector stays above main content */}
       <View style={styles.languageSelector}>
         <TouchableOpacity
           style={[styles.languageButton, { width: LANGUAGE_BUTTON_WIDTH }]}
@@ -585,6 +608,8 @@ const WelcomeScreen = () => {
           <Text
             style={styles.languageName}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
           >
             {currentLanguage?.name}
           </Text>
@@ -776,7 +801,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
+    paddingTop: 110,
     paddingHorizontal: 16,
     paddingBottom: 24,
     zIndex: 10,
@@ -784,7 +809,8 @@ const styles = StyleSheet.create({
 
   // Welcome Section
   welcomeSection: {
-    alignSelf: 'stretch',
+    alignSelf: 'center',
+    width: '100%',
     alignItems: 'center',
     marginBottom: 32,
   },
@@ -794,7 +820,7 @@ const styles = StyleSheet.create({
       android: 'DMSans_700Bold',
       default: 'sans-serif',
     }),
-    fontSize: Platform.isPad ? 36 : 24,
+    fontSize: Platform.isPad ? 41.4 : 27.6,
     fontWeight: '700',
     color: '#342846',
     marginBottom: 16,
@@ -834,7 +860,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 16,
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     alignSelf: 'center',
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 4 },
@@ -853,9 +879,9 @@ const styles = StyleSheet.create({
       android: 'AnonymousPro-Regular',
       default: 'monospace',
     }),
-    fontSize: Platform.isPad ? 18 : 16,
+    fontSize: Platform.isPad ? 18 : 15,
     color: '#342846',
-    lineHeight: Platform.isPad ? 28 : 24,
+    lineHeight: Platform.isPad ? 28 : 22,
     textAlign: 'center',
   },
   speechTail: {
@@ -912,14 +938,14 @@ const styles = StyleSheet.create({
   bottomSection: {
     alignSelf: 'center',
     paddingHorizontal: 0,
-    paddingTop: 24,
+    paddingTop: 20,
     paddingBottom: 48,
     zIndex: 10,
   },
   startButton: {
     width: '100%',
     paddingVertical: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     backgroundColor: '#342846',
     borderRadius: 50,
     flexDirection: 'row',
@@ -932,13 +958,21 @@ const styles = StyleSheet.create({
     elevation: 8,
     marginBottom: 20,
   },
+  startButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: 6,
+    maxWidth: '92%',
+    alignSelf: 'center',
+  },
   startButtonText: {
     ...BodyStyle,
-    fontSize: Platform.isPad ? 18 : 15,
+    fontSize: Platform.isPad ? 18 : 16,
     color: '#FFFFFF',
-    marginRight: 12,
-    flex: 1,
+    marginRight: 0,
     textAlign: 'center',
+    flexShrink: 1,
   },
   startButtonArrow: {
     fontSize: 18,
@@ -948,9 +982,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
     flexWrap: 'wrap',
     rowGap: 2,
-    columnGap: 8,
+    columnGap: 6,
     paddingHorizontal: 8,
   },
   loginText: {
@@ -963,16 +998,19 @@ const styles = StyleSheet.create({
     color: '#7A8A9A',
     textAlign: 'center',
     flexShrink: 1,
-    marginRight: 8,
+    marginRight: 0,
+  },
+  loginLinkButton: {
+    paddingHorizontal: 2,
   },
   loginLink: {
     fontFamily: Platform.select({
-      ios: 'BricolageGrotesque-SemiBold',
-      android: 'BricolageGrotesque-SemiBold',
+      ios: 'BricolageGrotesque-Bold',
+      android: 'DMSans_700Bold',
       default: 'sans-serif',
     }),
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#342846',
     textDecorationLine: 'underline',
   },

@@ -2057,7 +2057,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...BodyStyle,
-    color: '#999',
+    color: '#342846',
     fontSize: 14,
     fontStyle: 'italic',
     textAlign: 'center',
@@ -2447,6 +2447,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#a592b0',
   },
   emptyFieldCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.98)',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',

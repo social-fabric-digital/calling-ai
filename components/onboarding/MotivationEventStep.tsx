@@ -97,8 +97,8 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   headerSlot: {
-    minHeight: 116,
-    justifyContent: 'center',
+    minHeight: 80,
+    justifyContent: 'flex-start',
   },
   screenHeader: {
     fontSize: 24,

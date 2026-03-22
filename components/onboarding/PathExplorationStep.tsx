@@ -189,7 +189,6 @@ function PathIcon({ pathName }: PathIconProps) {
 
   return (
     <View style={styles.pathIconWrapper}>
-      <AnimatedAura />
       <Animated.View
         style={[
           styles.pathIconContainer,
@@ -358,6 +357,16 @@ function GoalCard({ goal, index, onSelect }: GoalCardProps) {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const goalIconColor = toOpaqueColor(goal.tagColor);
+  const formattedGoalTitle = React.useMemo(() => {
+    const title = String(goal.title || '').trim();
+    if (!title) return title;
+    const alphaOnly = title.replace(/[^A-Za-z]/g, '');
+    const isAllCaps = alphaOnly.length > 1 && alphaOnly === alphaOnly.toUpperCase();
+    if (!isAllCaps) return title;
+    return title
+      .toLowerCase()
+      .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+  }, [goal.title]);
 
   useEffect(() => {
     Animated.parallel([
@@ -446,7 +455,7 @@ function GoalCard({ goal, index, onSelect }: GoalCardProps) {
           </View>
 
           {/* Title */}
-          <Text style={styles.goalTitle}>{goal.title}</Text>
+          <Text style={styles.goalTitle}>{formattedGoalTitle}</Text>
 
           <Text style={styles.goalDescription}>{goal.description}</Text>
 
@@ -671,7 +680,7 @@ export default function PathExplorationStep({
         
         const aiGoals: GoalData[] = content.goals.slice(0, 3).map((goal, index) => ({
           id: goal.id.toString(),
-          title: goal.title.toUpperCase(),
+          title: goal.title,
           tag: tagMap[index] || t('clarityMap.goal'),
           tagColor: tagColorMap[index] || COLORS.primary,
           duration: goal.timeFrame || t('onboarding.threeMonths'),
@@ -956,11 +965,8 @@ const styles = StyleSheet.create({
   pathIconContainer: {
     zIndex: 10,
     opacity: 1,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   pathIconGradient: {
     width: 80,

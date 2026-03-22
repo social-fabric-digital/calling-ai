@@ -77,7 +77,6 @@ export function MoodSlider({
   const { i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const [sliderWidth, setSliderWidth] = useState(0);
-  const [isReady, setIsReady] = useState(false);
   const [currentEmoji, setCurrentEmoji] = useState('🌱');
   const [hasInteracted, setHasInteracted] = useState(false);
   const lastNotifiedValueRef = useRef<number>(-1);
@@ -87,14 +86,6 @@ export function MoodSlider({
   const progress = useSharedValue(initialValue);
   const isPanActive = useSharedValue(false);
   const hasUserInteracted = useSharedValue(false);
-
-  // Initialize as soon as mounted so first drag is responsive.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Update emoji when progress changes
   const updateEmoji = (roundedValue: number) => {
@@ -132,9 +123,9 @@ export function MoodSlider({
     }
   };
 
-  // Update x position when slider width is known and component is ready
+  // Keep knob position synced with the current width/initial value.
   useEffect(() => {
-    if (sliderWidth > 0 && isReady) {
+    if (sliderWidth > 0) {
       const knobHalf = layout.knobSize / 2;
       const effectiveWidth = sliderWidth - layout.knobSize;
       // Map initialValue (0-100) to x position accounting for knob size
@@ -142,7 +133,7 @@ export function MoodSlider({
       x.value = xPosition;
       progress.value = initialValue;
     }
-  }, [sliderWidth, isReady, initialValue]);
+  }, [sliderWidth, initialValue]);
 
   // Calculate balloon visibility based on interaction or external control
   const balloonVisible = useDerivedValue(() => {
@@ -165,14 +156,9 @@ export function MoodSlider({
 
   // Create PanResponder for better gesture handling
   // Use refs to access current values in PanResponder callbacks
-  const isReadyRef = useRef(isReady);
   const sliderWidthRef = useRef(sliderWidth);
   const gestureGrantedRef = useRef(false);
   const panStartKnobXRef = useRef(0);
-  
-  useEffect(() => {
-    isReadyRef.current = isReady;
-  }, [isReady]);
   
   useEffect(() => {
     sliderWidthRef.current = sliderWidth;
@@ -206,7 +192,7 @@ export function MoodSlider({
         }
         // Capture if horizontal movement is detected or if movement is small (for taps)
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 3;
+        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 1;
       },
       onStartShouldSetPanResponderCapture: () => true, // Capture gesture before ScrollView can handle it
       onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
@@ -216,10 +202,10 @@ export function MoodSlider({
         }
         // Capture if horizontal movement is detected (slider interaction)
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 3;
+        return Math.abs(dx) > Math.abs(dy) || Math.abs(dx) > 1;
       },
       onPanResponderGrant: (evt) => {
-        if (!isReadyRef.current || sliderWidthRef.current === 0) return;
+        if (sliderWidthRef.current === 0) return;
         gestureGrantedRef.current = true;
         isPanActive.value = true;
         hasUserInteracted.value = true;
@@ -231,11 +217,14 @@ export function MoodSlider({
         const localTouchX = evt.nativeEvent?.locationX;
         if (typeof localTouchX === 'number' && Number.isFinite(localTouchX)) {
           updateFromTouchX(localTouchX);
-          panStartKnobXRef.current = localTouchX;
+          const knobHalf = layout.knobSize / 2;
+          const minX = knobHalf;
+          const maxX = sliderWidthRef.current - knobHalf;
+          panStartKnobXRef.current = Math.max(minX, Math.min(maxX, localTouchX));
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!isReadyRef.current || sliderWidthRef.current === 0) return;
+        if (sliderWidthRef.current === 0) return;
         const nextX = panStartKnobXRef.current + gestureState.dx;
         updateFromTouchX(nextX);
       },
@@ -326,15 +315,20 @@ export function MoodSlider({
   const sliderRef = useRef<View>(null);
   
   const handleLayout = (event: any) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) {
-      setSliderWidth(width);
+    const { width: measuredWidth } = event.nativeEvent.layout;
+    if (measuredWidth > 0) {
+      sliderWidthRef.current = measuredWidth;
+      setSliderWidth(measuredWidth);
+
+      // Initialize immediately on first layout so first drag starts from
+      // the correct knob position.
+      const knobHalf = layout.knobSize / 2;
+      const effectiveWidth = measuredWidth - layout.knobSize;
+      const xPosition = knobHalf + (initialValue / 100) * effectiveWidth;
+      x.value = xPosition;
+      progress.value = initialValue;
     }
   };
-
-  if (!isReady) {
-    return <View style={styles.sliderWrapper} />;
-  }
 
   return (
     <View 

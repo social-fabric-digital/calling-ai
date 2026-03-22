@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
+const isNarrowScreen = width <= 430;
 
 type TimerDuration = 5 | 15 | 30 | 60;
 type CloudPattern = {
@@ -1113,21 +1114,31 @@ export default function FocusScreen() {
           <FrostedCardLayer />
           <Text style={styles.selectDurationText}>{t('focus.selectDuration')}</Text>
           
-          <View style={[styles.timerOptionsContainer, isTabletLayout && styles.timerOptionsContainerTablet]}>
+          <View
+            style={[
+              styles.timerOptionsContainer,
+              isTabletLayout && styles.timerOptionsContainerTablet,
+              !isTabletLayout && isNarrowScreen && styles.timerOptionsContainerNarrow,
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.timerOptionCircle,
                 isTabletLayout && styles.timerOptionCircleTablet,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrow,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrowSpacing,
                 preSelectedDuration === 5 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(5)}
             >
               <Text style={[
                 styles.timerOptionNumber,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionNumberNarrow,
                 preSelectedDuration === 5 && styles.timerOptionNumberSelected
               ]}>5</Text>
               <Text style={[
                 styles.timerOptionLabel,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionLabelNarrow,
                 preSelectedDuration === 5 && styles.timerOptionLabelSelected
               ]}>{t('focus.minutes')}</Text>
             </TouchableOpacity>
@@ -1135,16 +1146,20 @@ export default function FocusScreen() {
               style={[
                 styles.timerOptionCircle,
                 isTabletLayout && styles.timerOptionCircleTablet,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrow,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrowSpacing,
                 preSelectedDuration === 15 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(15)}
             >
               <Text style={[
                 styles.timerOptionNumber,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionNumberNarrow,
                 preSelectedDuration === 15 && styles.timerOptionNumberSelected
               ]}>15</Text>
               <Text style={[
                 styles.timerOptionLabel,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionLabelNarrow,
                 preSelectedDuration === 15 && styles.timerOptionLabelSelected
               ]}>{t('focus.minutes')}</Text>
             </TouchableOpacity>
@@ -1152,16 +1167,20 @@ export default function FocusScreen() {
               style={[
                 styles.timerOptionCircle,
                 isTabletLayout && styles.timerOptionCircleTablet,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrow,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrowSpacing,
                 preSelectedDuration === 30 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(30)}
             >
               <Text style={[
                 styles.timerOptionNumber,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionNumberNarrow,
                 preSelectedDuration === 30 && styles.timerOptionNumberSelected
               ]}>30</Text>
               <Text style={[
                 styles.timerOptionLabel,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionLabelNarrow,
                 preSelectedDuration === 30 && styles.timerOptionLabelSelected
               ]}>{t('focus.minutes')}</Text>
             </TouchableOpacity>
@@ -1169,16 +1188,20 @@ export default function FocusScreen() {
               style={[
                 styles.timerOptionCircle,
                 isTabletLayout && styles.timerOptionCircleTablet,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrow,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionCircleNarrowSpacing,
                 preSelectedDuration === 60 && styles.timerOptionCircleSelected
               ]}
               onPress={() => selectDuration(60)}
             >
               <Text style={[
                 styles.timerOptionNumber,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionNumberNarrow,
                 preSelectedDuration === 60 && styles.timerOptionNumberSelected
               ]}>60</Text>
               <Text style={[
                 styles.timerOptionLabel,
+                !isTabletLayout && isNarrowScreen && styles.timerOptionLabelNarrow,
                 preSelectedDuration === 60 && styles.timerOptionLabelSelected
               ]}>{t('focus.minutes')}</Text>
             </TouchableOpacity>
@@ -1534,6 +1557,10 @@ const styles = StyleSheet.create({
     gap: 16,
     marginTop: 45,
   },
+  timerOptionsContainerNarrow: {
+    justifyContent: 'center',
+    gap: 7,
+  },
   timerOptionCircle: {
     width: 72,
     height: 72,
@@ -1551,6 +1578,14 @@ const styles = StyleSheet.create({
   },
   timerOptionCircleTablet: {
     marginHorizontal: 0,
+  },
+  timerOptionCircleNarrow: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+  },
+  timerOptionCircleNarrowSpacing: {
+    marginHorizontal: 3.5,
   },
   timerOptionCircleSelected: {
     backgroundColor: 'rgba(255, 255, 255, 0.94)',
@@ -1572,6 +1607,10 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     width: '100%',
   },
+  timerOptionNumberNarrow: {
+    fontSize: 21,
+    lineHeight: 22,
+  },
   timerOptionNumberSelected: {
     color: '#342846',
   },
@@ -1586,6 +1625,10 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     width: '100%',
     marginTop: 0,
+  },
+  timerOptionLabelNarrow: {
+    fontSize: 10,
+    lineHeight: 11,
   },
   timerOptionLabelSelected: {
     color: '#7a8a9a',

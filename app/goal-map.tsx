@@ -1042,7 +1042,7 @@ export default function GoalMapScreen() {
                   </ExpoLinearGradient>
                 ) : (
                   <View style={[styles.lockedCircle, iPadLockedCircleStyle]}>
-                    <MaterialIcons name="lock" size={Math.round(20 * levelIconScale)} color="rgba(255,255,255,0.5)" />
+                    <MaterialIcons name="lock" size={Math.round(20 * levelIconScale)} color="#342846" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -2467,7 +2467,7 @@ const styles = StyleSheet.create({
   },
   levelLabel: {
     ...HeadingStyle,
-    color: '#FFFFFF', // White for locked levels
+    color: '#342846', // Dark purple for locked levels
     fontSize: 12,
     marginBottom: 2,
     lineHeight: 14,
@@ -2510,7 +2510,7 @@ const styles = StyleSheet.create({
   },
   levelNameHeading: {
     ...BodyStyle,
-    color: '#FFFFFF', // White for locked levels (on dark background)
+    color: '#342846', // Dark purple for locked levels
     fontSize: 12,
     lineHeight: 16,
     marginBottom: 0,
@@ -2633,7 +2633,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.58)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
@@ -2641,7 +2641,7 @@ const styles = StyleSheet.create({
     // Note: React Native doesn't support dashed borders, using solid with opacity for distinction
   },
   lockedCalloutBox: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.56)',
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: 'rgba(255,255,255,0.25)',
@@ -2840,7 +2840,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     marginBottom: 202, // Increased by 170px total (70px + 100px) to move banner up
     padding: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
@@ -2871,7 +2871,7 @@ const styles = StyleSheet.create({
   encouragementText: {
     ...BodyStyle,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#342846',
     fontStyle: 'italic',
     fontFamily: 'AnonymousPro-Regular',
     flexShrink: 1,

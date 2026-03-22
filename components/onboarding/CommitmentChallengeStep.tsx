@@ -93,51 +93,52 @@ export default function CommitmentChallengeStep({ onContinue }: CommitmentChalle
           {t('onboarding.yazioFlow.commitmentChallengeQuestion')}
         </Text>
       </View>
-      <Text style={localStyles.challengeHeader}>{t('onboarding.yazioFlow.challengeTime')}</Text>
-      <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        {Boolean(selected) && (
-          <View style={localStyles.radiationLayer} pointerEvents="none">
-            <View style={localStyles.glowBase} />
-            {[pulseA, pulseB, pulseC].map((pulse, index) => (
-              <Animated.View
-                key={`radiation-${index}`}
-                style={[
-                  localStyles.radiationGlow,
-                  {
-                    opacity: pulse.interpolate({
-                      inputRange: [0, 0.18, 1],
-                      outputRange: [0, 0.22, 0],
-                    }),
-                    transform: [
-                      {
-                        scale: pulse.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.72, 2.15],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
-            ))}
+      <View style={localStyles.centeredCardSlot}>
+        <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
+          {Boolean(selected) && (
+            <View style={localStyles.radiationLayer} pointerEvents="none">
+              <View style={localStyles.glowBase} />
+              {[pulseA, pulseB, pulseC].map((pulse, index) => (
+                <Animated.View
+                  key={`radiation-${index}`}
+                  style={[
+                    localStyles.radiationGlow,
+                    {
+                      opacity: pulse.interpolate({
+                        inputRange: [0, 0.18, 1],
+                        outputRange: [0, 0.22, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: pulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.72, 2.15],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+          <View style={localStyles.pillWrap}>
+            {OPTIONS.map((optionId) => {
+              const isSelected = selected === optionId;
+              return (
+                <TouchableOpacity
+                  key={optionId}
+                  style={[localStyles.pill, isSelected && localStyles.pillSelected]}
+                  onPress={() => handleSelect(optionId)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[localStyles.pillText, isSelected && localStyles.pillTextSelected]}>
+                    {t(`onboarding.yazioFlow.commitmentChallengeOptions.${optionId}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
-        <View style={localStyles.pillWrap}>
-          {OPTIONS.map((optionId) => {
-            const isSelected = selected === optionId;
-            return (
-              <TouchableOpacity
-                key={optionId}
-                style={[localStyles.pill, isSelected && localStyles.pillSelected]}
-                onPress={() => handleSelect(optionId)}
-                activeOpacity={0.85}
-              >
-                <Text style={[localStyles.pillText, isSelected && localStyles.pillTextSelected]}>
-                  {t(`onboarding.yazioFlow.commitmentChallengeOptions.${optionId}`)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </View>
       <View style={localStyles.bottomButtonWrap}>
@@ -163,12 +164,15 @@ const localStyles = StyleSheet.create({
     paddingBottom: 0,
   },
   card: {
-    marginTop: 20,
     overflow: 'visible',
+  },
+  centeredCardSlot: {
+    flex: 1,
+    justifyContent: 'center',
   },
   headerSlot: {
     minHeight: 120,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   screenHeader: {
     fontSize: 24,
@@ -182,7 +186,7 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 0,
     textTransform: 'none',
-    marginTop: 120,
+    marginTop: 40,
   },
   pillWrap: {
     zIndex: 2,
@@ -227,14 +231,20 @@ const localStyles = StyleSheet.create({
   pill: {
     borderWidth: 1,
     borderColor: 'rgba(52, 40, 70, 0.25)',
-    borderRadius: 999,
+    borderRadius: 24,
     paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
   },
   pillSelected: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
+    borderWidth: 1.5,
     borderColor: '#342846',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.32,
+    shadowRadius: 8,
+    elevation: 4,
   },
   pillText: {
     ...styles.lifeContextOptionText,

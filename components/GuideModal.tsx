@@ -48,7 +48,7 @@ const getGuideSections = (isRussian: boolean): GuideSection[] => [
     id: 'ikigai-compass',
     icon: require('../assets/images/ikigaicompass.png'),
     iconType: 'image',
-    title: isRussian ? 'Мой путь' : 'My path',
+    title: isRussian ? 'Мой икигай' : 'My Ikigai',
     whatItDoes: isRussian ? 'Твое персональное направление и смысл' : 'Your personal direction and meaning',
     whenToUse: isRussian ? 'Открывай, когда потерял ориентир или не знаешь, куда идти' : "Open when you feel lost or don't know where to go",
     howItHelps: isRussian ? 'Возвращает к тому, что для тебя действительно важно' : 'Reconnects you to what truly matters to you',

@@ -122,7 +122,7 @@ const localStyles = StyleSheet.create({
   },
   headerSlot: {
     minHeight: 80,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   headerSlotRussian: {
     minHeight: 116,

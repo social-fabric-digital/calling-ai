@@ -107,7 +107,7 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonTitle}>{tr('My path', 'Мой путь')}</Text>
+              <Text style={styles.buttonTitle}>{tr('My Ikigai', 'Мой икигай')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

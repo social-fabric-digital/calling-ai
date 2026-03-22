@@ -39,7 +39,7 @@ import {
 } from '@/components/onboarding';
 import PaywallStep from '@/components/onboarding/PaywallStep';
 import { checkSubscriptionStatus } from '@/utils/superwall';
-import { generateUnifiedDestinyProfile } from '@/utils/claudeApi';
+import { generateUnifiedDestinyProfile, generateGoalSteps, generatePathContent } from '@/utils/claudeApi';
 import { trackLoginEvent } from '@/utils/appTracking';
 import { capitalizeUserName } from '@/utils/nameFormat';
 import {
@@ -66,10 +66,12 @@ import { supabase } from '../lib/supabase';
 
 const USE_YAZIO_FLOW = true;
 const APP_STORE_REVIEW_MODE = false; // Set to false after approval
-const REVIEW_NAME = 'Friend';
+const DEFAULT_ONBOARDING_NAME = 'Friend';
 const REVIEW_BIRTH_MONTH = '1';
 const REVIEW_BIRTH_DATE = '1';
 const REVIEW_BIRTH_YEAR = '1995';
+const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
+const PATH_EXPLORATION_CONTENT_VERSION = 4;
 
 const BASE_YAZIO_FLOW_STEPS = [
   'aboutYou',
@@ -102,11 +104,9 @@ const BASE_YAZIO_FLOW_STEPS = [
   'paywall',
 ] as const;
 type YazioFlowStepKey = (typeof BASE_YAZIO_FLOW_STEPS)[number];
-const YAZIO_FLOW_STEPS: YazioFlowStepKey[] = APP_STORE_REVIEW_MODE
-  ? BASE_YAZIO_FLOW_STEPS.filter(
-      (step): step is Exclude<YazioFlowStepKey, 'aboutYou'> => step !== 'aboutYou'
-    )
-  : [...BASE_YAZIO_FLOW_STEPS];
+const YAZIO_FLOW_STEPS: YazioFlowStepKey[] = BASE_YAZIO_FLOW_STEPS.filter(
+  (step): step is Exclude<YazioFlowStepKey, 'aboutYou'> => step !== 'aboutYou'
+);
 
 export default function OnboardingScreen() {
   const { t, i18n } = useTranslation();
@@ -182,7 +182,7 @@ export default function OnboardingScreen() {
   }, [params.step, slideWidth, ONBOARDING_STEPS, slideAnim, isAddGoalFlow]);
   
   // Form state for About You step
-  const [name, setName] = useState(APP_STORE_REVIEW_MODE ? REVIEW_NAME : '');
+  const [name, setName] = useState(DEFAULT_ONBOARDING_NAME);
   const normalizedName = capitalizeUserName(name);
   const [birthMonth, setBirthMonth] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_MONTH : '');
   const [birthDate, setBirthDate] = useState(APP_STORE_REVIEW_MODE ? REVIEW_BIRTH_DATE : '');
@@ -411,7 +411,7 @@ export default function OnboardingScreen() {
         }
         if (APP_STORE_REVIEW_MODE) {
           await AsyncStorage.multiSet([
-            ['userName', REVIEW_NAME],
+            ['userName', DEFAULT_ONBOARDING_NAME],
             ['birthMonth', REVIEW_BIRTH_MONTH],
             ['birthDate', REVIEW_BIRTH_DATE],
             ['birthYear', REVIEW_BIRTH_YEAR],
@@ -423,7 +423,7 @@ export default function OnboardingScreen() {
             ['birthMinute', ''],
             ['birthPeriod', ''],
           ]);
-          setName(REVIEW_NAME);
+          setName(DEFAULT_ONBOARDING_NAME);
           setBirthMonth(REVIEW_BIRTH_MONTH);
           setBirthDate(REVIEW_BIRTH_DATE);
           setBirthYear(REVIEW_BIRTH_YEAR);
@@ -563,7 +563,11 @@ export default function OnboardingScreen() {
           // Ignore parsing errors and use defaults
         }
 
-        if (storedName) setName(storedName);
+        if (storedName) {
+          setName(storedName);
+        } else {
+          setName(DEFAULT_ONBOARDING_NAME);
+        }
         if (storedBirthMonth) setBirthMonth(storedBirthMonth);
         if (storedBirthDate) setBirthDate(storedBirthDate);
         if (storedBirthYear) setBirthYear(storedBirthYear);
@@ -747,6 +751,69 @@ export default function OnboardingScreen() {
       const updatedGoals = [goalToSave, ...existingGoals];
       await AsyncStorage.setItem('userGoals', JSON.stringify(updatedGoals));
       void hapticSuccess();
+
+      // Kick off AI step generation in the background while the loading
+      // animation plays.  Custom paths that already carry user-written
+      // milestones are skipped — they don't need AI steps.
+      const hasUserMilestones = isCustomGoal && resolvedCustomPathData && resolvedCustomPathData.milestones.length > 0;
+      if (!hasUserMilestones) {
+        const goalId = goalToSave.id;
+        const bgPathName = isCustomGoal && resolvedCustomPathData
+          ? resolvedCustomPathData.pathName
+          : (exploringPathName || predefinedGoalTitle || undefined);
+        const bgPathDescription = isCustomGoal && resolvedCustomPathData
+          ? resolvedCustomPathData.pathDescription
+          : (exploringPathDescription || undefined);
+
+        goalGenerationPromiseRef.current = generateGoalSteps(
+          goalToSave.name,
+          birthMonth || '1',
+          birthDate || '1',
+          birthYear || '2000',
+          birthCity || undefined,
+          birthHour || undefined,
+          birthMinute || undefined,
+          birthAmPm || undefined,
+          whatYouLove || undefined,
+          whatYouGoodAt || undefined,
+          whatWorldNeeds || undefined,
+          whatCanBePaidFor || undefined,
+          fearOrBarrier || undefined,
+          dreamGoal || undefined,
+          bgPathName,
+          bgPathDescription,
+        ).then(async (generated) => {
+          try {
+            if (!Array.isArray(generated.steps) || generated.steps.length === 0) return;
+            const raw = await AsyncStorage.getItem('userGoals');
+            if (!raw) return;
+            const goals: any[] = JSON.parse(raw);
+            const idx = goals.findIndex((g: any) => g.id === goalId);
+            if (idx === -1) return;
+            const aiSteps = generated.steps.map((step: any, i: number) => ({
+              name: String(step.name || step.text || '').trim() || `Step ${i + 1}`,
+              description: String(step.description || '').trim() || `Complete step ${i + 1}.`,
+              order: Number(step.order) || i + 1,
+            }));
+            goals[idx] = {
+              ...goals[idx],
+              steps: aiSteps,
+              numberOfSteps: aiSteps.length,
+              ...(generated.estimatedDuration ? {
+                estimatedDuration: generated.estimatedDuration,
+                aiEstimatedDuration: generated.estimatedDuration,
+              } : {}),
+            };
+            await AsyncStorage.setItem('userGoals', JSON.stringify(goals));
+          } catch (err) {
+            console.warn('Failed to persist AI-generated steps:', err);
+          }
+        }).catch((err) => {
+          console.warn('Background goal step generation failed, fallback steps kept:', err);
+        });
+      } else {
+        goalGenerationPromiseRef.current = null;
+      }
       
       // Save to Supabase
       // Map timeline to valid database values
@@ -838,6 +905,155 @@ export default function OnboardingScreen() {
   // Ref to prevent saving the onboarding goal more than once
   // (both free and subscribe paths converge here).
   const goalSavedByPaywallRef = useRef(false);
+
+  // Holds the in-flight generateGoalSteps promise so the JourneyLoadingStep
+  // onComplete can await it before navigating to the goals screen.
+  const goalGenerationPromiseRef = useRef<Promise<void> | null>(null);
+  // Holds the in-flight path exploration generation so we can keep the
+  // journey loading screen visible until path goals are cached.
+  const pathExplorationGenerationPromiseRef = useRef<Promise<void> | null>(null);
+
+  const prewarmPathExplorationCache = async () => {
+    const pathName = selectedGoalTitle || localeText('Your personalized path', 'Твой персональный путь');
+    const pathDescription = dreamGoal || localeText('A path crafted from your onboarding answers.', 'Путь, созданный на основе твоих ответов в онбординге.');
+    const hasIkigaiData = Boolean(whatYouLove || whatYouGoodAt || whatWorldNeeds || whatCanBePaidFor);
+    const hasBirthData = Boolean(birthMonth && birthDate && birthYear);
+
+    const signature = JSON.stringify({
+      language: i18n.language || 'en',
+      contentVersion: PATH_EXPLORATION_CONTENT_VERSION,
+      pathName: pathName || '',
+      pathDescription: pathDescription || '',
+      birthMonth: birthMonth || '',
+      birthDate: birthDate || '',
+      birthYear: birthYear || '',
+      birthCity: birthCity || '',
+      birthHour: birthHour || '',
+      birthMinute: birthMinute || '',
+      birthPeriod: birthAmPm || '',
+      whatYouLove: whatYouLove || '',
+      whatYouGoodAt: whatYouGoodAt || '',
+      whatWorldNeeds: whatWorldNeeds || '',
+      whatCanBePaidFor: whatCanBePaidFor || '',
+      fear: fearOrBarrier || '',
+      whatExcites: dreamGoal || '',
+    });
+
+    const fallbackWhyFits = [
+      t('clarityMap.yourStrengthsAlign'),
+      t('clarityMap.directionMatchesValues'),
+      t('clarityMap.yourProfileSupports'),
+    ];
+
+    const fallbackGoals = [
+      {
+        id: '1',
+        title: (pathName || localeText('Your personalized path', 'Твой персональный путь')).toUpperCase(),
+        tag: t('clarityMap.leader'),
+        tagColor: '#342846',
+        duration: t('onboarding.threeMonths'),
+        steps: 6,
+        description: pathDescription || pathName,
+        fear: fearOrBarrier || '',
+        icon: 'business-center',
+        isRecommended: true,
+      },
+      {
+        id: '2',
+        title: localeText('BUILD CONSISTENT MOMENTUM', 'СОЗДАЙ УСТОЙЧИВЫЙ РИТМ').toUpperCase(),
+        tag: t('clarityMap.creator'),
+        tagColor: '#cdbad8',
+        duration: t('onboarding.threeMonths'),
+        steps: 6,
+        description: localeText('Turn your intention into consistent weekly progress.', 'Преврати намерение в стабильный еженедельный прогресс.'),
+        fear: fearOrBarrier || '',
+        icon: 'rocket-launch',
+      },
+      {
+        id: '3',
+        title: localeText('TURN PROGRESS INTO RESULTS', 'ПРЕВРАТИ ПРОГРЕСС В РЕЗУЛЬТАТ').toUpperCase(),
+        tag: t('clarityMap.explorer'),
+        tagColor: '#baccd7',
+        duration: t('onboarding.threeMonths'),
+        steps: 6,
+        description: localeText('Consolidate your gains and convert them into measurable outcomes.', 'Закрепи достижения и переведи их в измеримый результат.'),
+        fear: fearOrBarrier || '',
+        icon: 'explore',
+      },
+    ];
+
+    const persist = async (goals: any[], whyItFits: string[]) => {
+      try {
+        await AsyncStorage.setItem(
+          PATH_EXPLORATION_CACHE_KEY,
+          JSON.stringify({
+            signature,
+            goals,
+            whyItFits,
+          })
+        );
+      } catch {
+        // Non-blocking cache write.
+      }
+    };
+
+    if (!pathName || (!hasIkigaiData && !hasBirthData)) {
+      await persist(fallbackGoals, fallbackWhyFits);
+      return;
+    }
+
+    try {
+      const content = await generatePathContent(
+        pathName,
+        pathDescription || pathName,
+        birthMonth,
+        birthDate,
+        birthYear,
+        birthCity,
+        birthHour,
+        birthMinute,
+        birthAmPm,
+        whatYouLove,
+        whatYouGoodAt,
+        whatWorldNeeds,
+        whatCanBePaidFor,
+        fearOrBarrier,
+        dreamGoal
+      );
+
+      const iconMap = ['business-center', 'rocket-launch', 'explore'];
+      const tagMap = [t('clarityMap.leader'), t('clarityMap.creator'), t('clarityMap.explorer')];
+      const tagColorMap = ['#342846', '#cdbad8', '#baccd7'];
+
+      const aiGoals = Array.isArray(content?.goals)
+        ? content.goals.slice(0, 3).map((goal: any, index: number) => ({
+            id: String(goal?.id ?? index + 1),
+            title: String(goal?.title || '').toUpperCase(),
+            tag: tagMap[index] || t('clarityMap.goal'),
+            tagColor: tagColorMap[index] || '#342846',
+            duration: goal?.timeFrame || t('onboarding.threeMonths'),
+            steps: String(goal?.timeFrame || '').includes('four')
+              ? 4
+              : String(goal?.timeFrame || '').includes('eight')
+                ? 8
+                : 6,
+            description: goal?.description || goal?.title || pathName,
+            fear: goal?.fear || '',
+            icon: iconMap[index] || 'star',
+            isRecommended: index === 0,
+          }))
+        : [];
+
+      await persist(
+        aiGoals.length > 0 ? aiGoals : fallbackGoals,
+        Array.isArray(content?.whyFitsYou) && content.whyFitsYou.length > 0
+          ? content.whyFitsYou
+          : fallbackWhyFits
+      );
+    } catch (error) {
+      await persist(fallbackGoals, fallbackWhyFits);
+    }
+  };
 
   // Saves the goal selected/created during the YAZIO onboarding flow to
   // AsyncStorage (and Supabase when a user account exists) without showing
@@ -1905,8 +2121,7 @@ export default function OnboardingScreen() {
           }}
           onBack={(meta) => {
             void hapticMedium();
-            // If user backs out of paywall page 1, return to Calling Awaits (step 7),
-            // not to Create Account. Mark free route so paywall does not reopen instantly.
+            // Back arrow should navigate to the previous onboarding screen.
             setPendingRoute('free');
             setUserIsPremium(false);
             setShowPaywall(false);
@@ -1924,8 +2139,7 @@ export default function OnboardingScreen() {
             void hapticMedium();
             setPendingRoute('free');
             setUserIsPremium(false);
-            await markJustFinishedOnboarding();
-            replaceRouteSafely('/(tabs)');
+            setShowAccountCreation(true);
           }}
         />
       ) : showAccountCreation ? (
@@ -2276,7 +2490,15 @@ export default function OnboardingScreen() {
                 currentStep === index ? (
                   <JourneyLoadingStep
                     loadingItems={journeyLoadingItems}
-                    onComplete={() => {
+                    onComplete={async () => {
+                      if (pathExplorationGenerationPromiseRef.current) {
+                        try {
+                          await pathExplorationGenerationPromiseRef.current;
+                        } catch {
+                          // Continue to PathExplorationStep; it can regenerate as fallback.
+                        }
+                        pathExplorationGenerationPromiseRef.current = null;
+                      }
                       const pathExplorationIndex = YAZIO_FLOW_STEPS.indexOf('pathExploration');
                       if (pathExplorationIndex >= 0) {
                         setCurrentStep(pathExplorationIndex);
@@ -2297,6 +2519,7 @@ export default function OnboardingScreen() {
                   clarityEstimateDays={clarityEstimateDays}
                   onContinue={async () => {
                     setCanShowFinalPaywall(true);
+                    pathExplorationGenerationPromiseRef.current = prewarmPathExplorationCache();
                     if (journeyLoadingItems.length === 0) {
                       setJourneyLoadingItems([
                         localeText('Analyzing your strengths', 'Анализируем твои сильные стороны'),
@@ -2327,6 +2550,7 @@ export default function OnboardingScreen() {
                     }}
                     onBack={async () => {
                       void hapticMedium();
+                      // Back arrow should navigate to the previous onboarding screen.
                       setPendingRoute('free');
                       setUserIsPremium(false);
                       setCanShowFinalPaywall(false);
@@ -2344,10 +2568,8 @@ export default function OnboardingScreen() {
                       void hapticMedium();
                       setPendingRoute('free');
                       setUserIsPremium(false);
-                      await saveGoalToStorage();
-                      await markJustFinishedOnboarding();
-                      // Defer so navigator is mounted (avoids "navigate before mounting Root Layout")
-                      replaceRouteSafely('/(tabs)');
+                      setCanShowFinalPaywall(false);
+                      setShowAccountCreation(true);
                     }}
                   />
                 ) : (
@@ -2478,6 +2700,10 @@ export default function OnboardingScreen() {
                 <JourneyLoadingStep
                   loadingItems={journeyLoadingItems}
                   onComplete={async () => {
+                    if (goalGenerationPromiseRef.current) {
+                      await goalGenerationPromiseRef.current;
+                      goalGenerationPromiseRef.current = null;
+                    }
                     setShowJourneyLoading(false);
                     if (exploringPathId) {
                       // After creating a goal, land on Active Goals.
@@ -2704,6 +2930,10 @@ export default function OnboardingScreen() {
                 <JourneyLoadingStep
                   loadingItems={journeyLoadingItems}
                   onComplete={async () => {
+                    if (goalGenerationPromiseRef.current) {
+                      await goalGenerationPromiseRef.current;
+                      goalGenerationPromiseRef.current = null;
+                    }
                     setShowJourneyLoading(false);
                     await markJustFinishedOnboarding();
                     replaceRouteSafely(postGoalCreationRoute);

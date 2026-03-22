@@ -12,7 +12,7 @@ import {
 } from '@/utils/haptics';
 import { changeLanguage } from '@/utils/i18n';
 import { capitalizeUserName } from '@/utils/nameFormat';
-import { restorePurchases } from '@/utils/superwall';
+import { checkSubscriptionStatus, restorePurchases, triggerPaywall } from '@/utils/superwall';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   cancelAllNotifications,
@@ -211,7 +211,7 @@ export default function SettingsScreen() {
 
   const handleUpgrade = async () => {
     void hapticMedium();
-    try {
+    const openStoreSubscriptions = async () => {
       if (Platform.OS === 'ios') {
         const canOpenNative = await Linking.canOpenURL(APPLE_SUBSCRIPTIONS_URL);
         if (canOpenNative) {
@@ -228,6 +228,27 @@ export default function SettingsScreen() {
       }
 
       await Linking.openURL(APP_STORE_URL || APPLE_SUBSCRIPTIONS_FALLBACK_URL);
+    };
+
+    try {
+      // Best UX: attempt in-app paywall first.
+      const paywallResult = await triggerPaywall('settings_upgrade');
+      if (paywallResult.purchased) {
+        await refreshSubscription();
+        void hapticSuccess();
+        return;
+      }
+
+      // Some purchase flows can return without an explicit "purchased" result.
+      const premiumAfterPaywall = await checkSubscriptionStatus();
+      if (premiumAfterPaywall) {
+        await refreshSubscription();
+        void hapticSuccess();
+        return;
+      }
+
+      // If paywall is unavailable/skipped/dismissed, fallback to store subscriptions.
+      await openStoreSubscriptions();
     } catch (error) {
       console.error('Upgrade flow error:', error);
       void hapticError();
@@ -837,7 +858,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 999,
     backgroundColor: '#f0edf3',
   },
   languagePillActive: {
@@ -856,7 +877,7 @@ const styles = StyleSheet.create({
   planBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 12,
     backgroundColor: '#f0edf3',
   },
   planBadgePremium: {

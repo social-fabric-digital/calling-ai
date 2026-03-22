@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, FlatList, Keyboard, KeyboardAvoidingView, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Animated, FlatList, Keyboard, KeyboardAvoidingView, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedCardLayer } from '@/components/FrostedCardLayer';
 import { hapticMedium } from '@/utils/haptics';
@@ -427,6 +427,10 @@ function IkigaiForm({
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const isCompactScreen = viewportHeight < 760;
+  const isNarrowScreen = viewportWidth < 420;
+  const shouldUseShortNextLabel = isCompactScreen || isNarrowScreen;
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -583,6 +587,15 @@ function IkigaiForm({
     }
   }, [isLoaded]);
 
+  // On compact devices, force initial scroll position so the title stays visible.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isLoaded]);
+
   // Dynamic progress bar width
   const progressWidth = scrollX.interpolate({
     inputRange: [0, containerWidth * (questions.length - 1)],
@@ -682,7 +695,13 @@ function IkigaiForm({
           <ScrollView
             ref={scrollViewRef}
             style={styles.ikigaiScrollView}
-            contentContainerStyle={styles.ikigaiScrollContent}
+            contentContainerStyle={[
+              styles.ikigaiScrollContent,
+              isCompactScreen && {
+                paddingTop: Math.max(6, insets.top * 0.25),
+                paddingBottom: 104,
+              },
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -702,7 +721,13 @@ function IkigaiForm({
         </Animated.View>
 
         {/* Dynamic Visual */}
-        <Animated.View style={[styles.ikigaiVisualArea, { opacity: fadeAnim }]}>
+        <Animated.View
+          style={[
+            styles.ikigaiVisualArea,
+            isCompactScreen && { height: 92, marginTop: 12, marginBottom: 6 },
+            { opacity: fadeAnim },
+          ]}
+        >
           <IkigaiVisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
         </Animated.View>
 
@@ -747,6 +772,7 @@ function IkigaiForm({
         <Animated.View 
           style={[
             styles.ikigaiCarouselContainer,
+            isCompactScreen && { minHeight: 330, marginTop: -12 },
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
@@ -794,10 +820,19 @@ function IkigaiForm({
           </ScrollView>
           
           {/* Bottom Navigation - Outside ScrollView for absolute positioning */}
-          <View style={styles.ikigaiBottomNav}>
+          <View
+            style={[
+              styles.ikigaiBottomNav,
+              {
+                paddingBottom: Math.max(16, insets.bottom + 12),
+                paddingHorizontal: isCompactScreen ? 20 : 40,
+                paddingTop: isCompactScreen ? 10 : 16,
+              },
+            ]}
+          >
         {currentIndex > 0 && (
           <TouchableOpacity 
-            style={styles.ikigaiBackButtonNav} 
+            style={[styles.ikigaiBackButtonNav, isCompactScreen && { paddingHorizontal: 16, paddingVertical: 14 }]} 
             onPressIn={() => {
               void hapticMedium();
             }}
@@ -828,7 +863,9 @@ function IkigaiForm({
         >
           <View style={styles.ikigaiNextButtonContent}>
             <Text style={styles.ikigaiNextButtonText} numberOfLines={1} ellipsizeMode="tail">
-              {isLastQuestion ? t('common.continue') : t('onboarding.nextQuestion')}
+              {isLastQuestion
+                ? t('common.continue')
+                : (shouldUseShortNextLabel ? (isRussian ? 'Далее' : 'Next') : t('onboarding.nextQuestion'))}
             </Text>
             {!isLastQuestion && (
               <MaterialIcons 

@@ -753,9 +753,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'none',
     marginTop: 0,
-    textShadowColor: 'rgba(255, 255, 255, 0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   heroSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
@@ -807,6 +804,7 @@ const styles = StyleSheet.create({
     ...HeadingStyle,
     fontSize: 16,
     color: COLORS.primary,
+    letterSpacing: 0,
   },
 
   // Input Styles
@@ -824,6 +822,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.primary,
     opacity: 1,
+    marginTop: 4,
     marginBottom: 10,
   },
   textInput: {
@@ -856,6 +855,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     opacity: 1,
+    marginTop: 4,
     marginBottom: 16,
   },
   milestoneList: {
@@ -937,6 +937,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     opacity: 1,
+    marginTop: 4,
     marginBottom: 16,
   },
   timelineGrid: {
@@ -976,6 +977,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.primary,
     marginBottom: 2,
+    textTransform: 'none',
   },
   timelineDescription: {
     fontFamily: 'AnonymousPro-Regular',

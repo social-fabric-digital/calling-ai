@@ -11,6 +11,7 @@ interface ThankYouAtlasStepProps {
   name?: string;
   onContinue: () => void;
 }
+const ATLAS_BLOCK_BOTTOM_OFFSET = 140;
 
 export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasStepProps) {
   const { t, i18n } = useTranslation();
@@ -72,22 +73,24 @@ export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasSte
       <Text style={localStyles.heading}>{t('onboarding.yazioFlow.thankYouAtlasTitle')}</Text>
       <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
 
-      <View style={localStyles.speechWrap}>
-        <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-          <Text style={localStyles.subheading}>{personalizedText}</Text>
+      <View style={localStyles.atlasStage}>
+        <View style={localStyles.speechWrap}>
+          <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
+            <Text style={localStyles.subheading}>{personalizedText}</Text>
+          </View>
+          <View style={localStyles.bubbleTailWrap}>
+            <View style={localStyles.bubbleTailLarge} />
+            <View style={localStyles.bubbleTailSmall} />
+          </View>
         </View>
-        <View style={localStyles.bubbleTailWrap}>
-          <View style={localStyles.bubbleTailLarge} />
-          <View style={localStyles.bubbleTailSmall} />
-        </View>
-      </View>
 
-      <View style={localStyles.atlasWrap}>
-        <Image
-          source={require('../../assets/images/deer.face.png')}
-          style={localStyles.atlasImage}
-          resizeMode="contain"
-        />
+        <View style={localStyles.atlasWrap}>
+          <Image
+            source={require('../../assets/images/deer.face.png')}
+            style={localStyles.atlasImage}
+            resizeMode="contain"
+          />
+        </View>
       </View>
 
       <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
@@ -107,10 +110,14 @@ const localStyles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 20,
   },
+  atlasStage: {
+    width: '100%',
+    marginTop: 'auto',
+    marginBottom: ATLAS_BLOCK_BOTTOM_OFFSET,
+  },
   speechWrap: {
     width: '100%',
-    marginTop: 20,
-    transform: [{ translateY: 75 }],
+    marginTop: 15,
   },
   card: {
     alignItems: 'center',
@@ -143,7 +150,6 @@ const localStyles = StyleSheet.create({
     alignItems: 'flex-end',
     marginTop: -4,
     paddingRight: 8,
-    transform: [{ translateY: 75 }],
   },
   atlasImage: {
     width: 170,

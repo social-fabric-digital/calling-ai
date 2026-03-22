@@ -299,16 +299,32 @@ function ConclusionCard({ conclusion, isVisible, isComplete, isGenerating, isLoc
           </View>
 
           {/* Title */}
-          <Text style={styles.conclusionTitle}>{isRussian ? 'ТВОЙ СМЫСЛ' : 'YOUR PURPOSE'}</Text>
+          <Text style={styles.conclusionTitle}>
+            {isLocked
+              ? (isRussian ? 'ГОТОВ ЛИ ТЫ К СВОЕМУ ИКИГАЙ?' : 'ARE YOU READY FOR YOUR IKIGAI?')
+              : (isRussian ? 'ТВОЙ СМЫСЛ' : 'YOUR PURPOSE')}
+          </Text>
 
           {/* Content */}
           {isLocked ? (
             <View style={styles.lockedContent}>
+              <Text style={styles.lockedSubtitle}>
+                {isRussian ? 'Открой персональный смысл и путь в один шаг.' : 'Unlock your personalized purpose in one tap.'}
+              </Text>
               <Image
                 source={require('../assets/images/lock.png')}
                 style={styles.lockIcon}
                 resizeMode="contain"
               />
+              <TouchableOpacity
+                style={styles.unlockIkigaiButton}
+                onPress={onPress}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.unlockIkigaiButtonText}>
+                  {isRussian ? 'Разблокировать икигай' : 'Unlock Your Ikigai'}
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : isComplete && conclusion ? (
             <View style={styles.conclusionContent}>
@@ -776,7 +792,7 @@ export default function IkigaiSummaryScreen({
               <MaterialIcons name="arrow-back" size={24} color="#342846" />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>{tr('My Path', 'Мой путь')}</Text>
+              <Text style={styles.headerTitle}>{tr('My Ikigai', 'Мой икигай')}</Text>
             </View>
             <TouchableOpacity 
               style={styles.helpButton} 
@@ -1095,7 +1111,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#342846',
     marginBottom: 3,
-    letterSpacing: 0.5,
   },
   cardSubtitle: {
     fontFamily: 'AnonymousPro-Regular',
@@ -1190,7 +1205,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
-    letterSpacing: 1,
   },
   conclusionContent: {
     paddingHorizontal: 8,
@@ -1199,10 +1213,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    gap: 14,
+  },
+  lockedSubtitle: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.88)',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 8,
   },
   lockIcon: {
     width: 72,
     height: 72,
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  unlockIkigaiButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+  },
+  unlockIkigaiButtonText: {
+    fontFamily: 'AnonymousPro-Regular',
+    fontSize: 16,
+    color: '#342846',
   },
   conclusionText: {
     fontFamily: 'AnonymousPro-Regular',

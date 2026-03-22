@@ -2272,7 +2272,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={false}
-          scrollEnabled
+          scrollEnabled={!isSliderInteracting}
         >
 
         {/* Reserve daily question space to avoid layout jumps below */}
@@ -2499,7 +2499,7 @@ export default function HomeScreen() {
                         <Ionicons name="compass-outline" size={20} color="#FFFFFF" style={styles.exploreCardIcon} />
                         <View style={styles.buttonTextContainer}>
                           <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
-                            {tr('My Path', 'Мой путь')}
+                            {tr('My Ikigai', 'Мой икигай')}
                           </Text>
                           <Text style={styles.buttonSubtitle}>{tr('Purpose map', 'Карта смысла')}</Text>
                         </View>

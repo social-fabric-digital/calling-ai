@@ -112,7 +112,7 @@ const localStyles = StyleSheet.create({
   },
   headerSlot: {
     minHeight: 80,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   card: {
     marginTop: 8,

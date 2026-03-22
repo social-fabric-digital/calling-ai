@@ -1247,7 +1247,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   step3OptionCardSelected: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
     borderColor: '#342846',
   },
   step3OptionTitle: {
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   challengeCardSelected: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
     borderColor: '#342846',
   },
   challengeOptionText: {
@@ -1344,7 +1344,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   timelineCardSelected: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
     borderColor: '#342846',
   },
   timelineIconContainer: {
@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#342846',
     marginBottom: 2,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   timelineDescription: {
     fontFamily: 'AnonymousPro-Regular',

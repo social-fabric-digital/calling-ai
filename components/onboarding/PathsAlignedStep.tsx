@@ -780,9 +780,6 @@ export default function PathsAlignedStep({
             styles.headerTitle,
             headerTitleColor ? {
               color: headerTitleColor,
-              textShadowColor: 'rgba(30, 20, 50, 0.55)',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 6,
             } : undefined,
           ]}>
             {t('onboarding.whichDirectionCallsYou').replace('{newline}', ' ')}

@@ -11,6 +11,7 @@ interface WelcomeAtlasStepProps {
   name?: string;
   onContinue: () => void;
 }
+const ATLAS_BLOCK_BOTTOM_OFFSET = 140;
 
 export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepProps) {
   const { t, i18n } = useTranslation();
@@ -55,6 +56,9 @@ export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepP
   const introText = i18n.language?.toLowerCase().startsWith('ru')
     ? 'Я Атлас, и я буду твоим проводником.'
     : "I'm Atlas, and I'll be your guide.";
+  const headingSubtitle = i18n.language?.toLowerCase().startsWith('ru')
+    ? 'Давай сделаем твой следующий шаг ясным и выполнимым.'
+    : "Let's make your next step clear and doable.";
 
   const handleContinue = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,22 +72,25 @@ export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepP
         <Text style={localStyles.heading}>
           {displayName ? `${headingPrefix}\n${displayName}!` : t('onboarding.yazioFlow.welcomeAtlasTitle')}
         </Text>
-        <View style={localStyles.atlasWrap}>
-          <View style={localStyles.thoughtBubbleWrap}>
-            <View style={localStyles.introField}>
-              <Text style={localStyles.subheading}>{introText}</Text>
+        <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
+        <View style={localStyles.atlasStage}>
+          <View style={localStyles.atlasWrap}>
+            <View style={localStyles.thoughtBubbleWrap}>
+              <View style={localStyles.introField}>
+                <Text style={localStyles.subheading}>{introText}</Text>
+              </View>
+              <View style={localStyles.tailBubbleStack}>
+                <View style={[localStyles.tailBubble, localStyles.tailBubbleLarge]} />
+                <View style={[localStyles.tailBubble, localStyles.tailBubbleMedium]} />
+                <View style={[localStyles.tailBubble, localStyles.tailBubbleSmall]} />
+              </View>
             </View>
-            <View style={localStyles.tailBubbleStack}>
-              <View style={[localStyles.tailBubble, localStyles.tailBubbleLarge]} />
-              <View style={[localStyles.tailBubble, localStyles.tailBubbleMedium]} />
-              <View style={[localStyles.tailBubble, localStyles.tailBubbleSmall]} />
-            </View>
+            <Image
+              source={require('../../assets/images/full.deer.png')}
+              style={localStyles.atlasImage}
+              resizeMode="contain"
+            />
           </View>
-          <Image
-            source={require('../../assets/images/full.deer.png')}
-            style={localStyles.atlasImage}
-            resizeMode="contain"
-          />
         </View>
       </View>
 
@@ -106,18 +113,24 @@ const localStyles = StyleSheet.create({
   },
   centerContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+  },
+  atlasStage: {
+    width: '100%',
+    marginTop: 'auto',
+    marginBottom: ATLAS_BLOCK_BOTTOM_OFFSET,
   },
   atlasWrap: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 0,
   },
   thoughtBubbleWrap: {
     width: '100%',
     alignItems: 'center',
     zIndex: 2,
+    marginTop: 15,
   },
   atlasImage: {
     width: 358,
@@ -131,7 +144,16 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'none',
     letterSpacing: 0,
-    marginBottom: 18,
+    marginBottom: 6,
+  },
+  headingSubtitle: {
+    ...BodyStyle,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.92,
+    lineHeight: 22,
+    marginBottom: 8,
+    paddingHorizontal: 14,
   },
   subheading: {
     ...BodyStyle,

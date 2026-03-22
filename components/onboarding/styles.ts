@@ -1703,7 +1703,7 @@ export const styles = StyleSheet.create({
   },
   journeyLoadingTitle: {
     ...HeadingStyle,
-    color: '#FFFFFF',
+    color: '#342846',
     marginBottom: 40,
     textAlign: 'center',
     textTransform: 'none',
@@ -3522,8 +3522,14 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   lifeContextOptionSelectedSoft: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
+    borderWidth: 1.5,
     borderColor: '#342846',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.32,
+    shadowRadius: 8,
+    elevation: 4,
   },
   lifeContextOptionTextSelectedSoft: {
     color: '#342846',

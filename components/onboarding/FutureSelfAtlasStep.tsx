@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { HeadingStyle, BodyStyle } from '@/constants/theme';
@@ -9,9 +9,16 @@ import { persistOnboardingAnswer } from './persistOnboardingAnswer';
 interface FutureSelfAtlasStepProps {
   onContinue: () => void;
 }
+const ATLAS_BLOCK_BOTTOM_OFFSET = 140;
 
 export default function FutureSelfAtlasStep({ onContinue }: FutureSelfAtlasStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const isCompactScreen = viewportHeight < 760;
+  const atlasImageSize = Math.min(358, Math.max(220, viewportWidth * (isCompactScreen ? 0.58 : 0.72)));
+  const atlasImageTopMargin = isCompactScreen ? -18 : -12;
+  const atlasImageBottomMargin = isCompactScreen ? 4 : 14;
+  const thoughtBubbleWidth = Math.min(viewportWidth - 40, 420);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const bubbleAnim = useRef(new Animated.Value(0.96)).current;
   const atlasFloatAnim = useRef(new Animated.Value(0)).current;
@@ -63,23 +70,36 @@ export default function FutureSelfAtlasStep({ onContinue }: FutureSelfAtlasStepP
       <Text style={localStyles.heading}>{t('onboarding.yazioFlow.futureSelfAtlasTitle')}</Text>
       <Text style={localStyles.headingSubtitle}>{t('onboarding.yazioFlow.futureSelfAtlasSubtitle')}</Text>
 
-      <Animated.View style={[localStyles.speechWrap, { transform: [{ scale: bubbleAnim }, { translateY: 70 }] }]}>
-        <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-          <Text style={localStyles.subheading}>{t('onboarding.yazioFlow.futureSelfAtlasText')}</Text>
-        </View>
-        <View style={localStyles.bubbleTailWrap}>
-          <View style={localStyles.bubbleTailLarge} />
-          <View style={localStyles.bubbleTailSmall} />
-        </View>
-      </Animated.View>
+      <View style={localStyles.atlasStage}>
+        <Animated.View style={[localStyles.speechWrap, { transform: [{ scale: bubbleAnim }] }]}>
+          <View style={localStyles.thoughtBubbleWrap}>
+            <View style={[localStyles.introField, { width: thoughtBubbleWidth, alignSelf: 'center' }]}>
+              <Text style={localStyles.subheading}>{t('onboarding.yazioFlow.futureSelfAtlasText')}</Text>
+            </View>
+            <View style={localStyles.tailBubbleStack}>
+              <View style={[localStyles.tailBubble, localStyles.tailBubbleLarge]} />
+              <View style={[localStyles.tailBubble, localStyles.tailBubbleMedium]} />
+              <View style={[localStyles.tailBubble, localStyles.tailBubbleSmall]} />
+            </View>
+          </View>
+        </Animated.View>
 
-      <Animated.View style={[localStyles.atlasWrap, { transform: [{ translateY: atlasFloatAnim }, { translateY: 70 }] }]}>
-        <Image
-          source={require('../../assets/images/deer.face.png')}
-          style={localStyles.atlasImage}
-          resizeMode="contain"
-        />
-      </Animated.View>
+        <Animated.View style={[localStyles.atlasWrap, { transform: [{ translateY: atlasFloatAnim }] }]}>
+          <Image
+            source={require('../../assets/images/full.deer.png')}
+            style={[
+              localStyles.atlasImage,
+              {
+                width: atlasImageSize,
+                height: atlasImageSize,
+                marginTop: atlasImageTopMargin,
+                marginBottom: atlasImageBottomMargin,
+              },
+            ]}
+            resizeMode="contain"
+          />
+        </Animated.View>
+      </View>
 
       <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
         <TouchableOpacity style={[styles.continueButton, localStyles.ctaButton]} onPress={handleContinue} activeOpacity={0.85}>
@@ -114,13 +134,20 @@ const localStyles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 14,
   },
+  atlasStage: {
+    width: '100%',
+    marginTop: 'auto',
+    marginBottom: ATLAS_BLOCK_BOTTOM_OFFSET,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   speechWrap: {
     width: '100%',
-    marginTop: 20,
-  },
-  card: {
+    maxWidth: 560,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    zIndex: 2,
+    marginTop: 6,
+    alignSelf: 'center',
   },
   subheading: {
     ...BodyStyle,
@@ -128,37 +155,63 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  bubbleTailWrap: {
-    alignItems: 'flex-end',
-    marginTop: -2,
-    paddingRight: 42,
+  thoughtBubbleWrap: {
+    width: '100%',
+    alignItems: 'center',
+    alignSelf: 'center',
+    zIndex: 2,
+    marginTop: 15,
   },
-  bubbleTailLarge: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  introField: {
+    backgroundColor: 'rgba(255, 255, 255, 0.93)',
     borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderColor: 'rgba(52, 40, 70, 0.22)',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    shadowColor: '#342846',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  bubbleTailSmall: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 40, 70, 0.16)',
+  tailBubbleStack: {
+    width: 120,
+    alignItems: 'center',
     marginTop: 4,
-    marginRight: 12,
+  },
+  tailBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.93)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 40, 70, 0.16)',
+    borderRadius: 999,
+  },
+  tailBubbleLarge: {
+    width: 18,
+    height: 18,
+  },
+  tailBubbleMedium: {
+    width: 12,
+    height: 12,
+    marginTop: 4,
+    marginLeft: 20,
+  },
+  tailBubbleSmall: {
+    width: 8,
+    height: 8,
+    marginTop: 4,
+    marginLeft: 34,
   },
   atlasWrap: {
-    alignItems: 'flex-end',
-    marginTop: -4,
-    paddingRight: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: -8,
   },
   atlasImage: {
-    width: 170,
-    height: 170,
+    width: 358,
+    height: 358,
+    marginTop: -12,
+    marginBottom: 14,
   },
   bottomButtonWrap: {
     position: 'absolute',

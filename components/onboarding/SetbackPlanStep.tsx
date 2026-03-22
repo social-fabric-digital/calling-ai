@@ -94,7 +94,7 @@ const localStyles = StyleSheet.create({
   },
   headerSlot: {
     minHeight: 120,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   screenHeader: {
     fontSize: 24,
@@ -109,8 +109,14 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   optionSelected: {
-    backgroundColor: 'rgba(186, 172, 202, 0.45)',
+    backgroundColor: 'rgba(186, 172, 202, 0.72)',
+    borderWidth: 1.5,
     borderColor: '#342846',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.32,
+    shadowRadius: 8,
+    elevation: 4,
   },
   optionText: {
     flex: 0,

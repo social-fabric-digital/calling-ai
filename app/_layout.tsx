@@ -136,18 +136,18 @@ export default function RootLayout() {
       try {
         setLoadProgress(10);
 
-        // Phase 1: language — minimum 2.5s so cloud is just entering the screen
+        // Phase 1: language — slightly shorter to speed up perceived startup
         await Promise.all([
           loadLanguagePreference(),
           Asset.loadAsync(PRELOAD_ASSETS).catch(() => {}),
-          new Promise((r) => setTimeout(r, 2500)),
+          new Promise((r) => setTimeout(r, 1800)),
         ]);
         setLoadProgress(30);
 
-        // Phase 2: session tracking — another 2.5s, cloud mid-screen
+        // Phase 2: session tracking — slightly shorter hold
         await Promise.all([
           trackAppSession(),
-          new Promise((r) => setTimeout(r, 2500)),
+          new Promise((r) => setTimeout(r, 1800)),
         ]);
         setLoadProgress(50);
 
@@ -155,13 +155,13 @@ export default function RootLayout() {
         // Avoid eager network requests at app boot, which can throw
         // intermittent "Network request failed" errors on unstable connections.
         await Promise.all([
-          new Promise((r) => setTimeout(r, 1500)),
+          new Promise((r) => setTimeout(r, 1000)),
         ]);
         setLoadProgress(85); // Atlas appears here (~6.5s in, cloud on 2nd pass)
 
-        // Hold on Atlas for at least 2.5s so it's clearly visible
+        // Keep Atlas visible while reducing total splash duration
         const elapsed = Date.now() - splashStart;
-        const remaining = Math.max(9500 - elapsed, 2500);
+        const remaining = Math.max(7800 - elapsed, 1800);
         await new Promise((r) => setTimeout(r, remaining));
 
         setLoadProgress(100);
