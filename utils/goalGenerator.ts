@@ -74,7 +74,7 @@ Return ONLY valid JSON, no other text.
 ${isRussian() ? '\nIMPORTANT: All goal name, step names, descriptions, duration and fear fields must be in Russian.' : ''}`;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_GOALS || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
       throw new Error('API key missing');
@@ -324,7 +324,7 @@ Return ONLY valid JSON, no other text.
 ${isRussian() ? '\nIMPORTANT: All output fields must be in Russian.' : ''}`;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_GOALS || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
       throw new Error('API key missing');

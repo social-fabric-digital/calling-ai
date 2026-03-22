@@ -6,6 +6,7 @@ import { checkSubscriptionStatus } from '@/utils/superwall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import i18n from '@/utils/i18n';
 import { useTranslation } from 'react-i18next';
 import { Image, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -119,10 +120,16 @@ export default function NewGoalScreen() {
             let levelName = step.name || step.text || '';
             levelName = levelName.replace(/^(Level|Step)\s*\d+\s*:?\s*/i, '').trim();
             
+            const isRussian = i18n.language?.startsWith('ru');
+            const ruFallbackNames = ['Фундамент', 'Развитие навыков', 'Набор импульса', 'Мастерство'];
+            const enFallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
+
             // Extract description
             let description = step.description || '';
             if (!description && levelName) {
-              description = `Complete ${levelName.toLowerCase()} to progress`;
+              description = isRussian
+                ? `Выполни «${levelName}» для продвижения вперёд`
+                : `Complete ${levelName.toLowerCase()} to progress`;
             }
             
             // Ensure description is short
@@ -135,28 +142,30 @@ export default function NewGoalScreen() {
             
             // Fallback if no name
             if (!levelName) {
-              const fallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
-              levelName = fallbackNames[(step.number || step.order || 1) - 1] || `Level ${step.number || step.order || 1}`;
+              const fallbackNames = isRussian ? ruFallbackNames : enFallbackNames;
+              levelName = fallbackNames[(step.number || step.order || 1) - 1] || (isRussian ? `Уровень ${step.number || step.order || 1}` : `Level ${step.number || step.order || 1}`);
             }
             
             return {
               name: levelName,
-              description: description || `Complete ${levelName.toLowerCase()} to progress`,
+              description: description || (isRussian ? `Выполни «${levelName}» для продвижения вперёд` : `Complete ${levelName.toLowerCase()} to progress`),
               order: step.order || step.number || 1,
               number: step.number || step.order || 1,
               text: levelName, // Keep for backward compatibility
             };
           });
         } else {
+          const isRussian = i18n.language?.startsWith('ru');
+          const ruFb = ['Фундамент', 'Развитие навыков', 'Набор импульса', 'Мастерство'];
+          const enFb = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
           milestoneSteps = pathData.milestones.map((milestone, index) => {
             let cleanName = milestone.replace(/^(Level|Step)\s*\d+\s*:?\s*/i, '').trim();
             if (!cleanName || /^(Step|Level)\s*\d+$/i.test(cleanName)) {
-              const fallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
-              cleanName = fallbackNames[index] || `Level ${index + 1}`;
+              cleanName = (isRussian ? ruFb : enFb)[index] || (isRussian ? `Уровень ${index + 1}` : `Level ${index + 1}`);
             }
             return {
               name: cleanName,
-              description: `Complete ${cleanName.toLowerCase()} to progress`,
+              description: isRussian ? `Выполни «${cleanName}» для продвижения вперёд` : `Complete ${cleanName.toLowerCase()} to progress`,
               order: index + 1,
               number: index + 1,
               text: cleanName,
@@ -165,15 +174,17 @@ export default function NewGoalScreen() {
         }
       } else {
         // Free users: use manual milestones without AI
+        const isRussian = i18n.language?.startsWith('ru');
+        const ruFb = ['Фундамент', 'Развитие навыков', 'Набор импульса', 'Мастерство'];
+        const enFb = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
         milestoneSteps = pathData.milestones.map((milestone, index) => {
           let cleanName = milestone.replace(/^(Level|Step)\s*\d+\s*:?\s*/i, '').trim();
           if (!cleanName || /^(Step|Level)\s*\d+$/i.test(cleanName)) {
-            const fallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
-            cleanName = fallbackNames[index] || `Level ${index + 1}`;
+            cleanName = (isRussian ? ruFb : enFb)[index] || (isRussian ? `Уровень ${index + 1}` : `Level ${index + 1}`);
           }
           return {
             name: cleanName,
-            description: `Complete ${cleanName.toLowerCase()} to progress`,
+            description: isRussian ? `Выполни «${cleanName}» для продвижения вперёд` : `Complete ${cleanName.toLowerCase()} to progress`,
             order: index + 1,
             number: index + 1,
             text: cleanName,
@@ -182,13 +193,14 @@ export default function NewGoalScreen() {
       }
 
       // Create complete goal object
+      const isRussian = i18n.language?.startsWith('ru');
       const completeGoal = {
         name: pathData.goalTitle,
         steps: milestoneSteps,
         numberOfSteps: milestoneSteps.length,
         estimatedDuration: estimatedDuration,
         hardnessLevel: 'Medium' as const,
-        fear: pathData.challenge || fearData || 'Fear of failure',
+        fear: pathData.challenge || fearData || (isRussian ? 'Страх неудачи' : 'Fear of failure'),
       };
 
       // Load existing goals

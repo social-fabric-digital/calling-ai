@@ -172,17 +172,25 @@ export const resetApiFailureCache = () => {
 // Get API key from environment variables
 // Note: You'll need to set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env file
 // Get your API key from: https://console.anthropic.com/
-const getApiKey = () => {
-  // Try multiple ways to get the API key
-  const key = 
-    Constants.expoConfig?.extra?.anthropicApiKey || 
-    process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || 
+const FEATURE_KEYS: Record<string, string> = {
+  astrology: process.env.EXPO_PUBLIC_ANTHROPIC_KEY_ASTROLOGY || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  daily:     process.env.EXPO_PUBLIC_ANTHROPIC_KEY_DAILY     || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  ikigai:    process.env.EXPO_PUBLIC_ANTHROPIC_KEY_IKIGAI    || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  analysis:  process.env.EXPO_PUBLIC_ANTHROPIC_KEY_ANALYSIS  || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  calling:   process.env.EXPO_PUBLIC_ANTHROPIC_KEY_CALLING   || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  goals:     process.env.EXPO_PUBLIC_ANTHROPIC_KEY_GOALS     || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  atlas:     process.env.EXPO_PUBLIC_ANTHROPIC_KEY_ATLAS     || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+  clarity:   process.env.EXPO_PUBLIC_ANTHROPIC_KEY_CLARITY   || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '',
+};
+
+const getApiKey = (feature: string = 'default') => {
+  const key =
+    FEATURE_KEYS[feature] ||
+    Constants.expoConfig?.extra?.anthropicApiKey ||
+    process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ||
     '';
-  
-  if (!key) {
-    console.warn('⚠️ ANTHROPIC_API_KEY is not set. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file');
-  }
-  
+
+  if (!key) console.warn(`⚠️ No API key found for feature: ${feature}`);
   return key;
 };
 
@@ -520,7 +528,7 @@ export async function tryModel(
 export async function getClaudeResponse(
   conversationHistory: ChatMessage[]
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('atlas');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -644,7 +652,7 @@ export async function getAtlasChatResponse(
   conversationHistory: ChatMessage[],
   context?: AtlasChatContext
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('atlas');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -785,7 +793,7 @@ export async function generatePersonalAstrologyReport(
   birthMinute?: string,
   birthPeriod?: string
 ): Promise<PersonalAstrologyReport> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('astrology');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1045,7 +1053,7 @@ export async function generateAstrologyReport(
   birthMinute?: string,
   birthPeriod?: string
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('astrology');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1231,7 +1239,7 @@ Format requirements:
 export async function generatePersonalizedDailyInsight(
   params: PersonalizedDailyInsightParams
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('daily');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1532,7 +1540,7 @@ export async function generateIkigaiConclusion(
   whatCanBePaidFor: string,
   locale: 'en' | 'ru' = 'en'
 ): Promise<IkigaiConclusion> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('ikigai');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1697,7 +1705,7 @@ export interface UserAnswer {
 export async function generateUserAnalysisReport(
   answers: UserAnswer[]
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('analysis');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -1856,7 +1864,7 @@ export async function generateCallingPaths(
   fear?: string,
   whatExcites?: string
 ): Promise<GeneratedPath[]> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('calling');
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
@@ -2128,7 +2136,7 @@ export async function generateCallingAwaitsContent(
   whatExcites?: string,
   astrologyReport?: PersonalAstrologyReport
 ): Promise<CallingAwaitsContent> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('calling');
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
@@ -2492,7 +2500,7 @@ export async function generateUnifiedDestinyProfile(
   biggestConstraint?: string,
   whatMattersMost?: string[]
 ): Promise<UnifiedDestinyProfile> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('calling');
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   const outputLanguageLabel = isRussianLocale ? 'Russian' : 'English';
   const notProvidedLabel = isRussianLocale ? 'Не указано' : 'Not provided';
@@ -3066,7 +3074,7 @@ export async function generatePathContent(
   fear?: string,
   whatExcites?: string
 ): Promise<PathContent> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   const outputLanguageLabel = isRussianLocale ? 'Russian' : 'English';
   const notProvidedLabel = isRussianLocale ? 'Не указано' : 'Not provided';
@@ -3424,7 +3432,7 @@ export async function generateLevelStepInstructions(
   fear?: string,
   whatExcites?: string
 ): Promise<LevelStepInstruction[]> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -3455,6 +3463,11 @@ export async function generateLevelStepInstructions(
   else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
   else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
   else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) sunSign = 'Pisces';
+
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const langInstruction = isRussianLocale
+    ? '\n\nCRITICAL: You MUST write ALL step text fields entirely in Russian. Do not use any English words in the output.'
+    : '';
 
   const stepInstructionsPrompt = `You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions for completing a level in a goal.
 
@@ -3525,7 +3538,7 @@ IMPORTANT:
 - Return ONLY valid JSON array
 - No markdown, no code blocks, no explanations
 - EXACTLY 3 steps (required, not optional)
-- Each step must be unique and directly related to completing this level`;
+- Each step must be unique and directly related to completing this level${langInstruction}`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -3536,7 +3549,8 @@ IMPORTANT:
     ];
 
     // Use Sonnet for step instructions
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions.', 500);
+    const systemMsg = `You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions.${isRussianLocale ? ' Always respond in Russian.' : ''}`;
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, systemMsg, 500);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -3571,24 +3585,35 @@ IMPORTANT:
     // Ensure exactly 3 steps (add fallback if needed)
     while (validSteps.length < 3) {
       const stepNumber = validSteps.length + 1;
-      const fallbackSteps = [
-        `Research and prepare for ${levelName}`,
-        `Take concrete action toward ${levelName}`,
-        `Complete and verify ${levelName} progress`
-      ];
-      validSteps.push({ text: fallbackSteps[stepNumber - 1] || `Complete step ${stepNumber} for ${levelName}` });
+      const fallbackSteps = isRussianLocale
+        ? [
+            `Исследуй и подготовься к: ${levelName}`,
+            `Сделай конкретный шаг к: ${levelName}`,
+            `Заверши и проверь прогресс: ${levelName}`,
+          ]
+        : [
+            `Research and prepare for ${levelName}`,
+            `Take concrete action toward ${levelName}`,
+            `Complete and verify ${levelName} progress`,
+          ];
+      validSteps.push({ text: fallbackSteps[stepNumber - 1] || (isRussianLocale ? `Выполни шаг ${stepNumber}: ${levelName}` : `Complete step ${stepNumber} for ${levelName}`) });
     }
     
     // Ensure we have exactly 3 steps (remove extras if somehow more than 3)
     return validSteps.slice(0, 3);
   } catch (error) {
     console.error('Error generating level step instructions:', error);
-    // Return fallback steps (exactly 3)
-    return [
-      { text: `Research and prepare for ${levelName}` },
-      { text: `Take concrete action toward ${levelName}` },
-      { text: `Complete and verify ${levelName} progress` },
-    ];
+    return isRussianLocale
+      ? [
+          { text: `Исследуй и подготовься к: ${levelName}` },
+          { text: `Сделай конкретный шаг к: ${levelName}` },
+          { text: `Заверши и проверь прогресс: ${levelName}` },
+        ]
+      : [
+          { text: `Research and prepare for ${levelName}` },
+          { text: `Take concrete action toward ${levelName}` },
+          { text: `Complete and verify ${levelName} progress` },
+        ];
   }
 }
 
@@ -3611,7 +3636,7 @@ export async function generateStepDescription(
   fear?: string,
   whatExcites?: string
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -3660,6 +3685,11 @@ export async function generateStepDescription(
       ascendantInfo = 'Night birth (likely Fire or Water rising sign)';
     }
   }
+
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const stepLangInstruction = isRussianLocale
+    ? '\n\nCRITICAL: You MUST write the entire response in Russian. All section headings and bullet points must be in Russian.'
+    : '';
 
   const stepDescriptionPrompt = `You are an expert life coach and goal achievement specialist with deep knowledge of astrology and natal chart analysis. Generate a detailed, actionable description for a specific step in achieving a goal.
 
@@ -3750,7 +3780,7 @@ DO NOT:
 - Use stars (⭐)
 
 OUTPUT FORMAT:
-Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headings (no bold markers). Use "- " for bullet points.`;
+Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headings (no bold markers). Use "- " for bullet points.${stepLangInstruction}`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -3761,7 +3791,8 @@ Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headin
     ];
 
     // Use Sonnet for step instructions with reduced tokens (200 words max)
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert life coach and goal achievement specialist. Never use ** or bold markdown formatting.', 250);
+    const sysMsg = `You are an expert life coach and goal achievement specialist. Never use ** or bold markdown formatting.${isRussianLocale ? ' Always respond in Russian.' : ''}`;
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, sysMsg, 250);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -3786,11 +3817,14 @@ Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headin
       cleanedResponse = words.slice(0, 200).join(' ') + '...';
     }
     
-    return cleanedResponse || `Complete ${stepName} to progress towards your goal of ${goalTitle}.`;
+    return cleanedResponse || (isRussianLocale
+      ? `Выполни "${stepName}" для продвижения к цели "${goalTitle}".`
+      : `Complete ${stepName} to progress towards your goal of ${goalTitle}.`);
   } catch (error) {
     console.error('Error generating step description:', error);
-    // Return fallback description
-    return `Complete ${stepName} to progress towards your goal of ${goalTitle}. This step is essential for building the foundation needed to move forward.`;
+    return isRussianLocale
+      ? `Выполни "${stepName}" для продвижения к цели "${goalTitle}". Этот шаг является основой для движения вперёд.`
+      : `Complete ${stepName} to progress towards your goal of ${goalTitle}. This step is essential for building the foundation needed to move forward.`;
   }
 }
 
@@ -3812,7 +3846,7 @@ export async function generateGoalSteps(
   pathName?: string,
   pathDescription?: string
 ): Promise<{ goalSummary: string; estimatedDuration: string; steps: GoalStep[] }> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -3861,6 +3895,11 @@ export async function generateGoalSteps(
       ascendantInfo = 'Night birth (likely Fire or Water rising sign)';
     }
   }
+
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const languageInstruction = isRussianLocale
+    ? '\n\nCRITICAL: You MUST write ALL output fields (goalSummary, step names, descriptions, estimatedDuration) entirely in Russian. Do not use any English words in the output.'
+    : '';
 
   const goalStepsPrompt = `You are an expert life coach and goal achievement specialist with deep knowledge of astrology and natal chart analysis. Generate a personalized action plan for achieving a specific goal.
 
@@ -4025,7 +4064,7 @@ CRITICAL REQUIREMENTS FOR LEVEL NAMES:
 - Each "description" must be SHORT (maximum 15 words) and actionable
 - The "text" field should match the "name" field (for backward compatibility)
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.`;
+IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.${languageInstruction}`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -4039,7 +4078,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     const cachedSystemPrompt = [
       {
         type: 'text' as const,
-        text: 'You are an expert life coach and goal achievement specialist.',
+        text: `You are an expert life coach and goal achievement specialist.${isRussianLocale ? ' Always respond in Russian.' : ''}`,
         cache_control: { type: 'ephemeral' as const },
       },
     ];
@@ -4087,13 +4126,17 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
             
             // If no name after cleaning, use fallback
             if (!levelName) {
-              const fallbackNames = ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
-              levelName = fallbackNames[(step.number || 1) - 1] || `Level ${step.number || 1}`;
+              const fallbackNames = isRussianLocale
+                ? ['Фундамент', 'Развитие навыков', 'Набор импульса', 'Мастерство']
+                : ['Foundation Building', 'Skill Development', 'Momentum Building', 'Mastery Achievement'];
+              levelName = fallbackNames[(step.number || 1) - 1] || (isRussianLocale ? `Уровень ${step.number || 1}` : `Level ${step.number || 1}`);
             }
             
             // If no description, create a short one from the name
             if (!description) {
-              description = `Complete ${levelName.toLowerCase()} to progress`;
+              description = isRussianLocale
+                ? `Выполни ${levelName.toLowerCase()} для продвижения вперёд`
+                : `Complete ${levelName.toLowerCase()} to progress`;
             }
             
             return {
@@ -4104,7 +4147,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
               order: step.order || step.number || 1,
             };
           }).sort((a: any, b: any) => (a.number || a.order || 0) - (b.number || b.order || 0)).slice(0, 4) // Limit to max 4 steps
-        : [
+        : isRussianLocale ? [
+            { number: 1, text: 'Фундамент', name: 'Фундамент', description: 'Подготовь основу и стартовый план', order: 1 },
+            { number: 2, text: 'Развитие навыков', name: 'Развитие навыков', description: 'Развивай нужные навыки и знания', order: 2 },
+            { number: 3, text: 'Набор импульса', name: 'Набор импульса', description: 'Поддерживай прогресс и корректируй стратегию', order: 3 },
+            { number: 4, text: 'Мастерство', name: 'Мастерство', description: 'Заверши цель и отметь результат', order: 4 },
+          ] : [
             { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
             { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
             { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
@@ -4112,17 +4160,21 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
           ];
       
       result = {
-        goalSummary: parsed.goalSummary || `Achieve your goal: ${goalTitle}`,
-        estimatedDuration: parsed.estimatedDuration || '1 month',
+        goalSummary: parsed.goalSummary || (isRussianLocale ? `Достичь цели: ${goalTitle}` : `Achieve your goal: ${goalTitle}`),
+        estimatedDuration: parsed.estimatedDuration || (isRussianLocale ? '1 месяц' : '1 month'),
         steps: parsedSteps,
       };
     } catch (parseError) {
       console.error('Error parsing goal steps JSON:', parseError);
-      // Fallback content with proper name and description fields
       result = {
-        goalSummary: `Achieve your goal: ${goalTitle}`,
-        estimatedDuration: '1 month',
-        steps: [
+        goalSummary: isRussianLocale ? `Достичь цели: ${goalTitle}` : `Achieve your goal: ${goalTitle}`,
+        estimatedDuration: isRussianLocale ? '1 месяц' : '1 month',
+        steps: isRussianLocale ? [
+          { number: 1, text: 'Фундамент', name: 'Фундамент', description: 'Подготовь основу и стартовый план', order: 1 },
+          { number: 2, text: 'Развитие навыков', name: 'Развитие навыков', description: 'Развивай нужные навыки и знания', order: 2 },
+          { number: 3, text: 'Набор импульса', name: 'Набор импульса', description: 'Поддерживай прогресс и корректируй стратегию', order: 3 },
+          { number: 4, text: 'Мастерство', name: 'Мастерство', description: 'Заверши цель и отметь результат', order: 4 },
+        ] : [
           { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
           { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
           { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
@@ -4134,11 +4186,15 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     return result;
   } catch (error) {
     console.error('Error generating goal steps:', error);
-    // Return fallback content with proper name and description fields
     return {
-      goalSummary: `Achieve your goal: ${goalTitle}`,
-      estimatedDuration: '1 month',
-      steps: [
+      goalSummary: isRussianLocale ? `Достичь цели: ${goalTitle}` : `Achieve your goal: ${goalTitle}`,
+      estimatedDuration: isRussianLocale ? '1 месяц' : '1 month',
+      steps: isRussianLocale ? [
+        { number: 1, text: 'Фундамент', name: 'Фундамент', description: 'Подготовь основу и стартовый план', order: 1 },
+        { number: 2, text: 'Развитие навыков', name: 'Развитие навыков', description: 'Развивай нужные навыки и знания', order: 2 },
+        { number: 3, text: 'Набор импульса', name: 'Набор импульса', description: 'Поддерживай прогресс и корректируй стратегию', order: 3 },
+        { number: 4, text: 'Мастерство', name: 'Мастерство', description: 'Заверши цель и отметь результат', order: 4 },
+      ] : [
         { number: 1, text: 'Foundation Building', name: 'Foundation Building', description: 'Establish the groundwork and initial plan', order: 1 },
         { number: 2, text: 'Skill Development', name: 'Skill Development', description: 'Build necessary skills and knowledge', order: 2 },
         { number: 3, text: 'Momentum Building', name: 'Momentum Building', description: 'Maintain progress and adapt strategies', order: 3 },
@@ -4173,7 +4229,7 @@ export async function generateCompleteGoal(
   fear?: string,
   whatExcites?: string
 ): Promise<CompleteGoal> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -4230,6 +4286,11 @@ export async function generateCompleteGoal(
       ascendantInfo = 'Night birth (likely Fire or Water rising sign)';
     }
   }
+
+  const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
+  const completeGoalLangInstruction = isRussianLocale
+    ? '\n\nCRITICAL: You MUST write ALL output fields (step names, descriptions, fear) entirely in Russian. Only the hardnessLevel field must remain in English (Easy/Medium/Hard). Do not use any English words in Russian-language fields.'
+    : '';
 
   const completeGoalPrompt = `You are an expert life coach and goal achievement specialist with deep knowledge of astrology and natal chart analysis. Generate a complete, personalized goal with all necessary details.
 
@@ -4353,7 +4414,7 @@ Return a JSON object with this exact structure:
   "fear": "realistic fear specific to this goal (max 20 words)"
 }
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.`;
+IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations. Just the JSON object.${completeGoalLangInstruction}`;
 
   try {
     const apiMessages: Array<{ role: string; content: string }> = [
@@ -4367,7 +4428,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     const cachedSystemPrompt = [
       {
         type: 'text' as const,
-        text: 'You are an expert life coach and goal achievement specialist.',
+        text: `You are an expert life coach and goal achievement specialist.${isRussianLocale ? ' Always respond in Russian.' : ''}`,
         cache_control: { type: 'ephemeral' as const },
       },
     ];
@@ -4397,63 +4458,79 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       console.log('Parsed Complete Goal:', parsed);
       
       // Validate and format the response
+      const ruFallbackSteps = [
+        { name: 'Определи свой путь вперёд', description: 'Уточни, чего хочешь достичь и почему это важно для тебя', order: 1 },
+        { name: 'Подготовься и спланируй', description: 'Собери ресурсы и составь детальный план действий', order: 2 },
+        { name: 'Сделай первый конкретный шаг', description: 'Начни реализовывать план с первого действия', order: 3 },
+        { name: 'Завершить финальный этап', description: 'Выполни последний шаг и отметь своё достижение', order: 4 },
+      ];
+      const enFallbackSteps = [
+        { name: 'Define your specific path forward', description: 'Clarify what you want to achieve and why it matters to you', order: 1 },
+        { name: 'Prepare and plan your approach', description: 'Gather resources and create a detailed action plan', order: 2 },
+        { name: 'Take your first concrete step', description: 'Begin implementing your plan with the first actionable task', order: 3 },
+        { name: 'Complete final milestone', description: 'Finish the last step and celebrate your achievement', order: 4 },
+      ];
+
       const parsedSteps = Array.isArray(parsed.steps) && parsed.steps.length > 0
         ? parsed.steps.map((step: any) => ({
-            name: step.name || `Step ${step.order || 1}`,
-            description: step.description || 'Take action towards your goal',
+            name: step.name || (isRussianLocale ? `Шаг ${step.order || 1}` : `Step ${step.order || 1}`),
+            description: step.description || (isRussianLocale ? 'Действуй к своей цели' : 'Take action towards your goal'),
             order: step.order || 1,
-          })).sort((a: any, b: any) => a.order - b.order).slice(0, 4) // Limit to max 4 steps
-        : [
-            { name: 'Define your specific path forward', description: 'Clarify what you want to achieve and why it matters to you', order: 1 },
-            { name: 'Prepare and plan your approach', description: 'Gather resources and create a detailed action plan', order: 2 },
-            { name: 'Take your first concrete step', description: 'Begin implementing your plan with the first actionable task', order: 3 },
-            { name: 'Complete final milestone', description: 'Finish the last step and celebrate your achievement', order: 4 },
-          ];
+          })).sort((a: any, b: any) => a.order - b.order).slice(0, 4)
+        : (isRussianLocale ? ruFallbackSteps : enFallbackSteps);
       
       goal = {
         name: parsed.name || goalTitle,
         steps: parsedSteps,
-        numberOfSteps: Math.min(parsed.numberOfSteps || parsedSteps.length, 4), // Ensure max 4 steps
-        estimatedDuration: parsed.estimatedDuration || '1 month',
+        numberOfSteps: Math.min(parsed.numberOfSteps || parsedSteps.length, 4),
+        estimatedDuration: parsed.estimatedDuration || (isRussianLocale ? '1 месяц' : '1 month'),
         hardnessLevel: parsed.hardnessLevel === 'Easy' || parsed.hardnessLevel === 'Medium' || parsed.hardnessLevel === 'Hard' 
           ? parsed.hardnessLevel 
           : 'Medium',
-        fear: parsed.fear || fear || 'What if I fail?',
+        fear: parsed.fear || fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I fail?'),
       };
     } catch (parseError) {
       console.error('Error parsing complete goal JSON:', parseError);
-      // Fallback content
       goal = {
         name: goalTitle,
-        steps: [
+        steps: isRussianLocale ? [
+          { name: 'Определи свой путь вперёд', description: 'Уточни, чего хочешь достичь и почему это важно для тебя', order: 1 },
+          { name: 'Подготовься и спланируй', description: 'Собери ресурсы и составь детальный план действий', order: 2 },
+          { name: 'Сделай первый конкретный шаг', description: 'Начни реализовывать план с первого действия', order: 3 },
+          { name: 'Завершить финальный этап', description: 'Выполни последний шаг и отметь своё достижение', order: 4 },
+        ] : [
           { name: 'Define your specific path forward', description: 'Clarify what you want to achieve and why it matters to you', order: 1 },
           { name: 'Prepare and plan your approach', description: 'Gather resources and create a detailed action plan', order: 2 },
           { name: 'Take your first concrete step', description: 'Begin implementing your plan with the first actionable task', order: 3 },
           { name: 'Complete final milestone', description: 'Finish the last step and celebrate your achievement', order: 4 },
         ],
         numberOfSteps: 4,
-        estimatedDuration: '1 month',
+        estimatedDuration: isRussianLocale ? '1 месяц' : '1 month',
         hardnessLevel: 'Medium',
-        fear: fear || 'What if I fail?',
+        fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I fail?'),
       };
     }
 
     return goal;
   } catch (error) {
     console.error('Error generating complete goal:', error);
-    // Return fallback content
     return {
       name: goalTitle,
-      steps: [
+      steps: isRussianLocale ? [
+        { name: 'Определи свой путь вперёд', description: 'Уточни, чего хочешь достичь и почему это важно для тебя', order: 1 },
+        { name: 'Подготовься и спланируй', description: 'Собери ресурсы и составь детальный план действий', order: 2 },
+        { name: 'Сделай первый конкретный шаг', description: 'Начни реализовывать план с первого действия', order: 3 },
+        { name: 'Завершить финальный этап', description: 'Выполни последний шаг и отметь своё достижение', order: 4 },
+      ] : [
         { name: 'Define your specific path forward', description: 'Clarify what you want to achieve and why it matters to you', order: 1 },
         { name: 'Prepare and plan your approach', description: 'Gather resources and create a detailed action plan', order: 2 },
         { name: 'Take your first concrete step', description: 'Begin implementing your plan with the first actionable task', order: 3 },
         { name: 'Complete final milestone', description: 'Finish the last step and celebrate your achievement', order: 4 },
       ],
       numberOfSteps: 4,
-      estimatedDuration: '1 month',
+      estimatedDuration: isRussianLocale ? '1 месяц' : '1 month',
       hardnessLevel: 'Medium',
-      fear: fear || 'What if I fail?',
+      fear: fear || (isRussianLocale ? 'А вдруг не получится?' : 'What if I fail?'),
     };
   }
 }
@@ -4474,7 +4551,7 @@ export async function generateLoadingItems(
   fear?: string,
   whatExcites?: string
 ): Promise<string[]> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
@@ -4640,7 +4717,7 @@ export async function generateGoalMotivationalSentence(
   fear?: string,
   whatExcites?: string
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey('goals');
   
   if (!apiKey) {
     throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');

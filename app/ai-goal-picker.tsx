@@ -2,6 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import i18n from '@/utils/i18n';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -39,6 +40,11 @@ type ProfileContext = {
 const AI_DIRECTIONS_REGEN_TRACKING_KEY = 'aiDirectionsRegenerationsByMonth';
 const AI_GOALS_REGEN_TRACKING_KEY = 'aiGoalsRegenerationsByMonth';
 const MONTHLY_REGEN_LIMIT = 3;
+const isRu = () => i18n.language?.startsWith('ru');
+const getFallbackStepNamesLocale = () =>
+  isRu()
+    ? ['Фундамент', 'Развитие навыков', 'Набор импульса', 'Исполнение']
+    : ['Foundation', 'Skill Building', 'Momentum', 'Execution'];
 const fallbackStepNames = ['Foundation', 'Skill Building', 'Momentum', 'Execution'];
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -171,9 +177,11 @@ function SaveCelebration({ label }: { label: string }) {
 }
 
 const getFallbackSteps = (goalTitle: string) =>
-  fallbackStepNames.map((name, index) => ({
+  getFallbackStepNamesLocale().map((name, index) => ({
     name,
-    description: `Complete ${name.toLowerCase()} to move toward ${goalTitle.toLowerCase()}.`,
+    description: isRu()
+      ? `Выполни «${name}» для продвижения к цели «${goalTitle}».`
+      : `Complete ${name.toLowerCase()} to move toward ${goalTitle.toLowerCase()}.`,
     order: index + 1,
     number: index + 1,
     text: name,
@@ -416,7 +424,8 @@ export default function AIGoalPickerScreen() {
     void hapticMedium();
     const safeGoalTitle = (goalTitle || '').trim() || selectedPath.title;
 
-    const stepsCacheKey = `generatedSteps_${selectedPath.id}_${safeGoalTitle}`;
+    const locale = isRu() ? 'ru' : 'en';
+    const stepsCacheKey = `generatedSteps_${selectedPath.id}_${safeGoalTitle}_${locale}`;
 
     setIsSavingGoal(true);
     try {
@@ -453,14 +462,17 @@ export default function AIGoalPickerScreen() {
 
           aiEstimatedDuration = generated.estimatedDuration || '';
           if (Array.isArray(generated.steps) && generated.steps.length > 0) {
+            const localeFallbackNames = getFallbackStepNamesLocale();
             steps = generated.steps.map((step: any, index: number) => {
               const rawName = step?.name || step?.text || '';
-              const cleanName = String(rawName).trim() || fallbackStepNames[index] || `Step ${index + 1}`;
+              const cleanName = String(rawName).trim() || localeFallbackNames[index] || (isRu() ? `Уровень ${index + 1}` : `Step ${index + 1}`);
               return {
                 name: cleanName,
                 description:
                   String(step?.description || '').trim() ||
-                  `Complete ${cleanName.toLowerCase()} to move forward.`,
+                  (isRu()
+                    ? `Выполни «${cleanName}» для продвижения к цели.`
+                    : `Complete ${cleanName.toLowerCase()} to move forward.`),
                 order: Number(step?.order) || index + 1,
                 number: Number(step?.number) || index + 1,
                 text: cleanName,

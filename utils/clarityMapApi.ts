@@ -49,7 +49,7 @@ SECONDARY FOCUS: [your secondary focus text, or omit if not applicable]
 CAN IGNORE: [what they can let go]`;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_CLARITY || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
       throw new Error('API key missing');
@@ -237,7 +237,7 @@ Tone: Warm, emotionally intelligent, deeply validating. Like a wise friend who t
 ${isRussian() ? '\nIMPORTANT: Return the full response only in Russian.' : ''}`;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+    const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_CLARITY || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
       throw new Error('API key missing');
