@@ -7,16 +7,34 @@ import { maybePromptForLongFocusSessionReview } from '@/utils/storeReview';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Dimensions, Image, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
 const isNarrowScreen = width <= 430;
+/** True when 5×50 + 4×12 ambient row would overflow content (padding 20 + section 8 each side). */
+const needsCompactAmbientRow =
+  width - 40 - 16 < 5 * 50 + 4 * 12;
 
 type TimerDuration = 5 | 15 | 30 | 60;
 type CloudPattern = {
@@ -34,8 +52,33 @@ const CLOUD_PATTERNS: CloudPattern[] = [
   { offsetMs: 46_000, cycleMs: 96_000, yPercent: 32, width: 110, height: 40, opacity: 0.16 },
 ];
 
+type AmbientSoundId = 'forest' | 'ocean' | 'rain' | 'fireplace' | 'night';
+
+const AMBIENT_SOUND_ORDER: AmbientSoundId[] = ['forest', 'ocean', 'rain', 'fireplace', 'night'];
+
+const AMBIENT_SOUND_SOURCES: Record<AmbientSoundId, number> = {
+  forest: require('../../assets/audio/forest.mp3'),
+  ocean: require('../../assets/audio/ocean.mp3'),
+  rain: require('../../assets/audio/rain.mp3'),
+  fireplace: require('../../assets/audio/fireplace.mp3'),
+  night: require('../../assets/audio/night.mp3'),
+};
+
+const AMBIENT_SOUND_ICONS: Record<AmbientSoundId, keyof typeof Ionicons.glyphMap> = {
+  forest: 'leaf',
+  ocean: 'water',
+  rain: 'rainy',
+  fireplace: 'flame',
+  night: 'moon',
+};
+
+/** Running-timer tree stage circle: 45% smaller than original 352 / 380. */
+const FOCUS_TIMER_CIRCLE_INNER = Math.round(352 * (1 - 0.45));
+const FOCUS_TIMER_CIRCLE_OUTER = Math.round(380 * (1 - 0.45));
+
 export default function FocusScreen() {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const focusSubtitlePrimary = isRussian
     ? 'Это место, где ты превращаешься в ясность и рост, и фокусируешься на своих целях.'
@@ -73,9 +116,73 @@ export default function FocusScreen() {
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
   const [showSeed, setShowSeed] = useState(false); // Show seed for first 8% of timer
   const [cloudTick, setCloudTick] = useState(0);
+  const [playingSoundId, setPlayingSoundId] = useState<AmbientSoundId | null>(null);
+  const [ambientSoundsEnabled, setAmbientSoundsEnabled] = useState(true);
+  const [showFocusGuideModal, setShowFocusGuideModal] = useState(false);
+  const ambientSoundRef = useRef<Audio.Sound | null>(null);
   const nextTreeIdRef = useRef(1); // Track next tree ID for continuous spawning
   const lastSpawnTimeRef = useRef(0); // Track when last tree was spawned
-  
+
+  const unloadAmbientSound = useCallback(async () => {
+    const sound = ambientSoundRef.current;
+    ambientSoundRef.current = null;
+    setPlayingSoundId(null);
+    if (!sound) return;
+    try {
+      await sound.stopAsync();
+    } catch {
+      // already stopped
+    }
+    try {
+      await sound.unloadAsync();
+    } catch {
+      // already unloaded
+    }
+  }, []);
+
+  const playAmbientSound = useCallback(
+    async (id: AmbientSoundId) => {
+      if (!ambientSoundsEnabled) return;
+      await unloadAmbientSound();
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+        const { sound } = await Audio.Sound.createAsync(AMBIENT_SOUND_SOURCES[id], {
+          isLooping: true,
+          volume: 0.7,
+        });
+        ambientSoundRef.current = sound;
+        setPlayingSoundId(id);
+        await sound.playAsync();
+      } catch (e) {
+        console.warn('[Focus] Ambient sound failed:', e);
+        await unloadAmbientSound();
+      }
+    },
+    [ambientSoundsEnabled, unloadAmbientSound]
+  );
+
+  const onAmbientSoundButtonPress = (id: AmbientSoundId) => {
+    void hapticLight();
+    if (!ambientSoundsEnabled) return;
+    if (playingSoundId === id) {
+      void unloadAmbientSound();
+    } else {
+      void playAmbientSound(id);
+    }
+  };
+
+  const onAmbientSoundsEnabledChange = (value: boolean) => {
+    void hapticLight();
+    setAmbientSoundsEnabled(value);
+    if (!value) {
+      void unloadAmbientSound();
+    }
+  };
+
   // Animation refs for forest and deer
   const forestOpacity = useRef(new Animated.Value(0)).current;
   const forestScale = useRef(new Animated.Value(0.9)).current;
@@ -102,7 +209,10 @@ export default function FocusScreen() {
       trackReflectionEvent('focus_sanctuary_opened').catch((error) => {
         console.error('Error tracking focus sanctuary open:', error);
       });
-    }, [])
+      return () => {
+        void unloadAmbientSound();
+      };
+    }, [unloadAmbientSound])
   );
 
   useEffect(() => {
@@ -779,27 +889,6 @@ export default function FocusScreen() {
     return { number: stageNumber, name: t(`focus.stages.${stageNumber}`) };
   };
 
-  // Calculate height based on progress (in cm)
-  const getHeight = (): number => {
-    if (!selectedDuration) return 0;
-    const totalSeconds = selectedDuration * 60;
-    const elapsed = totalSeconds - timeRemaining;
-    const progress = elapsed / totalSeconds;
-    // Height ranges from 0 to ~200cm based on progress
-    return Math.floor(progress * 200);
-  };
-
-  // Calculate vitality based on progress (percentage)
-  const getVitality = (): number => {
-    if (!selectedDuration) return 0;
-    const totalSeconds = selectedDuration * 60;
-    const elapsed = totalSeconds - timeRemaining;
-    const progress = elapsed / totalSeconds;
-    // Vitality ranges from 0% to 100% based on progress
-    return Math.floor(progress * 100);
-  };
-
-  const insets = useSafeAreaInsets();
   const headerTopOffset = Math.max(60, insets.top + 20);
   const animationFrame = getAnimationFrame();
   const currentStage = getStage();
@@ -808,13 +897,62 @@ export default function FocusScreen() {
   const toNormalCase = (value: string) =>
     value ? `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}` : value;
 
+  const renderAmbientSoundsControls = (sectionStyle?: StyleProp<ViewStyle>) => (
+    <View style={[styles.ambientSoundsSection, sectionStyle]}>
+      <View style={styles.ambientSoundRow}>
+        {AMBIENT_SOUND_ORDER.map((soundId, index) => {
+          const isActive = ambientSoundsEnabled && playingSoundId === soundId;
+          const isLast = index === AMBIENT_SOUND_ORDER.length - 1;
+          const compactAmbient = needsCompactAmbientRow;
+          return (
+            <TouchableOpacity
+              key={soundId}
+              style={[
+                styles.ambientSoundButton,
+                compactAmbient && styles.ambientSoundButtonCompact,
+                isActive && styles.ambientSoundButtonActive,
+                !ambientSoundsEnabled && styles.ambientSoundButtonDisabled,
+                isLast && { marginRight: 0 },
+              ]}
+              onPress={() => onAmbientSoundButtonPress(soundId)}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={AMBIENT_SOUND_ICONS[soundId]}
+                size={compactAmbient ? 19 : 22}
+                color="rgba(255, 255, 255, 0.9)"
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={styles.ambientSoundCaption}>
+        {!ambientSoundsEnabled
+          ? t('focus.sounds.ambientOff')
+          : playingSoundId
+            ? t(`focus.sounds.${playingSoundId}`)
+            : t('focus.sounds.tapToPlay')}
+      </Text>
+      <View style={styles.ambientSoundSwitchRow}>
+        <Text style={styles.ambientSoundSwitchLabel}>{t('focus.sounds.enableLabel')}</Text>
+        <Switch
+          value={ambientSoundsEnabled}
+          onValueChange={onAmbientSoundsEnabledChange}
+          trackColor={{ false: 'rgba(255,255,255,0.25)', true: 'rgba(255,255,255,0.45)' }}
+          thumbColor="#ffffff"
+          ios_backgroundColor="rgba(255,255,255,0.25)"
+        />
+      </View>
+    </View>
+  );
+
   return (
     <PaperTextureBackground baseColor="#1f1a2a">
       <View style={styles.container}>
         <Image
           source={
             selectedDuration && isRunning
-              ? require('../../assets/images/noise.background.png')
+              ? require('../../assets/images/ikigaion.png')
               : require('../../assets/images/sanctuary.png')
           }
           pointerEvents="none"
@@ -849,6 +987,21 @@ export default function FocusScreen() {
         </View>
       )}
       <View style={styles.contentContainer}>
+      {!isRunning && (
+        <TouchableOpacity
+          style={[styles.focusHelpButton, { top: Math.max(12, insets.top + 8) }]}
+          onPress={() => {
+            void hapticLight();
+            setShowFocusGuideModal(true);
+          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('focus.guide.title')}
+        >
+          <Ionicons name="help-circle-outline" size={24} color="rgba(255, 255, 255, 0.8)" />
+        </TouchableOpacity>
+      )}
+
       {/* Header - Only show when timer is running */}
       {selectedDuration && isRunning && (
         <View style={[styles.timerHeader, { paddingTop: headerTopOffset }]}>
@@ -866,6 +1019,8 @@ export default function FocusScreen() {
           <Text style={styles.focusSubtitlePrimary}>
             {focusSubtitlePrimary}
           </Text>
+
+          {renderAmbientSoundsControls()}
         </View>
       )}
 
@@ -1059,46 +1214,29 @@ export default function FocusScreen() {
                     resizeMode="contain"
                   />
                 </View>
-                {/* Stage Badge */}
-                <View style={styles.stageBadge}>
-                  <Text style={styles.stageBadgeText}>
-                    {toNormalCase(t('focus.stage'))} {currentStage.number}: {toNormalCase(currentStage.name)}
-                  </Text>
-                </View>
               </View>
+            </View>
+            {/* Stage label sits below the circle (not overlaid on it) */}
+            <View style={styles.stageBadge}>
+              <Text style={styles.stageBadgeText}>
+                {toNormalCase(t('focus.stage'))} {currentStage.number}: {toNormalCase(currentStage.name)}
+              </Text>
             </View>
           </View>
 
-          {/* Stats Card */}
-          <View style={styles.statsCard}>
-            <View style={styles.statsRow}>
-              {/* Height */}
-              <View style={[styles.statItem, styles.statItemLeft]}>
-                <Text style={styles.statLabel}>{t('focus.height')}</Text>
-                <View style={styles.statValueContainer}>
-                  <Text style={styles.statValue}>{getHeight()}</Text>
-                  <Text style={styles.statUnit}>{isRussian ? 'см' : 'cm'}</Text>
-                </View>
-              </View>
+          {renderAmbientSoundsControls(styles.ambientSoundsSectionOnRunningTimer)}
 
-              {/* Vitality */}
-              <View style={[styles.statItem, styles.statItemRight]}>
-                <Text style={styles.statLabel}>{t('focus.vitality')}</Text>
-                <View style={styles.statValueContainer}>
-                  <Text style={[styles.statValue, styles.vitalityValue]}>{getVitality()}%</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Timer Display - Below the card */}
+          {/* Timer Display - Below ambient sounds */}
           <View style={styles.timerDisplayContainer}>
             <Text style={styles.timerDisplayText}>{formatTime(timeRemaining)}</Text>
           </View>
         </>
       ) : selectedDuration ? (
-        <View style={styles.timerContainer}>
-          <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
+        <View style={styles.preStartTimerWithSounds}>
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
+          </View>
+          {renderAmbientSoundsControls(styles.ambientSoundsSectionPreStart)}
         </View>
       ) : (
         <>
@@ -1337,6 +1475,75 @@ export default function FocusScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showFocusGuideModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFocusGuideModal(false)}
+      >
+        <View style={styles.focusGuideModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => {
+              void hapticLight();
+              setShowFocusGuideModal(false);
+            }}
+          />
+          <View style={styles.focusGuideModalCard} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.focusGuideModalClose}
+              onPress={() => {
+                void hapticLight();
+                setShowFocusGuideModal(false);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={26} color="#342846" />
+            </TouchableOpacity>
+            <ScrollView
+              style={styles.focusGuideScroll}
+              contentContainerStyle={styles.focusGuideScrollContent}
+              showsVerticalScrollIndicator
+              bounces
+            >
+              <Text style={styles.focusGuideModalTitle}>{t('focus.guide.title')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.intro')}</Text>
+
+              <Text style={styles.focusGuideSection}>{t('focus.guide.howItWorksTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.step1')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.step2')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.step3')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.step4')}</Text>
+
+              <Text style={styles.focusGuideSection}>{t('focus.guide.whenToUseTitle')}</Text>
+              <Text style={styles.focusGuideBody}>• {t('focus.guide.whenBullet1')}</Text>
+              <Text style={styles.focusGuideBody}>• {t('focus.guide.whenBullet2')}</Text>
+              <Text style={styles.focusGuideBody}>• {t('focus.guide.whenBullet3')}</Text>
+              <Text style={styles.focusGuideBody}>• {t('focus.guide.whenBullet4')}</Text>
+              <Text style={styles.focusGuideBody}>• {t('focus.guide.whenBullet5')}</Text>
+
+              <Text style={styles.focusGuideSection}>{t('focus.guide.ambientSoundsTitle')}</Text>
+              <Text style={styles.focusGuideSoundTitle}>{t('focus.guide.forestTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.forestBody')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.forestBest')}</Text>
+              <Text style={styles.focusGuideSoundTitle}>{t('focus.guide.oceanTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.oceanBody')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.oceanBest')}</Text>
+              <Text style={styles.focusGuideSoundTitle}>{t('focus.guide.rainTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.rainBody')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.rainBest')}</Text>
+              <Text style={styles.focusGuideSoundTitle}>{t('focus.guide.fireplaceTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.fireplaceBody')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.fireplaceBest')}</Text>
+              <Text style={styles.focusGuideSoundTitle}>{t('focus.guide.nightTitle')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.nightBody')}</Text>
+              <Text style={styles.focusGuideBody}>{t('focus.guide.nightBest')}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
     </PaperTextureBackground>
   );
@@ -1354,6 +1561,149 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
+    position: 'relative',
+  },
+  focusHelpButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 40,
+    padding: 4,
+  },
+  ambientSoundsSection: {
+    marginTop: 24,
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  /** Between tree circle and ticking clock while session is active */
+  ambientSoundsSectionOnRunningTimer: {
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  /** After large timer, before “Start growing” (phone flow) */
+  ambientSoundsSectionPreStart: {
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  preStartTimerWithSounds: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  ambientSoundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ambientSoundButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  /** Fits 5 buttons in ~width−56 when default row would clip (e.g. 320pt-wide phones). */
+  ambientSoundButtonCompact: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 7,
+  },
+  ambientSoundButtonActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+  },
+  ambientSoundButtonDisabled: {
+    opacity: 0.45,
+  },
+  ambientSoundCaption: {
+    ...BodyStyle,
+    color: 'rgba(255, 255, 255, 0.92)',
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 12,
+    maxWidth: width - 48,
+  },
+  ambientSoundSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  ambientSoundSwitchLabel: {
+    ...BodyStyle,
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontSize: 15,
+    marginRight: 12,
+  },
+  focusGuideModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  focusGuideModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#342846',
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    paddingTop: 52,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  focusGuideModalClose: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    zIndex: 2,
+    padding: 4,
+  },
+  focusGuideScroll: {
+    maxHeight: '100%',
+  },
+  focusGuideScrollContent: {
+    paddingBottom: 8,
+  },
+  focusGuideModalTitle: {
+    ...HeadingStyle,
+    fontSize: 22,
+    lineHeight: 28,
+    color: '#342846',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  focusGuideSection: {
+    ...HeadingStyle,
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#342846',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  focusGuideSoundTitle: {
+    ...HeadingStyle,
+    fontSize: 17,
+    lineHeight: 22,
+    color: '#342846',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  focusGuideBody: {
+    ...BodyStyle,
+    color: '#342846',
+    marginBottom: 10,
   },
   backgroundImage: {
     position: 'absolute',
@@ -1878,7 +2228,7 @@ const styles = StyleSheet.create({
   },
   timerHeaderTitle: {
     ...HeadingStyle,
-    color: '#342846',
+    color: '#FFFFFF',
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -1889,9 +2239,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   timerCircleOuter: {
-    width: 380,
-    height: 380,
-    borderRadius: 190,
+    width: FOCUS_TIMER_CIRCLE_OUTER,
+    height: FOCUS_TIMER_CIRCLE_OUTER,
+    borderRadius: FOCUS_TIMER_CIRCLE_OUTER / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1899,9 +2249,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   timerCircleInner: {
-    width: 352,
-    height: 352,
-    borderRadius: 176,
+    width: FOCUS_TIMER_CIRCLE_INNER,
+    height: FOCUS_TIMER_CIRCLE_INNER,
+    borderRadius: FOCUS_TIMER_CIRCLE_INNER / 2,
     borderWidth: 1,
     borderColor: 'rgba(186, 204, 215, 0.4)',
     alignItems: 'center',
@@ -1920,17 +2270,17 @@ const styles = StyleSheet.create({
     height: 288,
   },
   timerSeedContainer: {
-    width: 352, // Match inner circle width
-    height: 352, // Match inner circle height
-    borderRadius: 176,
+    width: FOCUS_TIMER_CIRCLE_INNER,
+    height: FOCUS_TIMER_CIRCLE_INNER,
+    borderRadius: FOCUS_TIMER_CIRCLE_INNER / 2,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   timerSeedImage: {
-    width: 352, // Match inner circle size
-    height: 352, // Match inner circle size
+    width: FOCUS_TIMER_CIRCLE_INNER,
+    height: FOCUS_TIMER_CIRCLE_INNER,
   },
   timerSeedImageLayer: {
     position: 'absolute',
@@ -1938,8 +2288,9 @@ const styles = StyleSheet.create({
     left: 0,
   },
   stageBadge: {
-    position: 'absolute',
-    bottom: 22,
+    marginTop: 14,
+    alignSelf: 'center',
+    maxWidth: width - 48,
     backgroundColor: '#342846',
     borderRadius: 15,
     paddingHorizontal: 20, // Minimum 20px padding (was 16)
@@ -1955,66 +2306,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.6,
     textAlign: 'center',
   },
-  statsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(186, 204, 215, 0.2)',
-    padding: 24,
-    width: 300,
-    alignSelf: 'center',
-    marginBottom: 24,
-    shadowColor: '#342846',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-    minHeight: 95, // Reduced height since timer is outside
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  statItem: {
-    marginBottom: 0,
-  },
-  statItemLeft: {
-    marginRight: 70, // 70px spacing between Height and Vitality
-  },
-  statItemRight: {
-    marginLeft: 0,
-  },
-  statLabel: {
-    fontFamily: 'BricolageGrotesque-Bold',
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#7a8a9a',
-    textTransform: 'none',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  statValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  statValue: {
-    ...HeadingStyle,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#342846',
-  },
-  vitalityValue: {
-    color: '#6b8e7f',
-  },
-  statUnit: {
-    fontFamily: 'AnonymousPro-Bold',
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#7a8a9a',
-    textTransform: 'uppercase',
-    marginLeft: 4,
-  },
   timerDisplayContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2025,7 +2316,7 @@ const styles = StyleSheet.create({
   timerDisplayText: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 38,
-    color: '#342846',
+    color: '#FFFFFF',
     letterSpacing: 0,
   },
   timerButtonsContainer: {
