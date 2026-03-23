@@ -394,21 +394,8 @@ export default function LevelDetailScreen() {
     loadStepData();
   }, [levelNumber, goalName, goalId]);
 
-  // Get level badge image based on level number
-  const getLevelBadgeImage = () => {
-    switch (levelNumber) {
-      case 1:
-        return require('../assets/images/level1.png');
-      case 2:
-        return require('../assets/images/level2.png');
-      case 3:
-        return require('../assets/images/level3.png');
-      case 4:
-        return require('../assets/images/level4.png');
-      default:
-        return require('../assets/images/level1.png');
-    }
-  };
+  // Level-specific badge assets (level1–4) were removed; use shared level art.
+  const getLevelBadgeImage = () => require('../assets/images/level.png');
 
   const handleSendMessage = () => {
     if (chatInput.trim()) {

@@ -43,10 +43,6 @@ const PRELOAD_ASSETS = [
   require('../assets/images/yourpath.png'),
   require('../assets/images/goalmap.png'),
   require('../assets/images/level.png'),
-  require('../assets/images/level1.png'),
-  require('../assets/images/level2.png'),
-  require('../assets/images/level3.png'),
-  require('../assets/images/level4.png'),
   // Additional frequently visited screens
   require('../assets/images/progress.png'),
   require('../assets/images/moon.star.png'),
