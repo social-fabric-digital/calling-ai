@@ -66,7 +66,7 @@ import { supabase } from '../lib/supabase';
 
 const USE_YAZIO_FLOW = true;
 const APP_STORE_REVIEW_MODE = false; // Set to false after approval
-const DEFAULT_ONBOARDING_NAME = 'Friend';
+const DEFAULT_ONBOARDING_NAME = '';
 const REVIEW_BIRTH_MONTH = '1';
 const REVIEW_BIRTH_DATE = '1';
 const REVIEW_BIRTH_YEAR = '1995';
@@ -104,9 +104,7 @@ const BASE_YAZIO_FLOW_STEPS = [
   'paywall',
 ] as const;
 type YazioFlowStepKey = (typeof BASE_YAZIO_FLOW_STEPS)[number];
-const YAZIO_FLOW_STEPS: YazioFlowStepKey[] = BASE_YAZIO_FLOW_STEPS.filter(
-  (step): step is Exclude<YazioFlowStepKey, 'aboutYou'> => step !== 'aboutYou'
-);
+const YAZIO_FLOW_STEPS: YazioFlowStepKey[] = BASE_YAZIO_FLOW_STEPS.slice();
 
 export default function OnboardingScreen() {
   const { t, i18n } = useTranslation();
@@ -2361,6 +2359,7 @@ export default function OnboardingScreen() {
                 />
               ) : stepKey === 'customPathDream' ? (
                 <PathsAlignedStep
+                  pathsFetchEnabled={currentStep === index}
                   forceTabletLayout={isLikelyIpadDevice}
                   cardHorizontalInset={onboardingCardInset}
                   hideCustomPathOption
@@ -2890,6 +2889,7 @@ export default function OnboardingScreen() {
                 />
               ) : (
                 <PathsAlignedStep 
+                  pathsFetchEnabled={currentStep === index}
                   forceTabletLayout={isLikelyIpadDevice}
                   cardHorizontalInset={onboardingCardInset}
                   birthMonth={birthMonth}

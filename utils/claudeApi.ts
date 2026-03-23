@@ -26,6 +26,11 @@ let apiFailureCache: {
 };
 
 const API_FAILURE_COOLDOWN = 60000; // 60 seconds - generic cooldown
+
+/** Coalesce concurrent identical destiny-profile requests (multiple mounted components / rapid props). */
+const unifiedDestinyProfileInflight = new Map<string, Promise<UnifiedDestinyProfile>>();
+/** Coalesce concurrent identical path-content requests. */
+const pathContentInflight = new Map<string, Promise<PathContent>>();
 const BILLING_FAILURE_COOLDOWN = 15 * 60 * 1000; // 15 minutes for insufficient credits/billing issues
 const BILLING_RECHECK_INTERVAL = 45000; // Allow a billing-status probe every 45s
 const MAX_FAILURES_BEFORE_SKIP = 3; // After 3 failures, skip API calls for cooldown period
@@ -2482,7 +2487,7 @@ export interface PathContent {
  * This combines calling awaits content and paths aligned content, including Current Life Context data.
  * Should be called once at Step 6 (LoadingStep) after all onboarding data is collected.
  */
-export async function generateUnifiedDestinyProfile(
+async function generateUnifiedDestinyProfileUncached(
   birthMonth?: string,
   birthDate?: string,
   birthYear?: string,
@@ -2866,14 +2871,21 @@ Output schema:
       },
     ];
 
-    // Use Sonnet for unified destiny profile generation
-    // Increased max_tokens to accommodate both calling awaits and paths content
+    // Use Haiku for unified destiny profile generation — structured JSON output,
+    // no deep reasoning needed, ~5x cheaper than Sonnet.
+    const cachedSystemPrompt = [
+      {
+        type: 'text' as const,
+        text: `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ];
     let response = await tryModel(
       apiKey,
-      'claude-sonnet-4-5',
+      MODEL_HAIKU,
       apiMessages,
-      `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
-      2000
+      cachedSystemPrompt,
+      1200
     );
 
     // If we hit org TPM input limits, retry once with a compact prompt + fewer output tokens.
@@ -2882,10 +2894,10 @@ Output schema:
       await new Promise((resolve) => setTimeout(resolve, 1200));
       response = await tryModel(
         apiKey,
-        'claude-haiku-4-5-20251001',
+        MODEL_HAIKU,
         [{ role: 'user', content: compactUnifiedPrompt }],
         `You are an expert life coach. Return all user-facing values in ${outputLanguageLabel}.`,
-        900
+        800
       );
     }
 
@@ -3057,7 +3069,72 @@ Output schema:
   }
 }
 
-export async function generatePathContent(
+export async function generateUnifiedDestinyProfile(
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
+  birthCity?: string,
+  birthHour?: string,
+  birthMinute?: string,
+  birthPeriod?: string,
+  whatYouLove?: string,
+  whatYouGoodAt?: string,
+  whatWorldNeeds?: string,
+  whatCanBePaidFor?: string,
+  fear?: string,
+  whatExcites?: string,
+  currentSituation?: string,
+  biggestConstraint?: string,
+  whatMattersMost?: string[]
+): Promise<UnifiedDestinyProfile> {
+  const inflightKey = JSON.stringify({
+    language: i18n.language || 'en',
+    birthMonth: birthMonth ?? '',
+    birthDate: birthDate ?? '',
+    birthYear: birthYear ?? '',
+    birthCity: birthCity ?? '',
+    birthHour: birthHour ?? '',
+    birthMinute: birthMinute ?? '',
+    birthPeriod: birthPeriod ?? '',
+    whatYouLove: whatYouLove ?? '',
+    whatYouGoodAt: whatYouGoodAt ?? '',
+    whatWorldNeeds: whatWorldNeeds ?? '',
+    whatCanBePaidFor: whatCanBePaidFor ?? '',
+    fear: fear ?? '',
+    whatExcites: whatExcites ?? '',
+    currentSituation: currentSituation ?? '',
+    biggestConstraint: biggestConstraint ?? '',
+    whatMattersMost: Array.isArray(whatMattersMost) ? whatMattersMost : [],
+  });
+  const existing = unifiedDestinyProfileInflight.get(inflightKey);
+  if (existing) {
+    return existing;
+  }
+  const pending = generateUnifiedDestinyProfileUncached(
+    birthMonth,
+    birthDate,
+    birthYear,
+    birthCity,
+    birthHour,
+    birthMinute,
+    birthPeriod,
+    whatYouLove,
+    whatYouGoodAt,
+    whatWorldNeeds,
+    whatCanBePaidFor,
+    fear,
+    whatExcites,
+    currentSituation,
+    biggestConstraint,
+    whatMattersMost
+  ).finally(() => {
+    unifiedDestinyProfileInflight.delete(inflightKey);
+  });
+  unifiedDestinyProfileInflight.set(inflightKey, pending);
+  return pending;
+}
+
+async function generatePathContentUncached(
   pathTitle: string,
   pathDescription: string,
   birthMonth?: string,
@@ -3283,13 +3360,13 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       },
     ];
 
-    // Use Sonnet for complex calling content analysis with reduced tokens
+    // Haiku: structured JSON path goals — cheaper than Sonnet; deduped at export.
     const response = await tryModel(
       apiKey,
-      'claude-sonnet-4-5',
+      MODEL_HAIKU,
       apiMessages,
       `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
-      900
+      700
     );
 
     // Check response status BEFORE trying to parse JSON
@@ -3401,6 +3478,68 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     // Return fallback content
     return buildPersonalizedFallbackContent();
   }
+}
+
+export async function generatePathContent(
+  pathTitle: string,
+  pathDescription: string,
+  birthMonth?: string,
+  birthDate?: string,
+  birthYear?: string,
+  birthCity?: string,
+  birthHour?: string,
+  birthMinute?: string,
+  birthPeriod?: string,
+  whatYouLove?: string,
+  whatYouGoodAt?: string,
+  whatWorldNeeds?: string,
+  whatCanBePaidFor?: string,
+  fear?: string,
+  whatExcites?: string
+): Promise<PathContent> {
+  const inflightKey = JSON.stringify({
+    language: i18n.language || 'en',
+    pathTitle: pathTitle || '',
+    pathDescription: pathDescription || '',
+    birthMonth: birthMonth ?? '',
+    birthDate: birthDate ?? '',
+    birthYear: birthYear ?? '',
+    birthCity: birthCity ?? '',
+    birthHour: birthHour ?? '',
+    birthMinute: birthMinute ?? '',
+    birthPeriod: birthPeriod ?? '',
+    whatYouLove: whatYouLove ?? '',
+    whatYouGoodAt: whatYouGoodAt ?? '',
+    whatWorldNeeds: whatWorldNeeds ?? '',
+    whatCanBePaidFor: whatCanBePaidFor ?? '',
+    fear: fear ?? '',
+    whatExcites: whatExcites ?? '',
+  });
+  const existing = pathContentInflight.get(inflightKey);
+  if (existing) {
+    return existing;
+  }
+  const pending = generatePathContentUncached(
+    pathTitle,
+    pathDescription,
+    birthMonth,
+    birthDate,
+    birthYear,
+    birthCity,
+    birthHour,
+    birthMinute,
+    birthPeriod,
+    whatYouLove,
+    whatYouGoodAt,
+    whatWorldNeeds,
+    whatCanBePaidFor,
+    fear,
+    whatExcites
+  ).finally(() => {
+    pathContentInflight.delete(inflightKey);
+  });
+  pathContentInflight.set(inflightKey, pending);
+  return pending;
 }
 
 export interface GoalStep {

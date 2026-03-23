@@ -110,6 +110,11 @@ export interface CallingAwaitsStepProps {
 }
 
 export interface PathsAlignedStepProps {
+  /**
+   * When false, skips AsyncStorage/API work. Use while the step is off-screen in a horizontal
+   * carousel so mounted-but-hidden instances do not fire on every onboarding field change.
+   */
+  pathsFetchEnabled?: boolean;
   onExplorePath?: (pathId: number) => void;
   onWorkOnDreamGoal?: () => void;
   forceTabletLayout?: boolean;

@@ -17,10 +17,20 @@ export default function LevelCompleteScreen() {
   const params = useLocalSearchParams();
   const levelNumber = params.level ? parseInt(params.level as string) : 1;
   const totalLevels = params.totalLevels ? parseInt(params.totalLevels as string) : 4;
-  const goalName = params.goalName as string || tr('Get an internship', 'Получить стажировку'); // Dynamic goal name
-  const goalId = params.goalId as string || ''; // Goal ID for marking as completed
-  const userName = params.userName as string || tr('Friend', 'Друг'); // Dynamic user name
+  const goalName = params.goalName as string || tr('Get an internship', 'Получить стажировку');
+  const goalId = params.goalId as string || '';
+  const [userName, setUserName] = useState<string>(params.userName as string || '');
   const isLastLevel = levelNumber >= totalLevels;
+
+  // Load actual user name from storage if not passed via params
+  useEffect(() => {
+    if (!params.userName) {
+      AsyncStorage.getItem('userName').then((stored) => {
+        const n = stored?.trim() || '';
+        if (n) setUserName(n);
+      }).catch(() => {});
+    }
+  }, [params.userName]);
 
   // Mark goal as completed when last level is finished
   useEffect(() => {

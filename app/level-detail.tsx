@@ -22,9 +22,19 @@ export default function LevelDetailScreen() {
   const insets = useSafeAreaInsets();
   const levelNumber = params.level ? parseInt(params.level as string) : 1;
   const goalName = params.goalName as string || tr('Get an internship', 'Получить стажировку');
-  const goalId = params.goalId as string || ''; // Goal ID for marking as completed
-  const userName = params.userName as string || tr('Friend', 'Друг');
-  
+  const goalId = params.goalId as string || '';
+  const [userName, setUserName] = useState<string>(params.userName as string || '');
+
+  // Load actual user name from storage if not passed via params
+  useEffect(() => {
+    if (!params.userName) {
+      AsyncStorage.getItem('userName').then((stored) => {
+        const n = stored?.trim() || '';
+        if (n) setUserName(n);
+      }).catch(() => {});
+    }
+  }, [params.userName]);
+
   // State for dynamic step data
   const [stepName, setStepName] = useState<string>('');
   const [stepDescription, setStepDescription] = useState<string>('');

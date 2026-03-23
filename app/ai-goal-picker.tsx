@@ -364,9 +364,31 @@ export default function AIGoalPickerScreen() {
       generatedPathsRef.current = nextPaths;
       setSelectedPath(null);
 
+      // Compute the same signature that PathsAlignedStep uses, so it skips its own
+      // regeneration when it mounts (prevents the double-API-call blink).
+      const pathsSignature = JSON.stringify({
+        language: i18n.language || 'en',
+        birthMonth: ctx.birthMonth || '',
+        birthDate: ctx.birthDate || '',
+        birthYear: ctx.birthYear || '',
+        birthCity: ctx.birthCity || '',
+        birthHour: ctx.birthHour || '',
+        birthMinute: ctx.birthMinute || '',
+        birthPeriod: ctx.birthPeriod || '',
+        whatYouLove: ctx.whatYouLove || '',
+        whatYouGoodAt: ctx.whatYouGoodAt || '',
+        whatWorldNeeds: ctx.whatWorldNeeds || '',
+        whatCanBePaidFor: ctx.whatCanBePaidFor || '',
+        fear: ctx.fear || '',
+        whatExcites: ctx.whatExcites || '',
+      });
+
       // Keep shared onboarding data key in sync so onboarding component renders identical cards.
-      await AsyncStorage.setItem('destinyProfile_paths', JSON.stringify(nextPaths));
-      await AsyncStorage.setItem('generatedPaths', JSON.stringify(nextPaths));
+      await AsyncStorage.multiSet([
+        ['destinyProfile_paths', JSON.stringify(nextPaths)],
+        ['generatedPaths', JSON.stringify(nextPaths)],
+        ['destinyProfile_pathsSignature', pathsSignature],
+      ]);
 
       if (mode === 'regenerate') {
         await incrementRegenerationCount();

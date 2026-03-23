@@ -512,6 +512,9 @@ export default function PathExplorationStep({
   const [isInitialContentLoading, setIsInitialContentLoading] = useState(true);
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const headerSlideAnim = useRef(new Animated.Value(-30)).current;
+  // Prevents concurrent API calls when props change rapidly (e.g. onboarding answers streaming in)
+  const isGeneratingRef = useRef(false);
+  const lastSignatureRef = useRef<string>('');
 
   // Default/fallback goals
   const defaultGoals: GoalData[] = [
@@ -592,6 +595,11 @@ export default function PathExplorationStep({
       const hasBirthData = birthMonth && birthDate && birthYear;
       const isGoalOnlyRegeneration = regenerateGoalsTrigger > 0;
       const inputSignature = buildInputSignature();
+
+      // Skip if already generating or if inputs haven't changed since the last call
+      if (isGeneratingRef.current) return;
+      if (!isGoalOnlyRegeneration && inputSignature === lastSignatureRef.current) return;
+
       if (!isGoalOnlyRegeneration) {
         setIsInitialContentLoading(true);
       }
@@ -649,6 +657,8 @@ export default function PathExplorationStep({
         return;
       }
 
+      isGeneratingRef.current = true;
+      lastSignatureRef.current = inputSignature;
       try {
         const content = await generatePathContent(
           pathName,
@@ -712,13 +722,20 @@ export default function PathExplorationStep({
           await persistCache(inputSignature, fallbackGoals, fallbackWhyFits);
         }
       } finally {
+        isGeneratingRef.current = false;
         if (!isGoalOnlyRegeneration) {
           setIsInitialContentLoading(false);
         }
       }
     };
 
-    generateContent();
+    // Debounce: wait 400ms before generating so rapid prop changes (onboarding answers
+    // streaming in while the component is already mounted) don't each fire an API call.
+    const debounceTimer = setTimeout(() => {
+      generateContent();
+    }, 400);
+
+    return () => clearTimeout(debounceTimer);
   }, [pathName, pathDescription, birthMonth, birthDate, birthYear, birthCity, birthHour, birthMinute, birthPeriod, whatYouLove, whatYouGoodAt, whatWorldNeeds, whatCanBePaidFor, fear, whatExcites, regenerateGoalsTrigger, i18n.language, t]);
 
   useEffect(() => {
