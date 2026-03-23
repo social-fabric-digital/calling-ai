@@ -177,14 +177,32 @@ export async function triggerPaywall(event: string): Promise<{
   purchased: boolean;
   dismissed: boolean;
   dismissResultType?: string | null;
+  /** Last paywall dismiss closeReason from Superwall (e.g. manualClose, forNextPaywall). */
+  paywallCloseReason?: string | null;
+  /** True if the Android system back action was used while this paywall was open. */
+  nativeAndroidBackDuringPaywall?: boolean;
 }> {
   const ready = await ensureSuperwallInitialized();
   if (!ready) {
-    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
+    return {
+      shown: false,
+      purchased: false,
+      dismissed: false,
+      dismissResultType: null,
+      paywallCloseReason: null,
+      nativeAndroidBackDuringPaywall: false,
+    };
   }
   const superwall = await getSuperwall();
   if (!superwall) {
-    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
+    return {
+      shown: false,
+      purchased: false,
+      dismissed: false,
+      dismissResultType: null,
+      paywallCloseReason: null,
+      nativeAndroidBackDuringPaywall: false,
+    };
   }
 
   try {
@@ -197,6 +215,8 @@ export async function triggerPaywall(event: string): Promise<{
 
     let didPresent = false;
     let dismissResultType: string | null = null;
+    let paywallCloseReason: string | null = null;
+    let nativeAndroidBackDuringPaywall = false;
     let skipReasonName: string | null = null;
     const handler: any = PaywallPresentationHandler ? new PaywallPresentationHandler() : null;
     let markPresentationComplete: (() => void) | null = null;
@@ -213,8 +233,11 @@ export async function triggerPaywall(event: string): Promise<{
       handler.onPresent((_info: unknown) => {
         didPresent = true;
       });
-      handler.onDismiss((_info: unknown, result: { type?: string } | null) => {
+      handler.onDismiss((info: unknown, result: { type?: string } | null) => {
         dismissResultType = result?.type ?? null;
+        const cr = (info as { closeReason?: string | { toString?: () => string } } | null)?.closeReason;
+        paywallCloseReason =
+          typeof cr === 'string' ? cr : cr != null ? String(cr) : null;
         markPresentationComplete?.();
       });
       handler.onError((error: string) => {
@@ -239,22 +262,41 @@ export async function triggerPaywall(event: string): Promise<{
       // non-critical
     }
 
+    type SuperwallCompatCtor = {
+      onBackPressedCallback?: (info: unknown) => boolean;
+    };
+    const SuperwallCtor = (compatModule as { default?: SuperwallCompatCtor } | null)?.default;
+    const previousBackCallback = SuperwallCtor?.onBackPressedCallback;
+    if (SuperwallCtor) {
+      SuperwallCtor.onBackPressedCallback = () => {
+        nativeAndroidBackDuringPaywall = true;
+        // Let Superwall handle in-paywall navigation first; we only use the flag when the flow ends.
+        return false;
+      };
+    }
+
     let registerError: unknown = null;
-    const registerPromise = superwall.shared.register({
-      placement: event,
-      ...(handler ? { handler } : {}),
-    } as any).catch((error: unknown) => {
-      registerError = error;
-    }).finally(() => {
-      markPresentationComplete?.();
-    });
+    try {
+      const registerPromise = superwall.shared.register({
+        placement: event,
+        ...(handler ? { handler } : {}),
+      } as any).catch((error: unknown) => {
+        registerError = error;
+      }).finally(() => {
+        markPresentationComplete?.();
+      });
 
-    // Keep this generous so Apple auth/purchase flow is not interrupted mid-process.
-    const completionTimeout = new Promise<void>((resolve) => {
-      setTimeout(resolve, 180000);
-    });
+      // Keep this generous so Apple auth/purchase flow is not interrupted mid-process.
+      const completionTimeout = new Promise<void>((resolve) => {
+        setTimeout(resolve, 180000);
+      });
 
-    await Promise.race([registerPromise, presentationCompletion, completionTimeout]);
+      await Promise.race([registerPromise, presentationCompletion, completionTimeout]);
+    } finally {
+      if (SuperwallCtor) {
+        SuperwallCtor.onBackPressedCallback = previousBackCallback;
+      }
+    }
     if (registerError) {
       throw registerError;
     }
@@ -299,10 +341,24 @@ export async function triggerPaywall(event: string): Promise<{
     // suppress unused variable warnings
     void skipReasonName;
 
-    return { shown, purchased, dismissed, dismissResultType };
+    return {
+      shown,
+      purchased,
+      dismissed,
+      dismissResultType,
+      paywallCloseReason,
+      nativeAndroidBackDuringPaywall,
+    };
   } catch (error) {
     console.error('[Superwall] triggerPaywall failed', { event, error });
-    return { shown: false, purchased: false, dismissed: false, dismissResultType: null };
+    return {
+      shown: false,
+      purchased: false,
+      dismissed: false,
+      dismissResultType: null,
+      paywallCloseReason: null,
+      nativeAndroidBackDuringPaywall: false,
+    };
   }
 }
 

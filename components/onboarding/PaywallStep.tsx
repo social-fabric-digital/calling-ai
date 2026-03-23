@@ -71,7 +71,13 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
           result = await triggerWithTimeout('onboarding_paywall');
         }
 
-        let { purchased, shown, dismissed } = result;
+        let {
+          purchased,
+          shown,
+          dismissed,
+          nativeAndroidBackDuringPaywall = false,
+          paywallCloseReason,
+        } = result;
         // If user explicitly dismisses a visible paywall (e.g., back arrow),
         // do not reinterpret that as a purchase based on cached entitlement state.
         // Only entitlement-check when paywall was not shown.
@@ -98,8 +104,18 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
         if (cancelled) return;
         if (purchased) {
           onSubscribeRef.current();
-        } else if (dismissed || shown) {
+        } else if (nativeAndroidBackDuringPaywall) {
+          // Android system back: return to previous onboarding step.
           onBackRef.current?.({ shown: true });
+        } else if (dismissed || shown) {
+          // Primary dismiss (X) is usually PaywallCloseReason.manualClose → continue without subscribing.
+          // Any other closeReason (or Android back, handled above) → previous onboarding step.
+          const reason = paywallCloseReason ?? '';
+          if (reason === 'manualClose') {
+            onContinueFreeRef.current({ shown: true });
+          } else {
+            onBackRef.current?.({ shown: true });
+          }
         } else {
           onContinueFreeRef.current({ shown });
         }
