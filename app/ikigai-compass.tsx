@@ -195,7 +195,7 @@ interface ConclusionCardProps {
 }
 
 function ConclusionCard({ conclusion, isVisible, isComplete, isGenerating, isLocked = false, onPress }: ConclusionCardProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -330,6 +330,18 @@ function ConclusionCard({ conclusion, isVisible, isComplete, isGenerating, isLoc
             <View style={styles.conclusionContent}>
               <Text style={styles.conclusionText}>{conclusion.replace(/\*\*/g, '')}</Text>
             </View>
+          ) : isComplete ? (
+            isGenerating ? (
+              <View style={styles.incompleteContent}>
+                <ActivityIndicator color="rgba(255,255,255,0.85)" />
+                <Text style={styles.incompleteText}>{t('ikigaiCompass.generatingConclusion')}</Text>
+              </View>
+            ) : (
+              <View style={styles.incompleteContent}>
+                <MaterialIcons name="cloud-off" size={28} color="rgba(255,255,255,0.45)" />
+                <Text style={styles.incompleteText}>{t('ikigaiCompass.conclusionLoadError')}</Text>
+              </View>
+            )
           ) : (
             <View style={styles.incompleteContent}>
               <MaterialIcons name="hourglass-empty" size={28} color="rgba(255,255,255,0.4)" />
@@ -406,7 +418,7 @@ export default function IkigaiSummaryScreen({
       console.log('[MyPath] Loading Ikigai screen data...');
       try {
         // Batch AsyncStorage reads to avoid serial IO on screen start.
-        const [love, goodAt, worldNeeds, paidFor, callingType, pathReport] = (
+        const [loveStored, goodAtStored, worldNeedsStored, paidForStored, callingType, pathReport] = (
           await AsyncStorage.multiGet([
             'ikigaiWhatYouLove',
             'ikigaiWhatYouGoodAt',
@@ -417,151 +429,126 @@ export default function IkigaiSummaryScreen({
           ])
         ).map(([, value]) => value);
 
-        const hasProvidedAnswers = Boolean(
-          propWhatYouLove || propWhatYouGoodAt || propWhatWorldNeeds || propWhatCanBePaidFor
-        );
+        const mergeField = (prop: string | undefined, stored: string | null) => {
+          const fromProp = (prop ?? '').trim();
+          if (fromProp.length > 0) return fromProp;
+          return (stored ?? '').trim();
+        };
 
-        // Only load from storage if props are not provided
-        if (!hasProvidedAnswers) {
-          const loadedLove = love || '';
-          const loadedGoodAt = goodAt || '';
-          const loadedWorldNeeds = worldNeeds || '';
-          const loadedPaidFor = paidFor || '';
+        const loadedLove = mergeField(propWhatYouLove, loveStored);
+        const loadedGoodAt = mergeField(propWhatYouGoodAt, goodAtStored);
+        const loadedWorldNeeds = mergeField(propWhatWorldNeeds, worldNeedsStored);
+        const loadedPaidFor = mergeField(propWhatCanBePaidFor, paidForStored);
 
-          setWhatYouLove(loadedLove);
-          setWhatYouGoodAt(loadedGoodAt);
-          setWhatWorldNeeds(loadedWorldNeeds);
-          setWhatCanBePaidFor(loadedPaidFor);
-          
-          // Combine calling type and path report for conclusion
-          if (callingType && pathReport) {
-            const combinedStoredConclusion = `${callingType.replace(/\*\*/g, '')}\n\n${pathReport.replace(/\*\*/g, '')}`;
+        /** All four passed non-empty from navigation — do not reuse cached conclusion (avoids stale text). */
+        const allFourFromProps =
+          (propWhatYouLove ?? '').trim() !== '' &&
+          (propWhatYouGoodAt ?? '').trim() !== '' &&
+          (propWhatWorldNeeds ?? '').trim() !== '' &&
+          (propWhatCanBePaidFor ?? '').trim() !== '';
 
-            const allFilled = loadedLove.trim().length > 0 &&
-              loadedGoodAt.trim().length > 0 &&
-              loadedWorldNeeds.trim().length > 0 &&
-              loadedPaidFor.trim().length > 0;
+        setWhatYouLove(loadedLove);
+        setWhatYouGoodAt(loadedGoodAt);
+        setWhatWorldNeeds(loadedWorldNeeds);
+        setWhatCanBePaidFor(loadedPaidFor);
 
-            // If cached conclusion language doesn't match current app language, regenerate it.
-            const needsRussianRegeneration = isRussian && !hasCyrillic(combinedStoredConclusion);
-            const needsEnglishRegeneration = !isRussian && hasCyrillic(combinedStoredConclusion) && !hasLatin(combinedStoredConclusion);
-            const needsRegeneration = allFilled && (needsRussianRegeneration || needsEnglishRegeneration);
+        const allFilled =
+          loadedLove.trim().length > 0 &&
+          loadedGoodAt.trim().length > 0 &&
+          loadedWorldNeeds.trim().length > 0 &&
+          loadedPaidFor.trim().length > 0;
 
-            if (!needsRegeneration) {
-              setIkigaiConclusion(combinedStoredConclusion);
-            } else {
-              // Avoid flashing old-language text before localized regeneration finishes.
-              setIkigaiConclusion('');
-            }
-            if (needsRegeneration) {
-              setIsGeneratingConclusion(true);
-              try {
-                const conclusion = await generateIkigaiConclusion(
-                  loadedLove,
-                  loadedGoodAt,
-                  loadedWorldNeeds,
-                  loadedPaidFor,
-                  isRussian ? 'ru' : 'en'
-                );
-                const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
-                setIkigaiConclusion(combinedConclusion);
-                await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
-                await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
-              } catch (error) {
-                console.error('Error regenerating localized conclusion:', error);
-              } finally {
-                setIsGeneratingConclusion(false);
-              }
-            }
-          } else if (callingType) {
-            setIkigaiConclusion(callingType.replace(/\*\*/g, ''));
-          } else if (pathReport) {
-            setIkigaiConclusion(pathReport.replace(/\*\*/g, ''));
-          } else {
-            // If all four dimensions are filled but no conclusion exists, generate it
-            const allFilled = loadedLove.trim().length > 0 && 
-                             loadedGoodAt.trim().length > 0 && 
-                             loadedWorldNeeds.trim().length > 0 && 
-                             loadedPaidFor.trim().length > 0;
-            
-            if (allFilled) {
-              // Render the screen immediately while generation runs.
-              setIsLoading(false);
-              setIsGeneratingConclusion(true);
-              const generationStartedAt = Date.now();
-              console.log('[MyPath] Generating Ikigai conclusion from stored answers...');
-              try {
-                const conclusion = await generateIkigaiConclusion(
-                  loadedLove,
-                  loadedGoodAt,
-                  loadedWorldNeeds,
-                  loadedPaidFor,
-                  isRussian ? 'ru' : 'en'
-                );
-                
-                const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
-                setIkigaiConclusion(combinedConclusion);
-                
-                // Save conclusion to AsyncStorage (strip stars before saving)
-                await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
-                await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
-                console.log(`[MyPath] Ikigai conclusion generated in ${Date.now() - generationStartedAt}ms`);
-              } catch (error) {
-                console.error('Error generating conclusion:', error);
-              } finally {
-                setIsGeneratingConclusion(false);
-              }
+        const trimmedPropConclusion = (propIkigaiConclusion ?? '').trim();
+        if (trimmedPropConclusion) {
+          setIkigaiConclusion(trimmedPropConclusion);
+        } else if (allFourFromProps) {
+          if (allFilled) {
+            setIsLoading(false);
+            setIsGeneratingConclusion(true);
+            const generationStartedAt = Date.now();
+            console.log('[MyPath] Generating Ikigai conclusion from provided answers...');
+            try {
+              const conclusion = await generateIkigaiConclusion(
+                loadedLove,
+                loadedGoodAt,
+                loadedWorldNeeds,
+                loadedPaidFor,
+                isRussian ? 'ru' : 'en'
+              );
+
+              const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
+              setIkigaiConclusion(combinedConclusion);
+
+              await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
+              await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
+              console.log(`[MyPath] Ikigai conclusion generated in ${Date.now() - generationStartedAt}ms`);
+            } catch (error) {
+              console.error('Error generating conclusion:', error);
+            } finally {
+              setIsGeneratingConclusion(false);
             }
           }
-        } else {
-          // Use provided props
-          const providedLove = propWhatYouLove || '';
-          const providedGoodAt = propWhatYouGoodAt || '';
-          const providedWorldNeeds = propWhatWorldNeeds || '';
-          const providedPaidFor = propWhatCanBePaidFor || '';
-          
-          setWhatYouLove(providedLove);
-          setWhatYouGoodAt(providedGoodAt);
-          setWhatWorldNeeds(providedWorldNeeds);
-          setWhatCanBePaidFor(providedPaidFor);
-          
-          if (propIkigaiConclusion) {
-            setIkigaiConclusion(propIkigaiConclusion);
+        } else if (callingType && pathReport) {
+          const combinedStoredConclusion = `${callingType.replace(/\*\*/g, '')}\n\n${pathReport.replace(/\*\*/g, '')}`;
+
+          const needsRussianRegeneration = isRussian && !hasCyrillic(combinedStoredConclusion);
+          const needsEnglishRegeneration =
+            !isRussian && hasCyrillic(combinedStoredConclusion) && !hasLatin(combinedStoredConclusion);
+          const needsRegeneration = allFilled && (needsRussianRegeneration || needsEnglishRegeneration);
+
+          if (!needsRegeneration) {
+            setIkigaiConclusion(combinedStoredConclusion);
           } else {
-            // If all four dimensions are filled but no conclusion provided, generate it
-            const allFilled = providedLove.trim().length > 0 && 
-                             providedGoodAt.trim().length > 0 && 
-                             providedWorldNeeds.trim().length > 0 && 
-                             providedPaidFor.trim().length > 0;
-            
-            if (allFilled) {
-              // Render the screen immediately while generation runs.
-              setIsLoading(false);
-              setIsGeneratingConclusion(true);
-              const generationStartedAt = Date.now();
-              console.log('[MyPath] Generating Ikigai conclusion from provided answers...');
-              try {
-                const conclusion = await generateIkigaiConclusion(
-                  providedLove,
-                  providedGoodAt,
-                  providedWorldNeeds,
-                  providedPaidFor,
-                  isRussian ? 'ru' : 'en'
-                );
-                
-                const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
-                setIkigaiConclusion(combinedConclusion);
-                
-                // Save conclusion to AsyncStorage (strip stars before saving)
-                await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
-                await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
-                console.log(`[MyPath] Ikigai conclusion generated in ${Date.now() - generationStartedAt}ms`);
-              } catch (error) {
-                console.error('Error generating conclusion:', error);
-              } finally {
-                setIsGeneratingConclusion(false);
-              }
+            setIkigaiConclusion('');
+          }
+          if (needsRegeneration) {
+            setIsGeneratingConclusion(true);
+            try {
+              const conclusion = await generateIkigaiConclusion(
+                loadedLove,
+                loadedGoodAt,
+                loadedWorldNeeds,
+                loadedPaidFor,
+                isRussian ? 'ru' : 'en'
+              );
+              const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
+              setIkigaiConclusion(combinedConclusion);
+              await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
+              await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
+            } catch (error) {
+              console.error('Error regenerating localized conclusion:', error);
+            } finally {
+              setIsGeneratingConclusion(false);
             }
+          }
+        } else if (callingType) {
+          setIkigaiConclusion(callingType.replace(/\*\*/g, ''));
+        } else if (pathReport) {
+          setIkigaiConclusion(pathReport.replace(/\*\*/g, ''));
+        } else if (allFilled) {
+          setIsLoading(false);
+          setIsGeneratingConclusion(true);
+          const generationStartedAt = Date.now();
+          console.log('[MyPath] Generating Ikigai conclusion from stored answers...');
+          try {
+            const conclusion = await generateIkigaiConclusion(
+              loadedLove,
+              loadedGoodAt,
+              loadedWorldNeeds,
+              loadedPaidFor,
+              isRussian ? 'ru' : 'en'
+            );
+
+            const combinedConclusion = `${conclusion.callingType.replace(/\*\*/g, '')}\n\n${conclusion.pathReport.replace(/\*\*/g, '')}`;
+            setIkigaiConclusion(combinedConclusion);
+
+            await AsyncStorage.setItem('ikigaiCallingType', conclusion.callingType.replace(/\*\*/g, ''));
+            await AsyncStorage.setItem('ikigaiPathReport', conclusion.pathReport.replace(/\*\*/g, ''));
+            console.log(`[MyPath] Ikigai conclusion generated in ${Date.now() - generationStartedAt}ms`);
+          } catch (error) {
+            console.error('Error generating conclusion:', error);
+          } finally {
+            setIsGeneratingConclusion(false);
           }
         }
       } catch (error) {

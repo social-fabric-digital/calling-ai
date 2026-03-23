@@ -826,6 +826,7 @@
       }
     },
     "generatingConclusion": "Generating your Ikigai conclusion...",
+    "conclusionLoadError": "We couldn't load your Ikigai summary. Check your connection and open this screen again.",
     "editAnswer": "Edit Answer",
     "outOf": "out of",
     "saveAnswer": "Save Answer",

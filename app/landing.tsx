@@ -1,21 +1,12 @@
 import WelcomeScreen from '@/components/WelcomeScreen';
 import { supabase } from '@/lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-const DEV_ONBOARDING_STEP_KEY = '@dev_onboarding_step';
-
 export default function LandingScreen() {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    if (__DEV__) {
-      AsyncStorage.removeItem(DEV_ONBOARDING_STEP_KEY).catch(() => {});
-    }
-  }, []);
 
   // If user already has a valid session, skip welcome and go straight to the app.
   useEffect(() => {

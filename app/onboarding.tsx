@@ -72,6 +72,9 @@ const REVIEW_BIRTH_DATE = '1';
 const REVIEW_BIRTH_YEAR = '1995';
 const PATH_EXPLORATION_CACHE_KEY = '@path_exploration_cached_content';
 const PATH_EXPLORATION_CONTENT_VERSION = 4;
+/** Single JSON blob for resume-if-no-account (see debounced save + restore in this screen). */
+const ONBOARDING_PROGRESS_KEY = 'onboardingProgress';
+const ONBOARDING_PROGRESS_VERSION = 1;
 
 const BASE_YAZIO_FLOW_STEPS = [
   'aboutYou',
@@ -135,7 +138,6 @@ export default function OnboardingScreen() {
   // Always land on the goals tab after creating a goal (whether from onboarding or add-goal flow).
   const postGoalCreationRoute = '/(tabs)/goals';
   const JUST_FINISHED_ONBOARDING_KEY = '@just_finished_onboarding';
-  const DEV_ONBOARDING_STEP_KEY = '@dev_onboarding_step';
   const [currentStep, setCurrentStep] = useState(0);
   const currentStepRef = useRef(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -311,13 +313,19 @@ export default function OnboardingScreen() {
   const [canShowFinalPaywall, setCanShowFinalPaywall] = useState(false);
   const [canSubmitAboutYou, setCanSubmitAboutYou] = useState(false);
   const isAdvancingStepRef = useRef(false);
+  /** When false, skip debounced persistence until initial restore (or skip) has finished. */
+  const [onboardingPersistenceEnabled, setOnboardingPersistenceEnabled] = useState(
+    () => Boolean(isAddGoalFlow || APP_STORE_REVIEW_MODE)
+  );
 
   const resetLocalDataForFreshOnboarding = async () => {
     const LANGUAGE_KEY = '@selected_language';
     try {
       const preservedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
       const allKeys = await AsyncStorage.getAllKeys();
-      const keysToRemove = allKeys.filter((key) => key !== LANGUAGE_KEY);
+      const keysToRemove = allKeys.filter(
+        (key) => key !== LANGUAGE_KEY && key !== ONBOARDING_PROGRESS_KEY
+      );
       if (keysToRemove.length > 0) {
         await AsyncStorage.multiRemove(keysToRemove);
       }
@@ -395,16 +403,275 @@ export default function OnboardingScreen() {
     }
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
   };
+
+  const onboardingProgressForStorage = useMemo(
+    () => ({
+      v: ONBOARDING_PROGRESS_VERSION,
+      useYazioFlow: USE_YAZIO_FLOW,
+      currentStep,
+      name,
+      birthMonth,
+      birthDate,
+      birthYear,
+      birthHour,
+      birthMinute,
+      birthAmPm,
+      dontKnowTime,
+      birthCity,
+      birthLatitude,
+      birthLongitude,
+      birthTimezone,
+      currentTimezone,
+      pledgeAnswer,
+      signature,
+      hideBirthTimeFields,
+      whatYouLove,
+      whatYouGoodAt,
+      whatWorldNeeds,
+      whatCanBePaidFor,
+      currentSituation,
+      biggestConstraint,
+      whatMattersMost,
+      dreamGoal,
+      fearOrBarrier,
+      showCustomPathForm,
+      showCustomPathDreamForm,
+      customPathData,
+      exploringPathId,
+      exploringPathName,
+      exploringPathDescription,
+      generatedPaths,
+      showPathChallenge,
+      pathChallenge,
+      showPredefinedGoalChallenge,
+      predefinedGoalTitle,
+      showJourneyLoading,
+      journeyLoadingItems,
+      selectedGoalTitle,
+      selectedGoalFear,
+      showPaywall,
+      userIsPremium,
+      showAccountCreation,
+      pendingRoute,
+      signupEmail,
+      whyHereAnswer,
+      currentFeelingAnswer,
+      whatHeldBackAnswers,
+      pastAttemptsAnswers,
+      pastChallengesAnswers,
+      whyDifferentAnswer,
+      successInspirationAnswer,
+      futureSelfAnswer,
+      motivationEventAnswer,
+      commitmentChallengeAnswer,
+      distractionsAnswers,
+      consistencyPlanAnswers,
+      setbackPlanAnswers,
+      canShowFinalPaywall,
+      canSubmitAboutYou,
+      ikigaiCurrentPage,
+    }),
+    [
+      currentStep,
+      name,
+      birthMonth,
+      birthDate,
+      birthYear,
+      birthHour,
+      birthMinute,
+      birthAmPm,
+      dontKnowTime,
+      birthCity,
+      birthLatitude,
+      birthLongitude,
+      birthTimezone,
+      currentTimezone,
+      pledgeAnswer,
+      signature,
+      hideBirthTimeFields,
+      whatYouLove,
+      whatYouGoodAt,
+      whatWorldNeeds,
+      whatCanBePaidFor,
+      currentSituation,
+      biggestConstraint,
+      whatMattersMost,
+      dreamGoal,
+      fearOrBarrier,
+      showCustomPathForm,
+      showCustomPathDreamForm,
+      customPathData,
+      exploringPathId,
+      exploringPathName,
+      exploringPathDescription,
+      generatedPaths,
+      showPathChallenge,
+      pathChallenge,
+      showPredefinedGoalChallenge,
+      predefinedGoalTitle,
+      showJourneyLoading,
+      journeyLoadingItems,
+      selectedGoalTitle,
+      selectedGoalFear,
+      showPaywall,
+      userIsPremium,
+      showAccountCreation,
+      pendingRoute,
+      signupEmail,
+      whyHereAnswer,
+      currentFeelingAnswer,
+      whatHeldBackAnswers,
+      pastAttemptsAnswers,
+      pastChallengesAnswers,
+      whyDifferentAnswer,
+      successInspirationAnswer,
+      futureSelfAnswer,
+      motivationEventAnswer,
+      commitmentChallengeAnswer,
+      distractionsAnswers,
+      consistencyPlanAnswers,
+      setbackPlanAnswers,
+      canShowFinalPaywall,
+      canSubmitAboutYou,
+      ikigaiCurrentPage,
+    ]
+  );
+
+  // Debounced persistence: resume onboarding after app kill (before account creation).
+  useEffect(() => {
+    if (isAddGoalFlow || APP_STORE_REVIEW_MODE || !onboardingPersistenceEnabled) return;
+    const id = setTimeout(() => {
+      AsyncStorage.setItem(ONBOARDING_PROGRESS_KEY, JSON.stringify(onboardingProgressForStorage)).catch(() => {});
+    }, 500);
+    return () => clearTimeout(id);
+  }, [onboardingProgressForStorage, isAddGoalFlow, onboardingPersistenceEnabled]);
   
   // Check premium status on mount
   useEffect(() => {
+    const restoreOnboardingProgress = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(ONBOARDING_PROGRESS_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw) as Record<string, unknown>;
+        if (!p || p.v !== ONBOARDING_PROGRESS_VERSION || typeof p.currentStep !== 'number') return;
+
+        const maxStep = USE_YAZIO_FLOW
+          ? YAZIO_FLOW_STEPS.length - 1
+          : Math.max(0, ONBOARDING_STEPS.length - 1);
+        const step = Math.min(Math.max(0, Math.floor(p.currentStep)), maxStep);
+
+        setCurrentStep(step);
+        slideAnim.setValue(-step * slideWidth);
+
+        const str = (key: string, fallback = '') =>
+          typeof p[key] === 'string' ? (p[key] as string) : fallback;
+        const bool = (key: string, fallback = false) =>
+          typeof p[key] === 'boolean' ? (p[key] as boolean) : fallback;
+        const strArr = (key: string) => (Array.isArray(p[key]) ? (p[key] as string[]) : []);
+
+        setName(str('name', DEFAULT_ONBOARDING_NAME));
+        setBirthMonth(str('birthMonth'));
+        setBirthDate(str('birthDate'));
+        setBirthYear(str('birthYear'));
+        setBirthHour(str('birthHour'));
+        setBirthMinute(str('birthMinute'));
+        setBirthAmPm(str('birthAmPm', 'AM'));
+        setDontKnowTime(bool('dontKnowTime'));
+        setBirthCity(str('birthCity'));
+        setBirthLatitude(str('birthLatitude'));
+        setBirthLongitude(str('birthLongitude'));
+        setBirthTimezone(str('birthTimezone'));
+        setCurrentTimezone(str('currentTimezone'));
+        setPledgeAnswer(str('pledgeAnswer'));
+        setSignature(str('signature'));
+        setHideBirthTimeFields(bool('hideBirthTimeFields'));
+        setWhatYouLove(str('whatYouLove'));
+        setWhatYouGoodAt(str('whatYouGoodAt'));
+        setWhatWorldNeeds(str('whatWorldNeeds'));
+        setWhatCanBePaidFor(str('whatCanBePaidFor'));
+        setCurrentSituation(str('currentSituation'));
+        setBiggestConstraint(str('biggestConstraint'));
+        setWhatMattersMost(Array.isArray(p.whatMattersMost) ? strArr('whatMattersMost') : []);
+        setDreamGoal(str('dreamGoal'));
+        setFearOrBarrier(str('fearOrBarrier'));
+        setShowCustomPathForm(bool('showCustomPathForm'));
+        setShowCustomPathDreamForm(bool('showCustomPathDreamForm'));
+        if (p.customPathData === null) {
+          setCustomPathData(null);
+        } else if (p.customPathData && typeof p.customPathData === 'object') {
+          setCustomPathData(p.customPathData as CustomPathData);
+        }
+        if (p.exploringPathId === null) {
+          setExploringPathId(null);
+        } else if (typeof p.exploringPathId === 'number' && Number.isFinite(p.exploringPathId)) {
+          setExploringPathId(p.exploringPathId);
+        }
+        setExploringPathName(str('exploringPathName'));
+        setExploringPathDescription(str('exploringPathDescription'));
+        if (Array.isArray(p.generatedPaths)) {
+          const paths = (p.generatedPaths as unknown[]).filter(
+            (x): x is { id: number; title: string; description: string; glowColor: string } =>
+              !!x &&
+              typeof x === 'object' &&
+              typeof (x as { id?: unknown }).id === 'number' &&
+              typeof (x as { title?: unknown }).title === 'string' &&
+              typeof (x as { description?: unknown }).description === 'string' &&
+              typeof (x as { glowColor?: unknown }).glowColor === 'string'
+          );
+          if (paths.length) setGeneratedPaths(paths);
+        }
+        setShowPathChallenge(bool('showPathChallenge'));
+        setPathChallenge(str('pathChallenge'));
+        setShowPredefinedGoalChallenge(bool('showPredefinedGoalChallenge'));
+        setPredefinedGoalTitle(str('predefinedGoalTitle'));
+        setShowJourneyLoading(bool('showJourneyLoading'));
+        setJourneyLoadingItems(Array.isArray(p.journeyLoadingItems) ? strArr('journeyLoadingItems') : []);
+        setSelectedGoalTitle(str('selectedGoalTitle'));
+        setSelectedGoalFear(str('selectedGoalFear'));
+        setShowPaywall(bool('showPaywall'));
+        setUserIsPremium(bool('userIsPremium'));
+        setShowAccountCreation(bool('showAccountCreation'));
+        if ('pendingRoute' in p) {
+          const pr = p.pendingRoute;
+          if (pr === 'premium' || pr === 'free' || pr === null) setPendingRoute(pr);
+        }
+        setSignupEmail(str('signupEmail'));
+        setWhyHereAnswer(str('whyHereAnswer'));
+        setCurrentFeelingAnswer(str('currentFeelingAnswer'));
+        setWhatHeldBackAnswers(Array.isArray(p.whatHeldBackAnswers) ? strArr('whatHeldBackAnswers') : []);
+        setPastAttemptsAnswers(Array.isArray(p.pastAttemptsAnswers) ? strArr('pastAttemptsAnswers') : []);
+        setPastChallengesAnswers(Array.isArray(p.pastChallengesAnswers) ? strArr('pastChallengesAnswers') : []);
+        setWhyDifferentAnswer(str('whyDifferentAnswer'));
+        setSuccessInspirationAnswer(
+          Array.isArray(p.successInspirationAnswer) ? strArr('successInspirationAnswer') : []
+        );
+        setFutureSelfAnswer(str('futureSelfAnswer'));
+        setMotivationEventAnswer(str('motivationEventAnswer'));
+        setCommitmentChallengeAnswer(str('commitmentChallengeAnswer'));
+        setDistractionsAnswers(Array.isArray(p.distractionsAnswers) ? strArr('distractionsAnswers') : []);
+        setConsistencyPlanAnswers(
+          Array.isArray(p.consistencyPlanAnswers) ? strArr('consistencyPlanAnswers') : []
+        );
+        setSetbackPlanAnswers(Array.isArray(p.setbackPlanAnswers) ? strArr('setbackPlanAnswers') : []);
+        setCanShowFinalPaywall(bool('canShowFinalPaywall'));
+        setCanSubmitAboutYou(bool('canSubmitAboutYou'));
+        if (typeof p.ikigaiCurrentPage === 'number' && Number.isFinite(p.ikigaiCurrentPage)) {
+          setIkigaiCurrentPage(Math.max(0, Math.floor(p.ikigaiCurrentPage as number)));
+        }
+      } catch (e) {
+        console.warn('[Onboarding] Failed to restore onboardingProgress:', e);
+      }
+    };
+
     const initOnboarding = async () => {
-      if (!isAddGoalFlow) {
+      if (isAddGoalFlow) {
+        setOnboardingPersistenceEnabled(true);
+      } else {
         // In development, preserve current screen while iterating on UI changes.
         if (!__DEV__) {
           // Sign out any existing session for fresh onboarding
           await supabase.auth.signOut();
-          // Ensure a different account starts from clean local state.
+          // Ensure a different account starts from clean local state (keeps onboardingProgress).
           await resetLocalDataForFreshOnboarding();
         }
         if (APP_STORE_REVIEW_MODE) {
@@ -431,39 +698,17 @@ export default function OnboardingScreen() {
           setBirthTimezone('');
           setBirthHour('');
           setBirthMinute('');
+        } else {
+          await restoreOnboardingProgress();
         }
+        setOnboardingPersistenceEnabled(true);
       }
       const premium = await checkSubscriptionStatus();
       setUserIsPremium(premium);
     };
     initOnboarding();
+    // Intentionally only isAddGoalFlow: avoid re-running sign-out/storage reset on rotation or i18n.
   }, [isAddGoalFlow]);
-
-  // Dev-only: restore current onboarding step after hot reloads.
-  useEffect(() => {
-    if (!__DEV__ || isAddGoalFlow) return;
-    const restoreDevStep = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(DEV_ONBOARDING_STEP_KEY);
-        if (!raw) return;
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed)) return;
-        const maxStep = USE_YAZIO_FLOW ? YAZIO_FLOW_STEPS.length - 1 : ONBOARDING_STEPS.length - 1;
-        const stepToRestore = Math.min(Math.max(0, parsed), maxStep);
-        setCurrentStep(stepToRestore);
-        slideAnim.setValue(-stepToRestore * slideWidth);
-      } catch {
-        // Non-blocking in dev.
-      }
-    };
-    restoreDevStep();
-  }, [isAddGoalFlow, slideWidth, slideAnim, ONBOARDING_STEPS.length]);
-
-  // Dev-only: persist current onboarding step for hot reload continuity.
-  useEffect(() => {
-    if (!__DEV__ || isAddGoalFlow) return;
-    AsyncStorage.setItem(DEV_ONBOARDING_STEP_KEY, String(currentStep)).catch(() => {});
-  }, [currentStep, isAddGoalFlow]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -1257,6 +1502,11 @@ export default function OnboardingScreen() {
       
       if (data.user) {
         await trackLoginEvent();
+        try {
+          await AsyncStorage.removeItem(ONBOARDING_PROGRESS_KEY);
+        } catch {
+          // non-blocking
+        }
         // Now save all onboarding data to Supabase
         try {
           // Wait for the profile trigger to create the row
@@ -1831,6 +2081,7 @@ export default function OnboardingScreen() {
     if (isAddGoalFlow) return;
     try {
       await AsyncStorage.setItem(JUST_FINISHED_ONBOARDING_KEY, 'true');
+      await AsyncStorage.removeItem(ONBOARDING_PROGRESS_KEY);
     } catch (error) {
       console.error('Error setting onboarding completion flag:', error);
     }
@@ -2117,26 +2368,11 @@ export default function OnboardingScreen() {
             setShowPaywall(false);
             setShowAccountCreation(true);
           }}
-          onBack={(meta) => {
-            void hapticMedium();
-            // Back arrow should navigate to the previous onboarding screen.
-            setPendingRoute('free');
-            setUserIsPremium(false);
-            setShowPaywall(false);
-            setShowAccountCreation(false);
-            const nextStep = 7; // Step id 8 (Paths Aligned)
-            setCurrentStep(nextStep);
-            Animated.timing(slideAnim, {
-              toValue: -nextStep * slideWidth,
-              duration: 300,
-              useNativeDriver: true,
-            }).start();
-            void meta;
-          }}
           onContinueFree={async () => {
             void hapticMedium();
             setPendingRoute('free');
             setUserIsPremium(false);
+            setShowPaywall(false);
             setShowAccountCreation(true);
           }}
         />
@@ -2546,22 +2782,6 @@ export default function OnboardingScreen() {
                       setPendingRoute('premium');
                       setUserIsPremium(true);
                       setShowAccountCreation(true);
-                    }}
-                    onBack={async () => {
-                      void hapticMedium();
-                      // Back arrow should navigate to the previous onboarding screen.
-                      setPendingRoute('free');
-                      setUserIsPremium(false);
-                      setCanShowFinalPaywall(false);
-                      const pathExplorationIndex = YAZIO_FLOW_STEPS.indexOf('pathExploration');
-                      if (pathExplorationIndex >= 0) {
-                        setCurrentStep(pathExplorationIndex);
-                        Animated.timing(slideAnim, {
-                          toValue: -pathExplorationIndex * slideWidth,
-                          duration: 300,
-                          useNativeDriver: true,
-                        }).start();
-                      }
                     }}
                     onContinueFree={async () => {
                       void hapticMedium();

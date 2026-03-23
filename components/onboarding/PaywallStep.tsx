@@ -5,13 +5,12 @@ import { checkSubscriptionStatus, triggerPaywall } from '@/utils/superwall';
 interface PaywallStepProps {
   onSubscribe: () => void;
   onContinueFree: (meta?: { shown: boolean }) => void;
-  onBack?: (meta?: { shown: boolean }) => void;
 }
 
 let onboardingPaywallIsPresenting = false;
 let onboardingPaywallPresentedOnce = false;
 
-export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: PaywallStepProps) {
+export default function PaywallStep({ onSubscribe, onContinueFree }: PaywallStepProps) {
   const [loading, setLoading] = useState(true);
   const [statusText, setStatusText] = useState('Opening paywall...');
   const [showFallbackContinue, setShowFallbackContinue] = useState(false);
@@ -19,13 +18,11 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
   const isPaywallPresentingRef = useRef(false);
   const onSubscribeRef = useRef(onSubscribe);
   const onContinueFreeRef = useRef(onContinueFree);
-  const onBackRef = useRef(onBack);
 
   useEffect(() => {
     onSubscribeRef.current = onSubscribe;
     onContinueFreeRef.current = onContinueFree;
-    onBackRef.current = onBack;
-  }, [onSubscribe, onContinueFree, onBack]);
+  }, [onSubscribe, onContinueFree]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,16 +68,9 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
           result = await triggerWithTimeout('onboarding_paywall');
         }
 
-        let {
-          purchased,
-          shown,
-          dismissed,
-          nativeAndroidBackDuringPaywall = false,
-          paywallCloseReason,
-        } = result;
-        // If user explicitly dismisses a visible paywall (e.g., back arrow),
-        // do not reinterpret that as a purchase based on cached entitlement state.
-        // Only entitlement-check when paywall was not shown.
+        let { purchased, shown } = result;
+        // If paywall was not shown, allow entitlement check (restore / prior subscription).
+        // If user dismissed a visible paywall (X, etc.), do not treat cached state as purchase.
         if (!purchased && !shown) {
           const activeSubscription = await checkSubscriptionStatus();
           if (activeSubscription) {
@@ -104,20 +94,9 @@ export default function PaywallStep({ onSubscribe, onContinueFree, onBack }: Pay
         if (cancelled) return;
         if (purchased) {
           onSubscribeRef.current();
-        } else if (nativeAndroidBackDuringPaywall) {
-          // Android system back: return to previous onboarding step.
-          onBackRef.current?.({ shown: true });
-        } else if (dismissed || shown) {
-          // Primary dismiss (X) is usually PaywallCloseReason.manualClose → continue without subscribing.
-          // Any other closeReason (or Android back, handled above) → previous onboarding step.
-          const reason = paywallCloseReason ?? '';
-          if (reason === 'manualClose') {
-            onContinueFreeRef.current({ shown: true });
-          } else {
-            onBackRef.current?.({ shown: true });
-          }
         } else {
-          onContinueFreeRef.current({ shown });
+          // Any non-purchase exit (X, Android back, skipped paywall): continue as free user → Create Account.
+          onContinueFreeRef.current({ shown: !!shown });
         }
       } catch (error) {
         console.error('PaywallStep failed, continuing free flow:', error);
