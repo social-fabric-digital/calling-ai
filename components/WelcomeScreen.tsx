@@ -6,7 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_DEER_WIDTH = 260;
@@ -35,12 +35,22 @@ const WelcomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const IS_SHORT_SCREEN = SCREEN_HEIGHT < 760;
+  const IS_VERY_SHORT_SCREEN = SCREEN_HEIGHT < 700;
+  /** Narrow portrait width — primary driver for login row + gutters (not screen height). */
+  const IS_NARROW_WIDTH = SCREEN_WIDTH < 420;
+  const IS_VERY_NARROW_WIDTH = SCREEN_WIDTH < 360;
+  /** Stack “Already have an account?” + Login on narrow widths so the row never clips. */
+  const IS_COMPACT_LOGIN_ROW = IS_NARROW_WIDTH;
   const IS_TABLET_LAYOUT = Platform.isPad || (Platform.OS === 'android' && SCREEN_WIDTH >= 768);
+  const horizontalGutter = IS_TABLET_LAYOUT ? 40 : IS_VERY_NARROW_WIDTH ? 20 : IS_NARROW_WIDTH ? 28 : 40;
   const rawDeerWidth = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85;
-  const DEER_IMAGE_WIDTH = Math.min(rawDeerWidth, MAX_DEER_WIDTH) * (IS_SHORT_SCREEN ? 0.82 : 1);
+  const DEER_IMAGE_WIDTH =
+    Math.min(rawDeerWidth, MAX_DEER_WIDTH) *
+    (IS_SHORT_SCREEN ? 0.82 : 1) *
+    (IS_NARROW_WIDTH ? 0.92 : 1);
   const DEER_IMAGE_HEIGHT = DEER_IMAGE_WIDTH * (180 / 220);
-  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH - 40, IS_TABLET_LAYOUT ? 560 : 420);
-  const BUBBLE_WIDTH = Math.min(SCREEN_WIDTH - 40, IS_TABLET_LAYOUT ? 560 : 440);
+  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH - horizontalGutter, IS_TABLET_LAYOUT ? 560 : 420);
+  const BUBBLE_WIDTH = Math.min(SCREEN_WIDTH - horizontalGutter, IS_TABLET_LAYOUT ? 560 : 440);
   const LANGUAGE_BUTTON_WIDTH = Math.min(Math.max(168, SCREEN_WIDTH * 0.48), 220);
 
   const { i18n } = useTranslation();
@@ -411,16 +421,10 @@ const WelcomeScreen = () => {
           style={styles.backgroundImage}
           resizeMode="cover"
         />
-        <View
-          style={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(28, insets.bottom + 16) },
-          ]}
-        >
-        {/* Subtle background texture and elements */}
-        <View style={styles.backgroundElements}>
+        {/* Keep orbs fixed; do not scroll with welcome content */}
+        <View style={styles.backgroundElements} pointerEvents="none">
           <View style={styles.softGlow} />
-          <Animated.View 
+          <Animated.View
             style={[
               styles.floatingOrb1,
               {
@@ -431,7 +435,7 @@ const WelcomeScreen = () => {
               },
             ]}
           />
-          <Animated.View 
+          <Animated.View
             style={[
               styles.floatingOrb2,
               {
@@ -442,7 +446,7 @@ const WelcomeScreen = () => {
               },
             ]}
           />
-          <Animated.View 
+          <Animated.View
             style={[
               styles.floatingOrb3,
               {
@@ -455,14 +459,28 @@ const WelcomeScreen = () => {
           />
         </View>
 
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: Math.max(24, insets.bottom + 20),
+              minHeight: SCREEN_HEIGHT - insets.top - insets.bottom,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces
+        >
         {/* Main Content */}
         <Animated.View 
           style={[
             styles.mainContent,
             {
-              justifyContent: IS_SHORT_SCREEN ? 'flex-start' : 'center',
-              paddingTop: IS_SHORT_SCREEN ? 92 : 110,
-              paddingBottom: IS_SHORT_SCREEN ? 12 : 24,
+              justifyContent: IS_SHORT_SCREEN || IS_NARROW_WIDTH ? 'flex-start' : 'center',
+              paddingHorizontal: IS_NARROW_WIDTH ? 12 : 16,
+              paddingTop: IS_VERY_SHORT_SCREEN ? 78 : IS_SHORT_SCREEN ? 88 : IS_NARROW_WIDTH ? 96 : 110,
+              paddingBottom: IS_VERY_SHORT_SCREEN ? 8 : IS_SHORT_SCREEN ? 12 : 24,
             },
             {
               opacity: fadeAnim,
@@ -471,9 +489,35 @@ const WelcomeScreen = () => {
           ]}
         >
           {/* Welcome Text */}
-          <View style={[styles.welcomeSection, { width: CONTENT_WIDTH }, IS_SHORT_SCREEN && { marginBottom: 18 }]}>
-            <Text style={[styles.welcomeTitle, selectedLanguage === 'ru' && styles.welcomeTitleRussian]}>{t.welcome}</Text>
-            <Text style={styles.welcomeSubtitle}>{t.subtitle}</Text>
+          <View
+            style={[
+              styles.welcomeSection,
+              { width: CONTENT_WIDTH },
+              (IS_SHORT_SCREEN || IS_NARROW_WIDTH) && {
+                marginBottom: IS_VERY_SHORT_SCREEN ? 12 : IS_NARROW_WIDTH ? 14 : 18,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.welcomeTitle,
+                selectedLanguage === 'ru' && styles.welcomeTitleRussian,
+                IS_NARROW_WIDTH && styles.welcomeTitleNarrow,
+              ]}
+              numberOfLines={3}
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+            >
+              {t.welcome}
+            </Text>
+            <Text
+              style={[styles.welcomeSubtitle, IS_NARROW_WIDTH && styles.welcomeSubtitleNarrow]}
+              numberOfLines={4}
+              adjustsFontSizeToFit
+              minimumFontScale={0.88}
+            >
+              {t.subtitle}
+            </Text>
           </View>
 
           {/* Deer Mascot Section */}
@@ -490,8 +534,15 @@ const WelcomeScreen = () => {
             ]}
           >
             {/* Speech Bubble */}
-            <View style={[styles.speechBubble, { width: BUBBLE_WIDTH }, IS_SHORT_SCREEN && { marginBottom: 12 }]}>
-            <Text style={styles.speechText} maxFontSizeMultiplier={1}>
+            <View
+              style={[
+                styles.speechBubble,
+                { width: BUBBLE_WIDTH },
+                (IS_SHORT_SCREEN || IS_NARROW_WIDTH) && { marginBottom: IS_NARROW_WIDTH ? 10 : 12 },
+                IS_NARROW_WIDTH && { paddingHorizontal: 12 },
+              ]}
+            >
+            <Text style={[styles.speechText, IS_NARROW_WIDTH && styles.speechTextNarrow]} maxFontSizeMultiplier={1}>
                 {t.mascotMessage}
               </Text>
               <View style={styles.speechTail} />
@@ -546,8 +597,10 @@ const WelcomeScreen = () => {
             styles.bottomSection,
             { width: CONTENT_WIDTH },
             {
-              paddingTop: IS_SHORT_SCREEN ? 12 : 20,
-              paddingBottom: 40,
+              paddingTop:
+                IS_VERY_SHORT_SCREEN ? 8 : IS_SHORT_SCREEN ? 12 : IS_NARROW_WIDTH ? 14 : 20,
+              paddingBottom:
+                IS_VERY_SHORT_SCREEN ? 16 : IS_SHORT_SCREEN ? 24 : IS_NARROW_WIDTH ? 28 : 40,
             },
             {
               opacity: bottomFadeAnim,
@@ -555,8 +608,11 @@ const WelcomeScreen = () => {
             }
           ]}
         >
-          <TouchableOpacity 
-            style={styles.startButton} 
+          <TouchableOpacity
+            style={[
+              styles.startButton,
+              (IS_VERY_SHORT_SCREEN || IS_NARROW_WIDTH) && styles.startButtonCompact,
+            ]}
             activeOpacity={0.8}
             onPress={handleStartJourney}
           >
@@ -573,22 +629,28 @@ const WelcomeScreen = () => {
             </View>
           </TouchableOpacity>
 
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText} maxFontSizeMultiplier={1}>
+          <View style={[styles.loginContainer, IS_COMPACT_LOGIN_ROW && styles.loginContainerStacked]}>
+            <Text
+              style={[styles.loginText, IS_COMPACT_LOGIN_ROW && styles.loginTextCompact]}
+              maxFontSizeMultiplier={1.15}
+              numberOfLines={IS_VERY_NARROW_WIDTH ? 3 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+            >
               {t.loginText}
             </Text>
-            <TouchableOpacity 
-              style={styles.loginLinkButton}
+            <TouchableOpacity
+              style={[styles.loginLinkButton, IS_COMPACT_LOGIN_ROW && styles.loginLinkButtonStacked]}
               activeOpacity={0.7}
               onPress={() => router.push('/email-login')}
             >
-              <Text style={styles.loginLink} maxFontSizeMultiplier={1}>
+              <Text style={[styles.loginLink, IS_COMPACT_LOGIN_ROW && styles.loginLinkCompact]} maxFontSizeMultiplier={1.15}>
                 {t.loginLink}
               </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </View>
+        </ScrollView>
 
       {/* Overlay to close language menu */}
       {showLanguageMenu && (
@@ -670,9 +732,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  scrollView: {
+    flex: 1,
+    zIndex: 10,
+  },
   scrollContent: {
     flexGrow: 1,
-    minHeight: '100%',
   },
 
   // Background Elements
@@ -831,6 +896,10 @@ const styles = StyleSheet.create({
   welcomeTitleRussian: {
     letterSpacing: 0,
   },
+  welcomeTitleNarrow: {
+    fontSize: 24,
+    marginBottom: 12,
+  },
   welcomeSubtitle: {
     fontFamily: Platform.select({
       ios: 'AnonymousPro-Regular',
@@ -845,6 +914,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexShrink: 0,
     maxWidth: Platform.isPad ? 350 : undefined,
+  },
+  welcomeSubtitleNarrow: {
+    fontSize: 15,
+    lineHeight: 22,
+    paddingHorizontal: 2,
   },
   butterflyEmoji: {
     fontSize: 32,
@@ -883,6 +957,10 @@ const styles = StyleSheet.create({
     color: '#342846',
     lineHeight: Platform.isPad ? 28 : 22,
     textAlign: 'center',
+  },
+  speechTextNarrow: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   speechTail: {
     position: 'absolute',
@@ -958,6 +1036,10 @@ const styles = StyleSheet.create({
     elevation: 8,
     marginBottom: 20,
   },
+  startButtonCompact: {
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
   startButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -988,6 +1070,15 @@ const styles = StyleSheet.create({
     columnGap: 6,
     paddingHorizontal: 8,
   },
+  loginContainerStacked: {
+    flexDirection: 'column',
+    rowGap: 6,
+    columnGap: 0,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    alignSelf: 'center',
+    maxWidth: '100%',
+  },
   loginText: {
     fontFamily: Platform.select({
       ios: 'AnonymousPro-Regular',
@@ -1000,8 +1091,22 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginRight: 0,
   },
+  loginTextCompact: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+    maxWidth: '100%',
+  },
   loginLinkButton: {
     paddingHorizontal: 2,
+  },
+  loginLinkButtonStacked: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loginLink: {
     fontFamily: Platform.select({
@@ -1013,6 +1118,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#342846',
     textDecorationLine: 'underline',
+  },
+  loginLinkCompact: {
+    fontSize: 15,
+    textAlign: 'center',
   },
 
   // Overlay
