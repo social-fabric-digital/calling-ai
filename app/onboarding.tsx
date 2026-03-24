@@ -1538,7 +1538,7 @@ export default function OnboardingScreen() {
                   ? `${birthHour.trim()}:${birthMinute.trim()} ${birthAmPm}`
                   : null,
                 birth_place: birthCity.trim() || null,
-                tier: route === 'premium' ? 'premium' : 'free',
+                tier: 'free',
               }).eq('id', data.user.id)
             );
             if (profileError) console.error('Profile update error:', profileError.message);

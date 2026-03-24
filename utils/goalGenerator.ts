@@ -80,7 +80,7 @@ ${isRussian() ? '\nIMPORTANT: All goal name, step names, descriptions, duration 
       throw new Error('API key missing');
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -89,6 +89,7 @@ ${isRussian() ? '\nIMPORTANT: All goal name, step names, descriptions, duration 
         'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify({
+        feature: 'goals',
         model: 'claude-sonnet-4-5',
         max_tokens: 700,
         system: [
@@ -330,7 +331,7 @@ ${isRussian() ? '\nIMPORTANT: All output fields must be in Russian.' : ''}`;
       throw new Error('API key missing');
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -339,6 +340,7 @@ ${isRussian() ? '\nIMPORTANT: All output fields must be in Russian.' : ''}`;
         'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify({
+        feature: 'goals',
         model: 'claude-sonnet-4-5',
         max_tokens: 700,
         system: [

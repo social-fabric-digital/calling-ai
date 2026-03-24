@@ -53,12 +53,22 @@ export const setSubscriptionStatus = async (tier: SubscriptionTier): Promise<voi
   try {
     await AsyncStorage.setItem(SUBSCRIPTION_KEY, tier);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('profiles').update({
-        tier: tier,
-        subscription_start_date: tier === 'premium' ? new Date().toISOString() : null,
-      }).eq('id', user.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/set-subscription-tier`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ tier }),
+        }
+      );
+      if (!response.ok) {
+        console.error('Failed to update tier via Edge Function:', await response.text());
+      }
     }
   } catch (error) {
     console.error('Error setting subscription status:', error);

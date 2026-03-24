@@ -55,7 +55,7 @@ CAN IGNORE: [what they can let go]`;
       throw new Error('API key missing');
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,6 +64,7 @@ CAN IGNORE: [what they can let go]`;
         'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify({
+        feature: 'clarity',
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 400,
         system: [
@@ -243,7 +244,7 @@ ${isRussian() ? '\nIMPORTANT: Return the full response only in Russian.' : ''}`;
       throw new Error('API key missing');
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -252,6 +253,7 @@ ${isRussian() ? '\nIMPORTANT: Return the full response only in Russian.' : ''}`;
         'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify({
+        feature: 'clarity',
         model: 'claude-sonnet-4-5',
         max_tokens: 500,
         system: [

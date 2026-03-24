@@ -383,7 +383,8 @@ export async function tryModel(
   model: string,
   apiMessages: Array<{ role: string; content: string }>,
   systemPrompt: string | Array<{ type: 'text'; text: string; cache_control: { type: 'ephemeral' } }>,
-  maxTokens: number = 512
+  maxTokens: number = 512,
+  feature: string = 'calling'
 ): Promise<Response> {
   const languagePolicy = i18n.language?.startsWith('ru')
     ? '\n\nCRITICAL LANGUAGE RULE: Respond ONLY in Russian. Do not use English words or phrases.'
@@ -451,6 +452,7 @@ export async function tryModel(
     max_tokens: maxTokens,
     system: localizedSystemPrompt,
     messages: apiMessages,
+    feature,
   };
 
   const isTransientNetworkError = (error: unknown): boolean => {
@@ -474,7 +476,7 @@ export async function tryModel(
     try {
       const controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      response = await fetch('https://api.anthropic.com/v1/messages', {
+      response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -566,7 +568,7 @@ export async function getClaudeResponse(
             cache_control: { type: 'ephemeral' as const },
           },
         ];
-        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt);
+        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt, 'calling');
         
         if (response.ok) {
           console.log(`✅ Successfully using model: ${model}`);
@@ -692,7 +694,7 @@ export async function getAtlasChatResponse(
             cache_control: { type: 'ephemeral' as const },
           },
         ];
-        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt);
+        response = await tryModel(apiKey, model, apiMessages, cachedSystemPrompt, 'atlas');
         
         if (response.ok) {
           console.log(`✅ Successfully using model: ${model}`);
@@ -880,7 +882,7 @@ Return ONLY valid JSON, no markdown, no code blocks, no explanations.`;
       },
     ];
 
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer who provides detailed, personalized birth chart analyses.', 2000);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer who provides detailed, personalized birth chart analyses.', 2000, 'astrology');
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1161,7 +1163,7 @@ Format requirements:
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, 'You are an expert astrologer who provides insightful, sign-based daily astrology reports that are relevant for anyone with a given Sun sign.');
+        response = await tryModel(apiKey, model, apiMessages, 'You are an expert astrologer who provides insightful, sign-based daily astrology reports that are relevant for anyone with a given Sun sign.', 512, 'astrology');
         
         if (response.ok) {
           console.log(`✅ Successfully generated astrology report using model: ${model}`);
@@ -1451,7 +1453,8 @@ Remember: Translate the planetary data into HUMAN EXPERIENCES. Never mention pla
           model,
           apiMessages,
           'You provide straightforward daily guidance that is personal, practical, and predictive. Avoid technical astrology jargon and keep language clear and grounded.',
-          2000
+          2000,
+          'daily'
         );
         
         if (response.ok) {
@@ -1604,7 +1607,7 @@ ${outputLanguageInstruction}`;
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, 'You are a wise life coach and Ikigai expert who provides insightful, personalized guidance about life purpose and destiny.');
+        response = await tryModel(apiKey, model, apiMessages, 'You are a wise life coach and Ikigai expert who provides insightful, personalized guidance about life purpose and destiny.', 512, 'ikigai');
         
         if (response.ok) {
           console.log(`✅ Successfully generated Ikigai conclusion using model: ${model}`);
@@ -1768,7 +1771,7 @@ Write in a warm, supportive, and non-judgmental tone. Be specific and reference 
 
     for (const model of modelsToTry) {
       try {
-        response = await tryModel(apiKey, model, apiMessages, 'You are a compassionate life coach and personal growth expert who provides insightful, personalized analysis and guidance.');
+        response = await tryModel(apiKey, model, apiMessages, 'You are a compassionate life coach and personal growth expert who provides insightful, personalized analysis and guidance.', 512, 'analysis');
         
         if (response.ok) {
           console.log(`✅ Successfully generated analysis report using model: ${model}`);
@@ -2041,7 +2044,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Haiku for calling path analysis
-    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert astrologer and career counselor.', 400);
+    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert astrologer and career counselor.', 400, 'calling');
 
     // Check response status BEFORE trying to parse JSON
     if (!response.ok) {
@@ -2290,7 +2293,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Sonnet for complex calling content analysis with reduced tokens
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 600);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, 'You are an expert astrologer and life coach.', 600, 'calling');
 
     // Check response status BEFORE trying to parse JSON
     if (!response.ok) {
@@ -2885,7 +2888,8 @@ Output schema:
       MODEL_HAIKU,
       apiMessages,
       cachedSystemPrompt,
-      1200
+      1200,
+      'calling'
     );
 
     // If we hit org TPM input limits, retry once with a compact prompt + fewer output tokens.
@@ -2897,7 +2901,8 @@ Output schema:
         MODEL_HAIKU,
         [{ role: 'user', content: compactUnifiedPrompt }],
         `You are an expert life coach. Return all user-facing values in ${outputLanguageLabel}.`,
-        800
+        800,
+        'calling'
       );
     }
 
@@ -3366,9 +3371,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
       MODEL_HAIKU,
       apiMessages,
       `You are an expert astrologer and life coach. Return all user-facing values in ${outputLanguageLabel}.`,
-      700
+      700,
+      'clarity'
     );
-
     // Check response status BEFORE trying to parse JSON
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -3689,7 +3694,7 @@ IMPORTANT:
 
     // Use Sonnet for step instructions
     const systemMsg = `You are an expert life coach and goal achievement specialist. Generate specific, actionable step instructions.${isRussianLocale ? ' Always respond in Russian.' : ''}`;
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, systemMsg, 500);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, systemMsg, 500, 'goals');
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -3931,7 +3936,7 @@ Return ONLY the instruction text (MAX 200 WORDS). Plain text with section headin
 
     // Use Sonnet for step instructions with reduced tokens (200 words max)
     const sysMsg = `You are an expert life coach and goal achievement specialist. Never use ** or bold markdown formatting.${isRussianLocale ? ' Always respond in Russian.' : ''}`;
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, sysMsg, 250);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, sysMsg, 250, 'goals');
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -4221,7 +4226,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         cache_control: { type: 'ephemeral' as const },
       },
     ];
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 500);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 500, 'goals');
 
     let result: { goalSummary: string; steps: GoalStep[] };
     try {
@@ -4571,7 +4576,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         cache_control: { type: 'ephemeral' as const },
       },
     ];
-    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 800);
+    const response = await tryModel(apiKey, 'claude-sonnet-4-5', apiMessages, cachedSystemPrompt, 800, 'goals');
 
     let goal: CompleteGoal;
     try {
@@ -4774,7 +4779,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
     ];
 
     // Use Haiku for simple loading messages
-    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert life coach.', 200);
+    const response = await tryModel(apiKey, MODEL_HAIKU, apiMessages, 'You are an expert life coach.', 200, 'goals');
 
     let loadingItems: string[] = [];
     try {
@@ -4912,7 +4917,8 @@ Return ONLY the motivational sentence, nothing else. No quotes, no explanations,
       MODEL_HAIKU,
       apiMessages,
       'You are an expert life coach and motivational speaker. Generate inspiring, personalized motivational messages.',
-      80
+      80,
+      'goals'
     );
 
     if (!response.ok) {
