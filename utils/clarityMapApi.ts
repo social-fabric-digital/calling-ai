@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { Thought } from '@/components/ClarityMap';
 import i18n from './i18n';
 
@@ -57,12 +58,16 @@ CAN IGNORE: [what they can let go]`;
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
+      headers: await (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const h: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        };
+        if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+        return h;
+      })(),
       body: JSON.stringify({
         feature: 'clarity',
         model: 'claude-haiku-4-5-20251001',
@@ -246,12 +251,16 @@ ${isRussian() ? '\nIMPORTANT: Return the full response only in Russian.' : ''}`;
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
+      headers: await (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const h: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        };
+        if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+        return h;
+      })(),
       body: JSON.stringify({
         feature: 'clarity',
         model: 'claude-sonnet-4-5',

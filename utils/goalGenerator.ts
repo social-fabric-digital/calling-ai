@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import i18n from './i18n';
 
 const isRussian = () => i18n.language?.startsWith('ru');
@@ -82,12 +83,16 @@ ${isRussian() ? '\nIMPORTANT: All goal name, step names, descriptions, duration 
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
+      headers: await (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const h: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        };
+        if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+        return h;
+      })(),
       body: JSON.stringify({
         feature: 'goals',
         model: 'claude-sonnet-4-5',
@@ -333,12 +338,16 @@ ${isRussian() ? '\nIMPORTANT: All output fields must be in Russian.' : ''}`;
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
+      headers: await (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const h: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        };
+        if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+        return h;
+      })(),
       body: JSON.stringify({
         feature: 'goals',
         model: 'claude-sonnet-4-5',

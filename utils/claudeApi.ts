@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from './i18n';
@@ -476,14 +477,18 @@ export async function tryModel(
     try {
       const controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
+      };
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
       response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'prompt-caching-2024-07-31',
-        },
+        headers: authHeaders,
         body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
