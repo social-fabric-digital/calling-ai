@@ -977,6 +977,27 @@
       "3": "Sapling",
       "4": "Young Tree",
       "5": "Mature Tree"
+    },
+    "guide": {
+      "title": "How Focus Sanctuary works",
+      "intro": "Pick a session length, start the timer, and stay with the growing scene. The forest and Atlas are visual companions for your focus block—not a race, just steady presence.",
+      "sectionTimer": "Timer",
+      "bodyTimer": "Choose 5–60 minutes. On iPhone you confirm with Start growing; on iPad the session begins when you tap a duration. Reset returns you to pick a new length; I'm Done saves your time and returns home.",
+      "sectionGrowth": "Growth stages",
+      "bodyGrowth": "The seed and trees evolve as time passes—height and vitality on the card mirror your progress through the session. Atlas appears near the end as a quiet milestone.",
+      "soundTitle": "Ambient sound",
+      "soundBody": "Optional loops (forest, rain, waves, fire, wind) play only while the timer is running. Turn sound off with the switch or pick a different texture before you start. Your choice is remembered for next time."
+    },
+    "ambient": {
+      "hint": "Ambient background (optional)",
+      "enabled": "Sound on",
+      "tracks": {
+        "forest": "Forest",
+        "rain": "Rain",
+        "waves": "Waves",
+        "fire": "Fire",
+        "wind": "Wind"
+      }
     }
   },
   "goalMap": {
