@@ -2,7 +2,7 @@
   "expo": {
     "name": "Calling AI",
     "slug": "calling-app",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "updates": {
       "enabled": true,
