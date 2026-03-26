@@ -506,6 +506,7 @@ const WelcomeScreen = () => {
                 styles.welcomeTitle,
                 selectedLanguage === 'ru' && styles.welcomeTitleRussian,
                 IS_NARROW_WIDTH && styles.welcomeTitleNarrow,
+                IS_VERY_NARROW_WIDTH && styles.welcomeTitleVeryNarrow,
               ]}
               numberOfLines={3}
               adjustsFontSizeToFit
@@ -514,7 +515,11 @@ const WelcomeScreen = () => {
               {t.welcome}
             </Text>
             <Text
-              style={[styles.welcomeSubtitle, IS_NARROW_WIDTH && styles.welcomeSubtitleNarrow]}
+              style={[
+                styles.welcomeSubtitle,
+                IS_NARROW_WIDTH && styles.welcomeSubtitleNarrow,
+                IS_VERY_NARROW_WIDTH && styles.welcomeSubtitleVeryNarrow,
+              ]}
               numberOfLines={4}
               adjustsFontSizeToFit
               minimumFontScale={0.88}
@@ -545,7 +550,14 @@ const WelcomeScreen = () => {
                 IS_NARROW_WIDTH && { paddingHorizontal: 12 },
               ]}
             >
-            <Text style={[styles.speechText, IS_NARROW_WIDTH && styles.speechTextNarrow]} maxFontSizeMultiplier={1}>
+            <Text
+              style={[
+                styles.speechText,
+                IS_NARROW_WIDTH && styles.speechTextNarrow,
+                IS_VERY_NARROW_WIDTH && styles.speechTextVeryNarrow,
+              ]}
+              maxFontSizeMultiplier={1}
+            >
                 {t.mascotMessage}
               </Text>
               <View style={styles.speechTail} />
@@ -615,6 +627,7 @@ const WelcomeScreen = () => {
             style={[
               styles.startButton,
               (IS_VERY_SHORT_SCREEN || IS_NARROW_WIDTH) && styles.startButtonCompact,
+              IS_VERY_NARROW_WIDTH && styles.startButtonVeryNarrow,
             ]}
             activeOpacity={0.8}
             onPress={handleStartJourney}
@@ -634,7 +647,11 @@ const WelcomeScreen = () => {
 
           <View style={[styles.loginContainer, IS_COMPACT_LOGIN_ROW && styles.loginContainerStacked]}>
             <Text
-              style={[styles.loginText, IS_COMPACT_LOGIN_ROW && styles.loginTextCompact]}
+              style={[
+                styles.loginText,
+                IS_COMPACT_LOGIN_ROW && styles.loginTextCompact,
+                IS_VERY_NARROW_WIDTH && styles.loginTextVeryNarrow,
+              ]}
               maxFontSizeMultiplier={1.15}
               numberOfLines={IS_VERY_NARROW_WIDTH ? 3 : 2}
               adjustsFontSizeToFit
@@ -647,7 +664,14 @@ const WelcomeScreen = () => {
               activeOpacity={0.7}
               onPress={() => router.push('/email-login')}
             >
-              <Text style={[styles.loginLink, IS_COMPACT_LOGIN_ROW && styles.loginLinkCompact]} maxFontSizeMultiplier={1.15}>
+              <Text
+                style={[
+                  styles.loginLink,
+                  IS_COMPACT_LOGIN_ROW && styles.loginLinkCompact,
+                  IS_VERY_NARROW_WIDTH && styles.loginLinkVeryNarrow,
+                ]}
+                maxFontSizeMultiplier={1.15}
+              >
                 {t.loginLink}
               </Text>
             </TouchableOpacity>
@@ -902,6 +926,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 12,
   },
+  welcomeTitleVeryNarrow: {
+    fontSize: 22,
+    marginBottom: 10,
+  },
   welcomeSubtitle: {
     fontFamily: Platform.select({
       ios: 'AnonymousPro-Regular',
@@ -921,6 +949,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     paddingHorizontal: 2,
+  },
+  welcomeSubtitleVeryNarrow: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   butterflyEmoji: {
     fontSize: 32,
@@ -963,6 +995,10 @@ const styles = StyleSheet.create({
   speechTextNarrow: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  speechTextVeryNarrow: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   speechTail: {
     position: 'absolute',
@@ -1043,6 +1079,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 14,
   },
+  startButtonVeryNarrow: {
+    paddingVertical: 12,
+  },
   startButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1104,6 +1143,10 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
+  loginTextVeryNarrow: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
   loginLinkButton: {
     paddingHorizontal: 2,
   },
@@ -1131,6 +1174,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     width: '100%',
+  },
+  loginLinkVeryNarrow: {
+    fontSize: 14,
   },
 
   // Overlay

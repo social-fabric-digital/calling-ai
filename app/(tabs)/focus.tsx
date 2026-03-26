@@ -29,8 +29,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
-const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
+const isPadDevice = Platform.OS === 'ios' && Boolean((Platform as { isPad?: boolean }).isPad);
+const isTabletLayout = isPadDevice;
 const isNarrowScreen = width <= 430;
+const isVeryNarrowScreen = width <= 390;
 const isExpoGoClient = Constants.appOwnership === 'expo';
 
 type TimerDuration = 5 | 15 | 30 | 60;
@@ -972,13 +974,31 @@ export default function FocusScreen() {
   const insets = useSafeAreaInsets();
   const headerTopOffset = Math.max(60, insets.top + 20);
   /** Match Home tab guide button vertical position */
-  const guideButtonTop = Math.max(50, insets.top + 10);
+  const guideButtonTop = isNarrowScreen
+    ? Math.max(10, insets.top - 2)
+    : Math.max(14, insets.top + 4);
+  const focusHeaderTopMargin = isNarrowScreen
+    ? Math.max(12, insets.top - 8)
+    : Math.max(32, insets.top + 18);
   const focusGuideMinHeight = height <= 700 ? 500 : height <= 840 ? 560 : 620;
   const focusGuideScrollMinHeight = height <= 700 ? 170 : height <= 840 ? 220 : 280;
   const isShortRunningLayout = height <= 840;
   const runningCircleOuterSize = Math.min(
-    width * (isShortRunningLayout ? 0.72 : 0.78),
-    isShortRunningLayout ? 286 : 324
+    width *
+      (isNarrowScreen
+        ? isShortRunningLayout
+          ? 0.62
+          : 0.66
+        : isShortRunningLayout
+          ? 0.72
+          : 0.78),
+    isNarrowScreen
+      ? isShortRunningLayout
+        ? 252
+        : 276
+      : isShortRunningLayout
+        ? 286
+        : 324
   );
   const runningCircleInnerSize = Math.round(runningCircleOuterSize * 0.926);
   const runningCircleOuterRadius = runningCircleOuterSize / 2;
@@ -1070,11 +1090,10 @@ export default function FocusScreen() {
       <View style={styles.container}>
         <Image
           source={
-            selectedDuration && isRunning
+            isRunning
               ? require('../../assets/images/ikigaion.png')
               : require('../../assets/images/sanctuary.png')
           }
-          pointerEvents="none"
           style={styles.backgroundImage}
           resizeMode="cover"
         />
@@ -1108,7 +1127,11 @@ export default function FocusScreen() {
       <View style={styles.contentContainer}>
       {!isRunning && (
         <TouchableOpacity
-          style={[styles.focusGuideButton, { top: guideButtonTop }]}
+          style={[
+            styles.focusGuideButton,
+            isNarrowScreen && styles.focusGuideButtonCompact,
+            { top: guideButtonTop },
+          ]}
           onPress={() => {
             void hapticLight();
             setShowFocusGuideModal(true);
@@ -1117,7 +1140,12 @@ export default function FocusScreen() {
           accessibilityRole="button"
           accessibilityLabel={t('focus.guide.title')}
         >
-          <MaterialIcons name="help-outline" size={20} color="#342846" style={styles.focusGuideButtonIcon} />
+          <MaterialIcons
+            name="help-outline"
+            size={isNarrowScreen ? 18 : 20}
+            color="#342846"
+            style={styles.focusGuideButtonIcon}
+          />
         </TouchableOpacity>
       )}
 
@@ -1131,11 +1159,16 @@ export default function FocusScreen() {
 
       {/* Focus Heading - Only show when timer is not running and portfolio is shown */}
       {!selectedDuration && !isRunning && (
-        <View style={[styles.focusHeaderBlock, { marginTop: headerTopOffset - 60 }]}>
-          <Text style={styles.focusHeading}>
+        <View style={[styles.focusHeaderBlock, { marginTop: focusHeaderTopMargin }]}>
+          <Text
+            style={[styles.focusHeading, isNarrowScreen && styles.focusHeadingCompact]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
             {t('focus.focusSanctuary')}
           </Text>
-          <Text style={styles.focusSubtitlePrimary}>
+          <Text style={[styles.focusSubtitlePrimary, isNarrowScreen && styles.focusSubtitlePrimaryCompact]}>
             {focusSubtitlePrimary}
           </Text>
         </View>
@@ -1146,12 +1179,15 @@ export default function FocusScreen() {
         <View style={styles.treeContainer} pointerEvents="box-none">
           {/* Show tent image on initial screen (before timer starts) */}
           {!selectedDuration && (
-          <View style={styles.tentContainer} pointerEvents="none">
+          <View
+            style={[styles.tentContainer, isNarrowScreen && styles.tentContainerNarrow]}
+            pointerEvents="none"
+          >
             {/* Blur effect behind tent */}
-            <View style={styles.tentBlur} />
+            <View style={[styles.tentBlur, isNarrowScreen && styles.tentBlurNarrow]} />
             <Image
               source={require('../../assets/images/tent.png')}
-              style={styles.tentImage}
+              style={[styles.tentImage, isNarrowScreen && styles.tentImageNarrow]}
               resizeMode="contain"
             />
           </View>
@@ -1310,14 +1346,22 @@ export default function FocusScreen() {
 
       {/* Timer Display - New Design when timer is running */}
       {selectedDuration && isRunning ? (
-        <>
+        <ScrollView
+          style={styles.runningScroll}
+          contentContainerStyle={[
+            styles.runningScrollContent,
+            { paddingBottom: insets.bottom + (isNarrowScreen ? 122 : 148) },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           {/* Circular Frame with Tree and Stage Badge */}
           <View
             style={[
               styles.timerCircleContainer,
               {
-                marginTop: isShortRunningLayout ? 56 : 82,
-                marginBottom: isShortRunningLayout ? 14 : 22,
+                marginTop: isNarrowScreen ? (isShortRunningLayout ? 40 : 52) : isShortRunningLayout ? 56 : 82,
+                marginBottom: isNarrowScreen ? (isShortRunningLayout ? 10 : 14) : isShortRunningLayout ? 14 : 22,
               },
             ]}
           >
@@ -1382,7 +1426,7 @@ export default function FocusScreen() {
               {formatTime(timeRemaining)}
             </Text>
           </View>
-        </>
+        </ScrollView>
       ) : selectedDuration ? (
         <View style={styles.timerContainer}>
           <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
@@ -1394,6 +1438,7 @@ export default function FocusScreen() {
             style={[
               styles.durationSelectionFrame,
               !preSelectedDuration && styles.durationSelectionFrameCompact,
+              !isTabletLayout && isNarrowScreen && styles.durationSelectionFrameNarrow,
               isTabletLayout && styles.durationSelectionFrameTablet,
             ]}
           >
@@ -1504,10 +1549,12 @@ export default function FocusScreen() {
           
           {preSelectedDuration && (
             <TouchableOpacity
-              style={styles.startGrowingButton}
+              style={[styles.startGrowingButton, isNarrowScreen && styles.startGrowingButtonCompact]}
               onPress={startTimer}
             >
-              <Text style={styles.startGrowingButtonText}>{t('focus.startGrowing')}</Text>
+              <Text style={[styles.startGrowingButtonText, isNarrowScreen && styles.startGrowingButtonTextCompact]}>
+                {t('focus.startGrowing')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1546,7 +1593,7 @@ export default function FocusScreen() {
 
       {/* Bottom Buttons - New Design when timer is running */}
       {selectedDuration && isRunning ? (
-        <View style={styles.timerButtonsContainer}>
+        <View style={[styles.timerButtonsContainer, { bottom: Math.max(insets.bottom + 12, 22) }]}>
           <TouchableOpacity
             style={styles.timerResetButton}
             onPress={resetTimer}
@@ -1735,6 +1782,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
   },
+  focusGuideButtonCompact: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    right: 14,
+  },
   focusGuideButtonIcon: {
     opacity: 1,
   },
@@ -1751,8 +1804,8 @@ const styles = StyleSheet.create({
   },
   /** After large timer, before “Start growing” (phone flow) */
   ambientSoundsSectionPreStart: {
-    marginTop: 20,
-    marginBottom: 8,
+    marginTop: 14,
+    marginBottom: 4,
   },
   /** Distinct card-within-card highlight for ambient controls before session start. */
   ambientSoundsSectionCardHighlight: {
@@ -2004,14 +2057,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 0,
   },
+  focusHeadingCompact: {
+    fontSize: 28,
+    lineHeight: 33,
+    marginBottom: 4,
+  },
   focusSubtitlePrimary: {
     ...BodyStyle,
     color: 'rgba(255, 255, 255, 0.92)',
     textAlign: 'center',
     fontSize: 15,
     lineHeight: 22,
-    maxWidth: Platform.isPad ? 350 : width - 24,
+    maxWidth: isPadDevice ? 350 : width - 24,
     alignSelf: 'center',
+  },
+  focusSubtitlePrimaryCompact: {
+    fontSize: 11,
+    lineHeight: 15,
+    maxWidth: width - 68,
   },
   timerContainer: {
     alignItems: 'center',
@@ -2093,6 +2156,14 @@ const styles = StyleSheet.create({
     minHeight: 220,
     overflow: 'hidden',
   },
+  durationSelectionFrameNarrow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 28,
+    minHeight: 156,
+    marginTop: 2,
+    marginBottom: 6,
+  },
   durationSelectionFrameCompact: {
     minHeight: 180,
   },
@@ -2112,8 +2183,8 @@ const styles = StyleSheet.create({
   },
   /** Small phones (e.g. iPhone 16e): match "Sound on" visual hierarchy. */
   selectDurationTextCompact: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 18,
     letterSpacing: 0.2,
   },
   sliderContainer: {
@@ -2273,9 +2344,17 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 20,
   },
+  startGrowingButtonCompact: {
+    marginTop: 14,
+    paddingVertical: 13,
+  },
   startGrowingButtonText: {
     ...ButtonHeadingStyle,
     color: '#fff',
+  },
+  startGrowingButtonTextCompact: {
+    fontSize: 15,
+    lineHeight: 18,
   },
   treeContainer: {
     flex: 1,
@@ -2293,6 +2372,9 @@ const styles = StyleSheet.create({
     top: 10,
     paddingTop: 0,
   },
+  tentContainerNarrow: {
+    top: -58,
+  },
   tentBlur: {
     position: 'absolute',
     width: 255,
@@ -2302,10 +2384,19 @@ const styles = StyleSheet.create({
     // Note: React Native doesn't support CSS blur directly, 
     // but we can use a semi-transparent background to simulate the effect
   },
+  tentBlurNarrow: {
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+  },
   tentImage: {
     width: 340,
     height: 340,
     zIndex: 1,
+  },
+  tentImageNarrow: {
+    width: 200,
+    height: 200,
   },
   centerPoint: {
     position: 'absolute',
@@ -2660,15 +2751,28 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   timerDisplayTextCompact: {
-    fontSize: 32,
+    fontSize: 30,
+  },
+  runningScroll: {
+    width: '100%',
+    flex: 1,
+  },
+  runningScrollContent: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   timerButtonsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
+    gap: 12,
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 0,
+    zIndex: 60,
   },
   timerResetButton: {
     flex: 1,
@@ -2678,7 +2782,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginRight: 12,
+    paddingHorizontal: 14,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 25 },
     shadowOpacity: 0.2,
@@ -2687,7 +2791,7 @@ const styles = StyleSheet.create({
   },
   timerResetButtonText: {
     ...BodyStyle,
-    fontSize: 16,
+    fontSize: isVeryNarrowScreen ? 15 : 16,
     fontWeight: '600',
     color: '#fff',
     marginLeft: 8,
@@ -2702,7 +2806,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginLeft: 12,
+    paddingHorizontal: 14,
     shadowColor: '#342846',
     shadowOffset: { width: 0, height: 25 },
     shadowOpacity: 0.1,
@@ -2711,7 +2815,7 @@ const styles = StyleSheet.create({
   },
   timerDoneButtonText: {
     ...BodyStyle,
-    fontSize: 16,
+    fontSize: isVeryNarrowScreen ? 15 : 16,
     fontWeight: '600',
     color: '#342846',
     marginLeft: 8,

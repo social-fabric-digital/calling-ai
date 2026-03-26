@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, StyleSheet, View, Animated, Text } from 'react-native';
+import { Platform, StyleSheet, View, Animated, Text, useWindowDimensions } from 'react-native';
 import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -162,9 +162,14 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { i18n } = useTranslation();
   const isRussian = i18n.language === 'ru' || i18n.language?.startsWith('ru');
+  const { width } = useWindowDimensions();
   const isTabletLayout = Platform.OS === 'ios' && Platform.isPad;
+  const isCompactTabWidth = width <= 430;
+  const isVeryCompactTabWidth = width <= 390;
   const getTabLabelStyle = (focused: boolean) => [
     styles.tabLabelBase,
+    isCompactTabWidth && styles.tabLabelCompact,
+    isVeryCompactTabWidth && styles.tabLabelVeryCompact,
     focused ? styles.tabLabelActive : styles.tabLabelInactive,
     isTabletLayout && (focused ? styles.tabLabelTabletActive : styles.tabLabelTabletInactive),
   ];
@@ -186,14 +191,16 @@ export default function TabLayout() {
           borderTopWidth: 0,
           elevation: 0,
           shadowOpacity: 0,
-          height: Platform.OS === 'ios' ? 85 : 65,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          paddingHorizontal: 16,
+          height: Platform.OS === 'ios' ? (isVeryCompactTabWidth ? 82 : 85) : isVeryCompactTabWidth ? 62 : 65,
+          paddingTop: isVeryCompactTabWidth ? 6 : 8,
+          paddingBottom: Platform.OS === 'ios' ? (isVeryCompactTabWidth ? 18 : 20) : isVeryCompactTabWidth ? 6 : 8,
+          paddingHorizontal: isVeryCompactTabWidth ? 12 : 16,
         },
         tabBarLabelPosition: isTabletLayout ? 'beside-icon' : undefined,
         tabBarIconStyle: isTabletLayout ? styles.tabIconTablet : undefined,
         tabBarItemStyle: {
+          flex: 1,
+          minWidth: 0,
           paddingVertical: 4,
         },
       }}>
@@ -202,7 +209,12 @@ export default function TabLayout() {
         options={{
           title: isRussian ? 'Главная' : 'Home',
           tabBarLabel: ({ focused, color }) => (
-            <Text style={[...getTabLabelStyle(focused), { color }]}>
+            <Text
+              style={[...getTabLabelStyle(focused), { color }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {isRussian ? 'Главная' : 'Home'}
             </Text>
           ),
@@ -220,7 +232,12 @@ export default function TabLayout() {
         options={{
           title: isRussian ? 'Фокус' : 'Focus',
           tabBarLabel: ({ focused, color }) => (
-            <Text style={[...getTabLabelStyle(focused), { color }]}>
+            <Text
+              style={[...getTabLabelStyle(focused), { color }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {isRussian ? 'Фокус' : 'Focus'}
             </Text>
           ),
@@ -238,7 +255,12 @@ export default function TabLayout() {
         options={{
           title: isRussian ? 'Цели' : 'Goals',
           tabBarLabel: ({ focused, color }) => (
-            <Text style={[...getTabLabelStyle(focused), { color }]}>
+            <Text
+              style={[...getTabLabelStyle(focused), { color }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {isRussian ? 'Цели' : 'Goals'}
             </Text>
           ),
@@ -256,7 +278,12 @@ export default function TabLayout() {
         options={{
           title: isRussian ? 'Я' : 'Me',
           tabBarLabel: ({ focused, color }) => (
-            <Text style={[...getTabLabelStyle(focused), { color }]}>
+            <Text
+              style={[...getTabLabelStyle(focused), { color }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {isRussian ? 'Я' : 'Me'}
             </Text>
           ),
@@ -309,6 +336,15 @@ const styles = StyleSheet.create({
   tabLabelBase: {
     fontFamily: 'AnonymousPro-Regular',
     fontSize: 11,
+    textAlign: 'center',
+    includeFontPadding: false,
+    width: '100%',
+  },
+  tabLabelCompact: {
+    fontSize: 10,
+  },
+  tabLabelVeryCompact: {
+    fontSize: 9,
   },
   tabLabelActive: {
     marginTop: 10,

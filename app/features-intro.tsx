@@ -477,11 +477,13 @@ const FeatureCard = ({
   index, 
   scrollX,
   containerWidth,
+  compact,
 }: { 
   item: FeatureItem;
   index: number;
   scrollX: Animated.Value;
   containerWidth: number;
+  compact: boolean;
 }) => {
   const inputRange = [
     (index - 1) * containerWidth,
@@ -505,7 +507,8 @@ const FeatureCard = ({
     <View style={[styles.cardContainer, { width: containerWidth }]}>
       <Animated.View 
         style={[
-          styles.card, 
+          styles.card,
+          compact && styles.cardCompact,
           { 
             transform: [{ scale }],
             opacity,
@@ -523,21 +526,42 @@ const FeatureCard = ({
           <View style={styles.cardBlurFallback} />
         )}
         <View style={styles.cardContent}>
-          <View style={styles.iconContainer}>
+          <View style={[styles.iconContainer, compact && styles.iconContainerCompact]}>
             <MaterialIcons 
               name={item.icon as any} 
-              size={24} 
+              size={compact ? 20 : 24}
               color="#FFFFFF" 
             />
           </View>
           <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardDescription}>{item.description}</Text>
+            <Text
+              style={[styles.cardTitle, compact && styles.cardTitleCompact]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={[styles.cardDescription, compact && styles.cardDescriptionCompact]}
+              numberOfLines={4}
+              adjustsFontSizeToFit
+              minimumFontScale={0.84}
+            >
+              {item.description}
+            </Text>
           </View>
         </View>
         {item.why && (
-          <View style={styles.tooltip}>
-            <Text style={styles.tooltipText}>{item.why}</Text>
+          <View style={[styles.tooltip, compact && styles.tooltipCompact]}>
+            <Text
+              style={[styles.tooltipText, compact && styles.tooltipTextCompact]}
+              numberOfLines={3}
+              adjustsFontSizeToFit
+              minimumFontScale={0.86}
+            >
+              {item.why}
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -733,6 +757,7 @@ export default function FeaturesIntroScreen() {
 
   const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 12 : 20);
   const footerPaddingBottom = Math.max(insets.bottom + 18, 28);
+  const isCompactWidth = windowWidth <= 430;
 
   const handleHeaderBack = () => {
     if (router.canGoBack()) {
@@ -771,7 +796,7 @@ export default function FeaturesIntroScreen() {
         style={styles.container}
         contentContainerStyle={[styles.scrollContent, { minHeight: windowHeight }]}
         showsVerticalScrollIndicator={false}
-        bounces
+        bounces={false}
       >
         <Image
           source={require('../assets/images/own.png')}
@@ -816,10 +841,17 @@ export default function FeaturesIntroScreen() {
         )}
 
         {/* Header Section */}
-        <View style={[styles.headerSection, { paddingHorizontal: SCREEN_GUTTER }]}>
+        <View
+          style={[
+            styles.headerSection,
+            isCompactWidth && styles.headerSectionCompact,
+            { paddingHorizontal: SCREEN_GUTTER },
+          ]}
+        >
           <Animated.Text 
             style={[
               styles.mainHeading,
+              isCompactWidth && styles.mainHeadingCompact,
               {
                 opacity: headlineFade,
                 transform: [{ translateY: headlineSlide }],
@@ -832,6 +864,7 @@ export default function FeaturesIntroScreen() {
           <Animated.Text 
             style={[
               styles.subheading,
+              isCompactWidth && styles.subheadingCompact,
               {
                 opacity: subheadlineFade,
                 transform: [{ translateY: subheadlineSlide }],
@@ -843,8 +876,16 @@ export default function FeaturesIntroScreen() {
         </View>
 
         {/* Dynamic Visual */}
-        <Animated.View style={[styles.visualContainer, { opacity: visualFade }]}>
-          <VisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
+        <Animated.View
+          style={[
+            styles.visualContainer,
+            isCompactWidth && styles.visualContainerCompact,
+            { opacity: visualFade },
+          ]}
+        >
+          <View style={isCompactWidth ? styles.visualScaleCompact : undefined}>
+            <VisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
+          </View>
         </Animated.View>
 
         {/* Feature Cards Carousel */}
@@ -862,7 +903,13 @@ export default function FeaturesIntroScreen() {
               ref={flatListRef as any}
               data={features}
               renderItem={({ item, index }) => (
-                <FeatureCard item={item} index={index} scrollX={scrollX} containerWidth={containerWidth} />
+                <FeatureCard
+                  item={item}
+                  index={index}
+                  scrollX={scrollX}
+                  containerWidth={containerWidth}
+                  compact={isCompactWidth}
+                />
               )}
               keyExtractor={(item, index) => index.toString()}
               horizontal
@@ -923,43 +970,50 @@ export default function FeaturesIntroScreen() {
         <View
           style={[
             styles.swipeHintContainer,
+            isCompactWidth && styles.swipeHintContainerCompact,
             {
               paddingHorizontal: SCREEN_GUTTER,
-              paddingBottom: footerPaddingBottom,
-              paddingTop: 12,
+              paddingBottom: isCompactWidth ? Math.max(18, insets.bottom + 10) : footerPaddingBottom,
+              paddingTop: isCompactWidth ? 8 : 12,
             },
           ]}
         >
           {currentCardIndex === 3 ? (
             <TouchableOpacity 
-              style={styles.continueButton} 
+              style={[styles.continueButton, isCompactWidth && styles.continueButtonCompact]}
               onPress={() => router.push('/onboarding?step=1')}
               activeOpacity={0.8}
             >
-              <Text style={styles.continueButtonText}>{copy.continue}</Text>
+              <Text style={[styles.continueButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+                {copy.continue}
+              </Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.bottomNav}>
+            <View style={[styles.bottomNav, isCompactWidth && styles.bottomNavCompact]}>
               {currentCardIndex > 0 && (
                 <TouchableOpacity 
-                  style={styles.backButtonNav} 
+                  style={[styles.backButtonNav, isCompactWidth && styles.backButtonNavCompact]} 
                   onPress={handlePrevious}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="arrow-back" size={18} color="#342846" />
-                  <Text style={styles.backButtonText}>{copy.back}</Text>
+                  <MaterialIcons name="arrow-back" size={isCompactWidth ? 16 : 18} color="#342846" />
+                  <Text style={[styles.backButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+                    {copy.back}
+                  </Text>
                 </TouchableOpacity>
               )}
               
               <TouchableOpacity 
-                style={styles.nextButton} 
+                style={[styles.nextButton, isCompactWidth && styles.nextButtonCompact]} 
                 onPress={handleNext}
                 activeOpacity={0.8}
               >
-                <Text style={styles.nextButtonText}>{copy.next}</Text>
+                <Text style={[styles.nextButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+                  {copy.next}
+                </Text>
                 <MaterialIcons 
                   name="arrow-forward" 
-                  size={20} 
+                  size={isCompactWidth ? 18 : 20} 
                   color="#FFFFFF" 
                 />
               </TouchableOpacity>
@@ -978,6 +1032,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 8,
   },
   backgroundImage: {
     position: 'absolute',
@@ -1054,11 +1109,19 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     alignItems: 'center',
   },
+  headerSectionCompact: {
+    paddingTop: 4,
+  },
   mainHeading: {
     ...HeadingStyle,
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 16,
+  },
+  mainHeadingCompact: {
+    fontSize: 46,
+    lineHeight: 52,
+    marginBottom: 10,
   },
   subheading: {
     ...BodyStyle,
@@ -1069,6 +1132,11 @@ const styles = StyleSheet.create({
     maxWidth: Platform.isPad ? 350 : 300,
     alignSelf: 'center',
   },
+  subheadingCompact: {
+    fontSize: 14,
+    lineHeight: 17,
+    maxWidth: 276,
+  },
 
   // Visual Container
   visualContainer: {
@@ -1076,6 +1144,13 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  visualContainerCompact: {
+    height: 128,
+    marginVertical: 6,
+  },
+  visualScaleCompact: {
+    transform: [{ scale: 0.84 }],
   },
   visualSwitcher: {
     width: 200,
@@ -1272,12 +1347,10 @@ const styles = StyleSheet.create({
 
   // Cards
   cardSection: {
-    flex: 1,
-    flexGrow: 1,
-    flexShrink: 1,
+    width: '100%',
+    flexShrink: 0,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    minHeight: 0,
     paddingTop: 8,
     paddingBottom: 12,
   },
@@ -1302,6 +1375,11 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  cardCompact: {
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   cardBlur: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -1322,6 +1400,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 14,
   },
+  iconContainerCompact: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    marginRight: 10,
+  },
   cardText: {
     flex: 1,
   },
@@ -1332,11 +1416,20 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: 0,
   },
+  cardTitleCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
   cardDescription: {
     ...BodyStyle,
     fontSize: 14,
     lineHeight: 19,
     color: '#666',
+  },
+  cardDescriptionCompact: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   tooltip: {
     flexDirection: 'row',
@@ -1348,6 +1441,11 @@ const styles = StyleSheet.create({
     marginTop: 14,
     gap: 8,
   },
+  tooltipCompact: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
   tooltipText: {
     ...BodyStyle,
     flex: 1,
@@ -1356,6 +1454,10 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  tooltipTextCompact: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   pagination: {
     flexDirection: 'row',
@@ -1374,6 +1476,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     zIndex: 1000,
     backgroundColor: 'transparent',
+  },
+  swipeHintContainerCompact: {
+    marginTop: 4,
   },
   swipeIndicators: {
     flexDirection: 'row',
@@ -1406,6 +1511,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  continueButtonCompact: {
+    paddingVertical: 13,
+  },
   continueButtonText: {
     ...ButtonHeadingStyle,
     color: '#fff',
@@ -1423,6 +1531,9 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  bottomNavCompact: {
+    gap: 10,
+  },
   backButtonNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1435,6 +1546,12 @@ const styles = StyleSheet.create({
     borderColor: '#342846',
     gap: 8,
     minHeight: 50,
+  },
+  backButtonNavCompact: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    gap: 6,
   },
   backButtonText: {
     ...BodyStyle,
@@ -1455,11 +1572,21 @@ const styles = StyleSheet.create({
     minHeight: 50,
     backgroundColor: '#342846',
   },
+  nextButtonCompact: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    minHeight: 44,
+    gap: 6,
+  },
   nextButtonText: {
     ...ButtonHeadingStyle,
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
     lineHeight: 20,
+  },
+  navButtonTextCompact: {
+    fontSize: 14,
+    lineHeight: 18,
   },
 });

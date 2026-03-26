@@ -32,6 +32,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const isTabletLayout = Platform.OS === 'ios' && (Platform.isPad || Math.max(width, height) >= 1000);
+const isCompactHeaderWidth = width <= 430;
+const isCompactExploreWidth = width <= 430;
+const isVeryCompactWidth = width <= 390;
 const ATLAS_CHAT_STORAGE_KEY = '@atlas_chat_messages';
 const QUESTION_DAY_KEY = '@question_day';
 const LAST_QUESTION_DATE_KEY = '@last_question_date';
@@ -2238,7 +2241,10 @@ export default function HomeScreen() {
       {/* Fixed Header - Absolutely Positioned */}
       <View
         pointerEvents="box-none"
-        style={[styles.fixedHeader, { top: headerTopOffset }]}
+        style={[
+          styles.fixedHeader,
+          { top: headerTopOffset, paddingRight: isVeryCompactWidth ? 126 : isCompactHeaderWidth ? 114 : 100 },
+        ]}
         onLayout={(event) => {
           const { height: measuredHeight } = event.nativeEvent.layout;
           if (measuredHeight !== headerContentHeight) {
@@ -2247,12 +2253,32 @@ export default function HomeScreen() {
         }}
       >
         {/* Date - Top Left */}
-        <Text style={[styles.dateText, { color: dynamicHeaderColor }]}>
+        <Text
+          style={[
+            styles.dateText,
+            isCompactHeaderWidth && styles.dateTextCompact,
+            isVeryCompactWidth && styles.dateTextVeryCompact,
+            { color: dynamicHeaderColor },
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {new Date().toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </Text>
 
         {/* Greeting - Left Aligned - Fixed position below date */}
-        <Text style={[styles.greeting, { color: dynamicHeaderColor }]}>
+        <Text
+          style={[
+            styles.greeting,
+            isCompactHeaderWidth && styles.greetingCompact,
+            isVeryCompactWidth && styles.greetingVeryCompact,
+            { color: dynamicHeaderColor },
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
           {trimmedUserName ? `${greetingByTime}, ${trimmedUserName}` : greetingByTime}
         </Text>
 
@@ -2411,7 +2437,17 @@ export default function HomeScreen() {
                       <View style={styles.exploreCardContent}>
                         <Ionicons name="sparkles-outline" size={22} color="#FFFFFF" style={styles.exploreCardIcon} />
                         <View style={styles.buttonTextContainer}>
-                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                          <Text
+                            style={[
+                              styles.buttonTitle,
+                              isCompactExploreWidth && styles.buttonTitleCompact,
+                              isVeryCompactWidth && styles.buttonTitleVeryCompact,
+                              isRussian && styles.buttonTitleRussian,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.72}
+                          >
                             {tr("Today's Insight", 'Инсайт на сегодня')}
                           </Text>
                           <Text style={styles.buttonSubtitle}>{tr('Daily wisdom', 'Мудрость дня')}</Text>
@@ -2439,7 +2475,17 @@ export default function HomeScreen() {
                       <View style={styles.exploreCardContent}>
                         <Ionicons name="ellipse-outline" size={22} color="#FFFFFF" style={styles.exploreCardIcon} />
                         <View style={styles.buttonTextContainer}>
-                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                          <Text
+                            style={[
+                              styles.buttonTitle,
+                              isCompactExploreWidth && styles.buttonTitleCompact,
+                              isVeryCompactWidth && styles.buttonTitleVeryCompact,
+                              isRussian && styles.buttonTitleRussian,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.72}
+                          >
                             {tr('Clear My Mind', 'Прояснить мысли')}
                           </Text>
                           <Text style={styles.buttonSubtitle}>{tr('Free writing', 'Свободное письмо')}</Text>
@@ -2470,7 +2516,17 @@ export default function HomeScreen() {
                       <View style={styles.exploreCardContent}>
                         <Ionicons name="diamond-outline" size={20} color="#FFFFFF" style={styles.exploreCardIcon} />
                         <View style={styles.buttonTextContainer}>
-                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                          <Text
+                            style={[
+                              styles.buttonTitle,
+                              isCompactExploreWidth && styles.buttonTitleCompact,
+                              isVeryCompactWidth && styles.buttonTitleVeryCompact,
+                              isRussian && styles.buttonTitleRussian,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.72}
+                          >
                             {tr('My Progress', 'Мой прогресс')}
                           </Text>
                           <Text style={styles.buttonSubtitle}>{tr('Your journey', 'Твой путь')}</Text>
@@ -2498,7 +2554,17 @@ export default function HomeScreen() {
                       <View style={styles.exploreCardContent}>
                         <Ionicons name="compass-outline" size={20} color="#FFFFFF" style={styles.exploreCardIcon} />
                         <View style={styles.buttonTextContainer}>
-                          <Text style={[styles.buttonTitle, isRussian && styles.buttonTitleRussian]}>
+                          <Text
+                            style={[
+                              styles.buttonTitle,
+                              isCompactExploreWidth && styles.buttonTitleCompact,
+                              isVeryCompactWidth && styles.buttonTitleVeryCompact,
+                              isRussian && styles.buttonTitleRussian,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.72}
+                          >
                             {tr('My Ikigai', 'Мой икигай')}
                           </Text>
                           <Text style={styles.buttonSubtitle}>{tr('Purpose map', 'Карта смысла')}</Text>
@@ -3032,12 +3098,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
     textAlign: 'left',
+    maxWidth: '100%',
+  },
+  dateTextCompact: {
+    fontSize: 12.5,
+    marginBottom: 6,
+  },
+  dateTextVeryCompact: {
+    fontSize: 11.5,
+    marginBottom: 5,
   },
   greeting: {
     ...HomeHeadingStyle,
     color: '#342846',
     textAlign: 'left',
+    lineHeight: 58,
     marginBottom: 16,
+    maxWidth: '100%',
+  },
+  greetingCompact: {
+    fontSize: 40,
+    lineHeight: 46,
+    marginBottom: 10,
+  },
+  greetingVeryCompact: {
+    fontSize: 36,
+    lineHeight: 42,
+    marginBottom: 8,
   },
   dividingBar: {
     height: 1,
@@ -3449,6 +3536,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     width: '100%',
     alignSelf: 'flex-start',
+  },
+  buttonTitleCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  buttonTitleVeryCompact: {
+    fontSize: 13,
+    lineHeight: 17,
   },
   buttonTitleRussian: {
     fontSize: 15,
