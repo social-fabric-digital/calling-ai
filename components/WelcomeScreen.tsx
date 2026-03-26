@@ -479,7 +479,10 @@ const WelcomeScreen = () => {
             {
               justifyContent: IS_SHORT_SCREEN || IS_NARROW_WIDTH ? 'flex-start' : 'center',
               paddingHorizontal: IS_NARROW_WIDTH ? 12 : 16,
-              paddingTop: IS_VERY_SHORT_SCREEN ? 78 : IS_SHORT_SCREEN ? 88 : IS_NARROW_WIDTH ? 96 : 110,
+              // Safe area + room below absolute language control (notch / Dynamic Island)
+              paddingTop:
+                insets.top +
+                (IS_VERY_SHORT_SCREEN ? 56 : IS_SHORT_SCREEN ? 64 : IS_NARROW_WIDTH ? 72 : 84),
               paddingBottom: IS_VERY_SHORT_SCREEN ? 8 : IS_SHORT_SCREEN ? 12 : 24,
             },
             {
@@ -661,7 +664,7 @@ const WelcomeScreen = () => {
         />
       )}
       {/* Language selector stays above main content */}
-      <View style={styles.languageSelector}>
+      <View style={[styles.languageSelector, { top: insets.top + 10 }]}>
         <TouchableOpacity
           style={[styles.languageButton, { width: LANGUAGE_BUTTON_WIDTH }]}
           onPress={() => setShowLanguageMenu(!showLanguageMenu)}
@@ -787,10 +790,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(165,146,176,0.4)', // Changed to #a592b0
   },
 
-  // Language Selector
+  // Language Selector — `top` completed with safe area in JSX (insets.top)
   languageSelector: {
     position: 'absolute',
-    top: 60,
     right: 24,
     zIndex: 100,
   },
@@ -1015,6 +1017,7 @@ const styles = StyleSheet.create({
   // Bottom Section
   bottomSection: {
     alignSelf: 'center',
+    alignItems: 'center',
     paddingHorizontal: 0,
     paddingTop: 20,
     paddingBottom: 48,
@@ -1077,6 +1080,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     alignSelf: 'center',
+    width: '100%',
     maxWidth: '100%',
   },
   loginText: {
@@ -1097,6 +1101,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 4,
     maxWidth: '100%',
+    width: '100%',
+    alignSelf: 'center',
   },
   loginLinkButton: {
     paddingHorizontal: 2,
@@ -1107,6 +1113,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    width: '100%',
   },
   loginLink: {
     fontFamily: Platform.select({
@@ -1122,6 +1130,7 @@ const styles = StyleSheet.create({
   loginLinkCompact: {
     fontSize: 15,
     textAlign: 'center',
+    width: '100%',
   },
 
   // Overlay

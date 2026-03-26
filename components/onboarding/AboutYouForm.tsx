@@ -434,7 +434,7 @@ function AboutYouForm({
                   birthDateRef.current?.focus();
                 }
               }}
-              placeholder={t('onboarding.mm')}
+              placeholder=""
               placeholderTextColor="#999"
               keyboardType="numeric"
               maxLength={2}
@@ -453,7 +453,7 @@ function AboutYouForm({
                   birthYearRef.current?.focus();
                 }
               }}
-              placeholder={t('onboarding.dd')}
+              placeholder=""
               placeholderTextColor="#999"
               keyboardType="numeric"
               maxLength={2}
@@ -467,7 +467,7 @@ function AboutYouForm({
               style={styles.textField}
               value={birthYear}
               onChangeText={setBirthYear}
-              placeholder={t('onboarding.yyyy')}
+              placeholder=""
               placeholderTextColor="#999"
               keyboardType="numeric"
               maxLength={4}

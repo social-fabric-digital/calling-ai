@@ -65,7 +65,8 @@ import { Alert, Animated, Dimensions, Image, Keyboard, Modal, NativeModules, Pla
 import { supabase } from '../lib/supabase';
 
 const USE_YAZIO_FLOW = true;
-const APP_STORE_REVIEW_MODE = true; // Set to false after approval
+// Toggle true only for App Store review builds (see review-mode-on.sh).
+const APP_STORE_REVIEW_MODE = false;
 const DEFAULT_ONBOARDING_NAME = '';
 const REVIEW_BIRTH_MONTH = '1';
 const REVIEW_BIRTH_DATE = '1';

@@ -8,21 +8,23 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Animated,
-    Dimensions,
     FlatList,
     Image,
     NativeScrollEvent,
     NativeSyntheticEvent,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     UIManager,
     View,
+    useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+/** Matches common onboarding / settings horizontal gutters (~24). */
+const SCREEN_GUTTER = 24;
 const supportsBlurView = Boolean(UIManager.getViewManagerConfig?.('ExpoBlurView'));
 
 // Create Animated FlatList for native scroll events
@@ -607,14 +609,19 @@ export default function FeaturesIntroScreen() {
   const { i18n } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<any>>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH);
+  const [containerWidth, setContainerWidth] = useState(windowWidth);
   const handleContainerLayout = useCallback((e: any) => {
     const w = e.nativeEvent.layout.width;
     if (w > 0) setContainerWidth(w);
   }, []);
+
+  useEffect(() => {
+    if (windowWidth > 0) setContainerWidth(windowWidth);
+  }, [windowWidth]);
   const [showHeaderTooltip, setShowHeaderTooltip] = useState(false);
   const [headerTooltipText, setHeaderTooltipText] = useState('');
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
@@ -724,7 +731,8 @@ export default function FeaturesIntroScreen() {
     setCurrentCardIndex(index);
   };
 
-  const topInset = Math.max(insets.top, 20);
+  const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 12 : 20);
+  const footerPaddingBottom = Math.max(insets.bottom + 18, 28);
 
   const handleHeaderBack = () => {
     if (router.canGoBack()) {
@@ -759,14 +767,19 @@ export default function FeaturesIntroScreen() {
 
   return (
     <PaperTextureBackground>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.scrollContent, { minHeight: windowHeight }]}
+        showsVerticalScrollIndicator={false}
+        bounces
+      >
         <Image
           source={require('../assets/images/own.png')}
           pointerEvents="none"
           style={styles.backgroundImage}
           resizeMode="cover"
         />
-        <View style={[styles.headerRow, { paddingTop: topInset + 8 }]}>
+        <View style={[styles.headerRow, { paddingTop: topInset + 10, paddingHorizontal: SCREEN_GUTTER }]}>
           <TouchableOpacity style={styles.headerIconButton} onPress={handleHeaderBack} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#342846" />
           </TouchableOpacity>
@@ -792,7 +805,10 @@ export default function FeaturesIntroScreen() {
           </TouchableOpacity>
         </View>
         {showHeaderTooltip && (
-          <View pointerEvents="none" style={styles.headerTooltipContainer}>
+          <View
+            pointerEvents="none"
+            style={[styles.headerTooltipContainer, { top: topInset + 62 }]}
+          >
             <View style={styles.headerTooltipBubble}>
               <Text style={styles.headerTooltipText}>{headerTooltipText}</Text>
             </View>
@@ -800,7 +816,7 @@ export default function FeaturesIntroScreen() {
         )}
 
         {/* Header Section */}
-        <View style={styles.headerSection}>
+        <View style={[styles.headerSection, { paddingHorizontal: SCREEN_GUTTER }]}>
           <Animated.Text 
             style={[
               styles.mainHeading,
@@ -903,8 +919,17 @@ export default function FeaturesIntroScreen() {
           </View>
         </Animated.View>
 
-        {/* Navigation buttons - positioned to match I VOW button */}
-        <View style={styles.swipeHintContainer}>
+        {/* Navigation buttons */}
+        <View
+          style={[
+            styles.swipeHintContainer,
+            {
+              paddingHorizontal: SCREEN_GUTTER,
+              paddingBottom: footerPaddingBottom,
+              paddingTop: 12,
+            },
+          ]}
+        >
           {currentCardIndex === 3 ? (
             <TouchableOpacity 
               style={styles.continueButton} 
@@ -941,7 +966,7 @@ export default function FeaturesIntroScreen() {
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
     </PaperTextureBackground>
   );
 }
@@ -950,6 +975,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   backgroundImage: {
     position: 'absolute',
@@ -963,7 +991,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingBottom: 0,
     zIndex: 12,
   },
@@ -988,7 +1015,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
   },
   headerProgressBar: {
     width: '100%',
@@ -1004,8 +1031,7 @@ const styles = StyleSheet.create({
   },
   headerTooltipContainer: {
     position: 'absolute',
-    top: 108,
-    right: 20,
+    right: SCREEN_GUTTER,
     zIndex: 1400,
     elevation: 1400,
     maxWidth: 230,
@@ -1025,8 +1051,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   headerSection: {
-    paddingTop: 12,
-    paddingHorizontal: 28,
+    paddingTop: 8,
     alignItems: 'center',
   },
   mainHeading: {
@@ -1047,8 +1072,8 @@ const styles = StyleSheet.create({
 
   // Visual Container
   visualContainer: {
-    height: 200,
-    marginVertical: 20,
+    height: 164,
+    marginVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1248,9 +1273,13 @@ const styles = StyleSheet.create({
   // Cards
   cardSection: {
     flex: 1,
-    justifyContent: 'center',
+    flexGrow: 1,
+    flexShrink: 1,
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    marginTop: -110,
+    minHeight: 0,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   cardsWrapper: {
     alignItems: 'center',
@@ -1258,14 +1287,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cardContainer: {
-    width: SCREEN_WIDTH,
-    paddingHorizontal: 28,
+    paddingHorizontal: SCREEN_GUTTER,
     justifyContent: 'center',
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 20,
-    padding: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 22,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1314,8 +1343,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     marginTop: 14,
     gap: 8,
   },
@@ -1341,13 +1370,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#342846',
   },
   swipeHintContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingHorizontal: 40,
-    paddingBottom: 40,
+    width: '100%',
+    marginTop: 8,
     zIndex: 1000,
     backgroundColor: 'transparent',
   },

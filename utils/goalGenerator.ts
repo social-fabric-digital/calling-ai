@@ -78,7 +78,7 @@ ${isRussian() ? '\nIMPORTANT: All goal name, step names, descriptions, duration 
     const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_GOALS || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
-      throw new Error('API key missing');
+      // API key check skipped - handled server-side by proxy
     }
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {
@@ -333,7 +333,7 @@ ${isRussian() ? '\nIMPORTANT: All output fields must be in Russian.' : ''}`;
     const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_KEY_GOALS || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
     
     if (!apiKey) {
-      throw new Error('API key missing');
+      // API key check skipped - handled server-side by proxy
     }
 
     const response = await fetch('https://unyrkyvyngafjubjhkkf.supabase.co/functions/v1/claude-proxy', {

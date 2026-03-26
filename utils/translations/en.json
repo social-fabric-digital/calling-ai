@@ -980,13 +980,23 @@
     },
     "guide": {
       "title": "How Focus Sanctuary works",
-      "intro": "Pick a session length, start the timer, and stay with the growing scene. The forest and Atlas are visual companions for your focus block—not a race, just steady presence.",
+      "intro": "A quick guide to your focus flow.",
       "sectionTimer": "Timer",
-      "bodyTimer": "Choose 5–60 minutes. On iPhone you confirm with Start growing; on iPad the session begins when you tap a duration. Reset returns you to pick a new length; I'm Done saves your time and returns home.",
+      "bodyTimer": "Choose 5-60 minutes and start.",
       "sectionGrowth": "Growth stages",
-      "bodyGrowth": "The seed and trees evolve as time passes—height and vitality on the card mirror your progress through the session. Atlas appears near the end as a quiet milestone.",
+      "bodyGrowth": "Trees evolve as your timer moves forward.",
       "soundTitle": "Ambient sound",
-      "soundBody": "Optional loops (forest, rain, waves, fire, wind) play only while the timer is running. Turn sound off with the switch or pick a different texture before you start. Your choice is remembered for next time."
+      "soundBody": "Pick a sound or keep it off.",
+      "quickTimerTitle": "Timer",
+      "quickTimerBody": "Pick 5-60 min. iPhone: tap Start growing. iPad: starts on tap.",
+      "quickGrowthTitle": "Growth",
+      "quickGrowthBody": "Your scene, height, and vitality evolve with time.",
+      "quickSoundTitle": "Ambient",
+      "quickSoundBody": "Forest, rain, waves, fire, or wind. Saved for next time.",
+      "quickFinishTitle": "Finish",
+      "quickFinishBody": "I'm Done saves your session and returns home.",
+      "tipTitle": "Keep it simple",
+      "tipBody": "One focused block is enough. Consistency matters more than duration."
     },
     "ambient": {
       "hint": "Ambient background (optional)",

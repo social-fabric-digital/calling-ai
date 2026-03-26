@@ -190,14 +190,9 @@ const FEATURE_KEYS: Record<string, string> = {
 };
 
 const getApiKey = (feature: string = 'default') => {
-  const key =
-    FEATURE_KEYS[feature] ||
-    Constants.expoConfig?.extra?.anthropicApiKey ||
-    process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ||
-    '';
-
-  if (!key) console.warn(`⚠️ No API key found for feature: ${feature}`);
-  return key;
+  // API keys are now stored server-side in Supabase Edge Function secrets.
+  // The proxy handles authentication - return a placeholder so validation passes.
+  return 'proxy';
 };
 
 const SYSTEM_PROMPT = `You are Atlas, a compassionate and supportive AI companion designed to help users work through their fears, overcome motivational challenges, and support them on their personal growth journey.
@@ -430,23 +425,7 @@ export async function tryModel(
     );
   }
   
-  // Check API key before making request
-  if (!apiKey || apiKey.trim() === '') {
-    console.error('❌ API key is missing or empty. Please set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env file');
-    return new Response(
-      JSON.stringify({
-        error: {
-          message: 'API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.',
-          type: 'api_error',
-        },
-      }),
-      {
-        status: 401,
-        statusText: 'Unauthorized',
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-  }
+  // API key validation removed - keys are handled server-side by the Edge Function proxy
 
   const requestBody = {
     model,
@@ -543,7 +522,7 @@ export async function getClaudeResponse(
   const apiKey = getApiKey('atlas');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   try {
@@ -667,7 +646,7 @@ export async function getAtlasChatResponse(
   const apiKey = getApiKey('atlas');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   try {
@@ -808,7 +787,7 @@ export async function generatePersonalAstrologyReport(
   const apiKey = getApiKey('astrology');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date
@@ -1068,7 +1047,7 @@ export async function generateAstrologyReport(
   const apiKey = getApiKey('astrology');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date
@@ -1254,7 +1233,7 @@ export async function generatePersonalizedDailyInsight(
   const apiKey = getApiKey('daily');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   const {
@@ -1556,7 +1535,7 @@ export async function generateIkigaiConclusion(
   const apiKey = getApiKey('ikigai');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   const outputLanguageInstruction =
@@ -1721,7 +1700,7 @@ export async function generateUserAnalysisReport(
   const apiKey = getApiKey('analysis');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   if (!answers || answers.length === 0) {
@@ -1881,7 +1860,7 @@ export async function generateCallingPaths(
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time (handle empty values gracefully)
@@ -2153,7 +2132,7 @@ export async function generateCallingAwaitsContent(
   const isRussianLocale = i18n.language?.toLowerCase().startsWith('ru');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time (handle empty values gracefully)
@@ -2524,7 +2503,7 @@ async function generateUnifiedDestinyProfileUncached(
   };
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time (handle empty values gracefully)
@@ -3254,7 +3233,7 @@ async function generatePathContentUncached(
   };
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time (handle empty values gracefully)
@@ -3584,7 +3563,7 @@ export async function generateLevelStepInstructions(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time
@@ -3788,7 +3767,7 @@ export async function generateStepDescription(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time
@@ -3998,7 +3977,7 @@ export async function generateGoalSteps(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time
@@ -4381,7 +4360,7 @@ export async function generateCompleteGoal(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time
@@ -4703,7 +4682,7 @@ export async function generateLoadingItems(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   // Format birth date and time
@@ -4869,7 +4848,7 @@ export async function generateGoalMotivationalSentence(
   const apiKey = getApiKey('goals');
   
   if (!apiKey) {
-    throw new Error('API key is missing. Please add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env file and restart the app.');
+    // API key check skipped - handled server-side by proxy
   }
 
   const motivationalPrompt = `You are an expert life coach and motivational speaker. Generate a SINGLE, powerful motivational sentence that will inspire someone to continue working toward their goal.
