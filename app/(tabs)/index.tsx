@@ -3117,13 +3117,13 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   greetingCompact: {
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 30,
+    lineHeight: 36,
     marginBottom: 10,
   },
   greetingVeryCompact: {
-    fontSize: 36,
-    lineHeight: 42,
+    fontSize: 27,
+    lineHeight: 32,
     marginBottom: 8,
   },
   dividingBar: {

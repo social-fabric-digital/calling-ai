@@ -1,10 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from './styles';
 import { HeadingStyle, BodyStyle } from '@/constants/theme';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_SUBTITLE,
+} from './responsiveTokens';
 import { persistOnboardingAnswer } from './persistOnboardingAnswer';
 
 interface ThankYouAtlasStepProps {
@@ -15,6 +20,8 @@ const ATLAS_BLOCK_BOTTOM_OFFSET = 140;
 
 export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasStepProps) {
   const { t, i18n } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
   const [resolvedName, setResolvedName] = React.useState(name?.trim() || '');
@@ -70,8 +77,12 @@ export default function ThankYouAtlasStep({ name, onContinue }: ThankYouAtlasSte
 
   return (
     <Animated.View style={[localStyles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-      <Text style={localStyles.heading}>{t('onboarding.yazioFlow.thankYouAtlasTitle')}</Text>
-      <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
+      <Text style={[localStyles.heading, isNarrowScreen && localStyles.headingNarrow]}>
+        {t('onboarding.yazioFlow.thankYouAtlasTitle')}
+      </Text>
+      <Text style={[localStyles.headingSubtitle, isNarrowScreen && localStyles.headingSubtitleNarrow]}>
+        {headingSubtitle}
+      </Text>
 
       <View style={localStyles.atlasStage}>
         <View style={localStyles.speechWrap}>
@@ -158,18 +169,31 @@ const localStyles = StyleSheet.create({
   heading: {
     ...HeadingStyle,
     color: '#FFFFFF',
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     textAlign: 'center',
     marginBottom: 6,
     textTransform: 'none',
   },
+  headingNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
+    marginBottom: 4,
+  },
   headingSubtitle: {
     ...BodyStyle,
     color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
     opacity: 0.92,
-    lineHeight: 22,
     marginBottom: 8,
     paddingHorizontal: 14,
+  },
+  headingSubtitleNarrow: {
+    fontSize: ONBOARDING_QUESTION_SUBTITLE.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_SUBTITLE.narrowLineHeight,
+    marginBottom: 4,
   },
   subheading: {
     ...BodyStyle,

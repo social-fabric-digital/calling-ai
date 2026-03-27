@@ -2058,8 +2058,8 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   focusHeadingCompact: {
-    fontSize: 28,
-    lineHeight: 33,
+    fontSize: 22,
+    lineHeight: 28,
     marginBottom: 4,
   },
   focusSubtitlePrimary: {
@@ -2072,8 +2072,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   focusSubtitlePrimaryCompact: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 18,
     maxWidth: width - 68,
   },
   timerContainer: {

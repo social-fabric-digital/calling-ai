@@ -3,6 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_OPTIONS_GAP,
+} from './responsiveTokens';
 import { styles } from './styles';
 import { loadOnboardingAnswer, persistOnboardingAnswer } from './persistOnboardingAnswer';
 
@@ -15,8 +22,9 @@ const OPTIONS = ['consistency', 'vision', 'support', 'belief', 'daily', 'resilie
 export default function SuccessInspirationStep({ onContinue }: SuccessInspirationStepProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
-  const isCompactScreen = viewportHeight < 760 || viewportWidth < 420;
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
+  const isCompactScreen = isNarrowScreen;
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -44,8 +52,36 @@ export default function SuccessInspirationStep({ onContinue }: SuccessInspiratio
     onContinue(selected);
   };
 
+  const optionItems = OPTIONS.map((optionId) => {
+    const isSelected = selected.includes(optionId);
+    return (
+      <TouchableOpacity
+        key={optionId}
+        style={[
+          styles.lifeContextOptionButton,
+          localStyles.option,
+          isNarrowScreen && localStyles.optionNarrow,
+          isSelected && styles.lifeContextOptionSelectedSoft,
+        ]}
+        onPress={() => handleSelect(optionId)}
+        activeOpacity={0.85}
+      >
+        <Text
+          style={[
+            styles.lifeContextOptionText,
+            localStyles.optionText,
+            isNarrowScreen && localStyles.optionTextNarrow,
+            isSelected && styles.lifeContextOptionTextSelectedSoft,
+          ]}
+        >
+          {t(`onboarding.yazioFlow.successInspirationOptions.${optionId}`)}
+        </Text>
+      </TouchableOpacity>
+    );
+  });
+
   return (
-    <View style={localStyles.container}>
+    <View style={[localStyles.container, isNarrowScreen && { paddingTop: 16 }]}>
       {isCompactScreen ? (
         <ScrollView
           contentContainerStyle={[
@@ -55,8 +91,8 @@ export default function SuccessInspirationStep({ onContinue }: SuccessInspiratio
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={localStyles.headerSlot}>
-            <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+          <View style={[localStyles.headerSlot, isNarrowScreen && { minHeight: 86 }]}>
+            <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}>
               {t('onboarding.yazioFlow.successInspirationQuestion')}
             </Text>
             <Text style={[styles.lifeContextSubtitleText, localStyles.screenSubtitle]}>
@@ -64,32 +100,8 @@ export default function SuccessInspirationStep({ onContinue }: SuccessInspiratio
             </Text>
           </View>
           <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-            <View style={styles.lifeContextOptionsContainer}>
-              {OPTIONS.map((optionId) => {
-                const isSelected = selected.includes(optionId);
-                return (
-                  <TouchableOpacity
-                    key={optionId}
-                    style={[
-                      styles.lifeContextOptionButton,
-                      localStyles.option,
-                      isSelected && styles.lifeContextOptionSelectedSoft,
-                    ]}
-                    onPress={() => handleSelect(optionId)}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.lifeContextOptionText,
-                        localStyles.optionText,
-                        isSelected && styles.lifeContextOptionTextSelectedSoft,
-                      ]}
-                    >
-                      {t(`onboarding.yazioFlow.successInspirationOptions.${optionId}`)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={[styles.lifeContextOptionsContainer, isNarrowScreen && { gap: ONBOARDING_QUESTION_OPTIONS_GAP.narrow }]}>
+              {optionItems}
             </View>
           </View>
         </ScrollView>
@@ -105,45 +117,12 @@ export default function SuccessInspirationStep({ onContinue }: SuccessInspiratio
           </View>
           <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
             <View style={styles.lifeContextOptionsContainer}>
-              {OPTIONS.map((optionId) => {
-                const isSelected = selected.includes(optionId);
-                return (
-                  <TouchableOpacity
-                    key={optionId}
-                    style={[
-                      styles.lifeContextOptionButton,
-                      localStyles.option,
-                      isSelected && styles.lifeContextOptionSelectedSoft,
-                    ]}
-                    onPress={() => handleSelect(optionId)}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.lifeContextOptionText,
-                        localStyles.optionText,
-                        isSelected && styles.lifeContextOptionTextSelectedSoft,
-                      ]}
-                    >
-                      {t(`onboarding.yazioFlow.successInspirationOptions.${optionId}`)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {optionItems}
             </View>
           </View>
         </View>
       )}
-      <View
-        style={[
-          localStyles.bottomButtonWrap,
-          {
-            paddingBottom: Math.max(16, insets.bottom + 12),
-            paddingHorizontal: isCompactScreen ? 20 : 40,
-          },
-        ]}
-        pointerEvents="box-none"
-      >
+      <View style={localStyles.bottomButtonWrap} pointerEvents="box-none">
         <TouchableOpacity
           style={[styles.continueButton, selected.length === 0 && localStyles.continueDisabled]}
           onPress={handleContinue}
@@ -179,21 +158,33 @@ const localStyles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 4,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   screenSubtitle: {
     marginBottom: 0,
   },
   option: {
     height: 'auto',
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: ONBOARDING_QUESTION_OPTION.minHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.paddingVertical,
+  },
+  optionNarrow: {
+    minHeight: ONBOARDING_QUESTION_OPTION.narrowMinHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.narrowPaddingVertical,
   },
   optionText: {
     flex: 0,
     lineHeight: 20,
+  },
+  optionTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
   },
   continueDisabled: {
     opacity: 0.45,

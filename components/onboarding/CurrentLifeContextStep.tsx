@@ -1,9 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { getLifeContextQuestions } from './constants';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_OPTIONS_GAP,
+} from './responsiveTokens';
 import { styles } from './styles';
 import { CurrentLifeContextStepProps } from './types';
 
@@ -15,6 +22,8 @@ function CurrentLifeContextStep({
   onContinue,
 }: CurrentLifeContextStepProps) {
   const { t, i18n } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const situationQuestion = useMemo(
     () => getLifeContextQuestions(t).find((question) => question.id === 'situation'),
@@ -70,25 +79,25 @@ function CurrentLifeContextStep({
   const options = situationQuestion?.options ?? [];
 
   return (
-    <View style={localStyles.container}>
+    <View style={[localStyles.container, isNarrowScreen && { paddingTop: 16 }]}>
       <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={[localStyles.headerSlot, isRussian && localStyles.headerSlotRussian]}>
-          <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isRussian && localStyles.screenHeaderRussian]}>
+        <View style={[localStyles.headerSlot, isRussian && localStyles.headerSlotRussian, isNarrowScreen && { minHeight: 60 }]}>
+          <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isRussian && localStyles.screenHeaderRussian, isNarrowScreen && localStyles.screenHeaderNarrow]}>
             {questionText}
           </Text>
         </View>
         <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-          <View style={styles.lifeContextOptionsContainer}>
+          <View style={[styles.lifeContextOptionsContainer, isNarrowScreen && { gap: ONBOARDING_QUESTION_OPTIONS_GAP.narrow }]}>
             {options.map((option) => {
               const isSelected = selected === option.id;
               return (
                 <TouchableOpacity
                   key={option.id}
-                  style={[styles.lifeContextOptionButton, localStyles.option, isSelected && styles.lifeContextOptionSelectedSoft]}
+                  style={[styles.lifeContextOptionButton, localStyles.option, isNarrowScreen && localStyles.optionNarrow, isSelected && styles.lifeContextOptionSelectedSoft]}
                   onPress={() => handleSelect(option.id)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.lifeContextOptionText, localStyles.optionText, isSelected && styles.lifeContextOptionTextSelectedSoft]}>
+                  <Text style={[styles.lifeContextOptionText, localStyles.optionText, isNarrowScreen && localStyles.optionTextNarrow, isSelected && styles.lifeContextOptionTextSelectedSoft]}>
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -128,9 +137,13 @@ const localStyles = StyleSheet.create({
     minHeight: 116,
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 0,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   screenHeaderRussian: {
     fontSize: 22,
@@ -141,20 +154,33 @@ const localStyles = StyleSheet.create({
   },
   option: {
     height: 'auto',
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: ONBOARDING_QUESTION_OPTION.minHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.paddingVertical,
+  },
+  optionNarrow: {
+    minHeight: ONBOARDING_QUESTION_OPTION.narrowMinHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.narrowPaddingVertical,
   },
   optionText: {
     flex: 0,
     lineHeight: 20,
   },
+  optionTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
+  },
   continueDisabled: {
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingHorizontal: 40,
     paddingBottom: 40,
+    zIndex: 1000,
   },
 });
 

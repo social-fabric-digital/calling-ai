@@ -1,5 +1,6 @@
 import { PaperTextureBackground } from '@/components/PaperTextureBackground';
 import { BodyStyle, ButtonHeadingStyle, HeadingStyle } from '@/constants/theme';
+import { TypographyScale } from '@/constants/typography';
 import { FEATURES_INTRO_TOTAL_CARDS, FULL_ONBOARDING_JOURNEY_UNITS } from '@/constants/progress';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -13,7 +14,6 @@ import {
     NativeScrollEvent,
     NativeSyntheticEvent,
     Platform,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -478,12 +478,14 @@ const FeatureCard = ({
   scrollX,
   containerWidth,
   compact,
+  veryCompact,
 }: { 
   item: FeatureItem;
   index: number;
   scrollX: Animated.Value;
   containerWidth: number;
   compact: boolean;
+  veryCompact: boolean;
 }) => {
   const inputRange = [
     (index - 1) * containerWidth,
@@ -509,6 +511,7 @@ const FeatureCard = ({
         style={[
           styles.card,
           compact && styles.cardCompact,
+          veryCompact && styles.cardVeryCompact,
           { 
             transform: [{ scale }],
             opacity,
@@ -529,13 +532,13 @@ const FeatureCard = ({
           <View style={[styles.iconContainer, compact && styles.iconContainerCompact]}>
             <MaterialIcons 
               name={item.icon as any} 
-              size={compact ? 20 : 24}
+              size={veryCompact ? 18 : compact ? 20 : 24}
               color="#FFFFFF" 
             />
           </View>
           <View style={styles.cardText}>
             <Text
-              style={[styles.cardTitle, compact && styles.cardTitleCompact]}
+              style={[styles.cardTitle, compact && styles.cardTitleCompact, veryCompact && styles.cardTitleVeryCompact]}
               numberOfLines={2}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -543,7 +546,7 @@ const FeatureCard = ({
               {item.title}
             </Text>
             <Text
-              style={[styles.cardDescription, compact && styles.cardDescriptionCompact]}
+              style={[styles.cardDescription, compact && styles.cardDescriptionCompact, veryCompact && styles.cardDescriptionVeryCompact]}
               numberOfLines={4}
               adjustsFontSizeToFit
               minimumFontScale={0.84}
@@ -555,7 +558,7 @@ const FeatureCard = ({
         {item.why && (
           <View style={[styles.tooltip, compact && styles.tooltipCompact]}>
             <Text
-              style={[styles.tooltipText, compact && styles.tooltipTextCompact]}
+              style={[styles.tooltipText, compact && styles.tooltipTextCompact, veryCompact && styles.tooltipTextVeryCompact]}
               numberOfLines={3}
               adjustsFontSizeToFit
               minimumFontScale={0.86}
@@ -758,6 +761,7 @@ export default function FeaturesIntroScreen() {
   const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 12 : 20);
   const footerPaddingBottom = Math.max(insets.bottom + 18, 28);
   const isCompactWidth = windowWidth <= 430;
+  const isVeryCompactWidth = windowWidth < 390;
 
   const handleHeaderBack = () => {
     if (router.canGoBack()) {
@@ -792,12 +796,7 @@ export default function FeaturesIntroScreen() {
 
   return (
     <PaperTextureBackground>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.scrollContent, { minHeight: windowHeight }]}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
+      <View style={[styles.container, { minHeight: windowHeight }]}>
         <Image
           source={require('../assets/images/own.png')}
           pointerEvents="none"
@@ -852,11 +851,15 @@ export default function FeaturesIntroScreen() {
             style={[
               styles.mainHeading,
               isCompactWidth && styles.mainHeadingCompact,
+              isVeryCompactWidth && styles.mainHeadingVeryCompact,
               {
                 opacity: headlineFade,
                 transform: [{ translateY: headlineSlide }],
               }
             ]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
             {copy.heading}
           </Animated.Text>
@@ -865,11 +868,15 @@ export default function FeaturesIntroScreen() {
             style={[
               styles.subheading,
               isCompactWidth && styles.subheadingCompact,
+              isVeryCompactWidth && styles.subheadingVeryCompact,
               {
                 opacity: subheadlineFade,
                 transform: [{ translateY: subheadlineSlide }],
               }
             ]}
+            numberOfLines={4}
+            adjustsFontSizeToFit
+            minimumFontScale={0.84}
           >
             {copy.subheading}
           </Animated.Text>
@@ -892,13 +899,14 @@ export default function FeaturesIntroScreen() {
         <Animated.View 
           style={[
             styles.cardSection,
+            isCompactWidth && styles.cardSectionCompact,
             {
               opacity: cardFade,
               transform: [{ translateY: cardSlide }],
             }
           ]}
         >
-          <View style={styles.cardsWrapper} onLayout={handleContainerLayout}>
+          <View style={[styles.cardsWrapper, isCompactWidth && styles.cardsWrapperCompact]} onLayout={handleContainerLayout}>
             <AnimatedFlatList
               ref={flatListRef as any}
               data={features}
@@ -909,6 +917,7 @@ export default function FeaturesIntroScreen() {
                   scrollX={scrollX}
                   containerWidth={containerWidth}
                   compact={isCompactWidth}
+                  veryCompact={isVeryCompactWidth}
                 />
               )}
               keyExtractor={(item, index) => index.toString()}
@@ -929,7 +938,7 @@ export default function FeaturesIntroScreen() {
             />
 
             {/* Pagination Dots */}
-            <View style={styles.pagination}>
+            <View style={[styles.pagination, isCompactWidth && styles.paginationCompact]}>
               {features.map((_, index) => {
                 const inputRange = [
                   (index - 1) * containerWidth,
@@ -984,7 +993,7 @@ export default function FeaturesIntroScreen() {
               onPress={() => router.push('/onboarding?step=1')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.continueButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+              <Text style={[styles.continueButtonText, isCompactWidth && styles.navButtonTextCompact, isVeryCompactWidth && styles.navButtonTextVeryCompact]}>
                 {copy.continue}
               </Text>
             </TouchableOpacity>
@@ -997,7 +1006,7 @@ export default function FeaturesIntroScreen() {
                   activeOpacity={0.7}
                 >
                   <MaterialIcons name="arrow-back" size={isCompactWidth ? 16 : 18} color="#342846" />
-                  <Text style={[styles.backButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+                  <Text style={[styles.backButtonText, isCompactWidth && styles.navButtonTextCompact, isVeryCompactWidth && styles.navButtonTextVeryCompact]}>
                     {copy.back}
                   </Text>
                 </TouchableOpacity>
@@ -1008,7 +1017,7 @@ export default function FeaturesIntroScreen() {
                 onPress={handleNext}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.nextButtonText, isCompactWidth && styles.navButtonTextCompact]}>
+                <Text style={[styles.nextButtonText, isCompactWidth && styles.navButtonTextCompact, isVeryCompactWidth && styles.navButtonTextVeryCompact]}>
                   {copy.next}
                 </Text>
                 <MaterialIcons 
@@ -1020,7 +1029,7 @@ export default function FeaturesIntroScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </View>
     </PaperTextureBackground>
   );
 }
@@ -1029,10 +1038,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 8,
   },
   backgroundImage: {
     position: 'absolute',
@@ -1119,9 +1124,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mainHeadingCompact: {
-    fontSize: 46,
-    lineHeight: 52,
-    marginBottom: 10,
+    fontSize: 22,
+    lineHeight: 28,
+    marginBottom: 8,
+  },
+  mainHeadingVeryCompact: {
+    fontSize: 20,
+    lineHeight: 26,
   },
   subheading: {
     ...BodyStyle,
@@ -1133,9 +1142,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   subheadingCompact: {
-    fontSize: 14,
-    lineHeight: 17,
-    maxWidth: 276,
+    fontSize: TypographyScale.subtitleNarrow.fontSize + 1,
+    lineHeight: TypographyScale.subtitleNarrow.lineHeight + 2,
+    maxWidth: 240,
+  },
+  subheadingVeryCompact: {
+    fontSize: TypographyScale.subtitleNarrow.fontSize,
+    lineHeight: TypographyScale.subtitleNarrow.lineHeight,
+    maxWidth: 220,
   },
 
   // Visual Container
@@ -1146,8 +1160,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   visualContainerCompact: {
-    height: 128,
-    marginVertical: 6,
+    height: 124,
+    marginTop: 15,
+    marginBottom: 15,
   },
   visualScaleCompact: {
     transform: [{ scale: 0.84 }],
@@ -1354,10 +1369,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  cardSectionCompact: {
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
   cardsWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  cardsWrapperCompact: {
+    transform: [{ translateY: 30 }],
   },
   cardContainer: {
     paddingHorizontal: SCREEN_GUTTER,
@@ -1379,6 +1401,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
+  },
+  cardVeryCompact: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   cardBlur: {
     ...StyleSheet.absoluteFillObject,
@@ -1421,6 +1447,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
   },
+  cardTitleVeryCompact: {
+    fontSize: 13,
+    lineHeight: 17,
+  },
   cardDescription: {
     ...BodyStyle,
     fontSize: 14,
@@ -1430,6 +1460,10 @@ const styles = StyleSheet.create({
   cardDescriptionCompact: {
     fontSize: 12,
     lineHeight: 16,
+  },
+  cardDescriptionVeryCompact: {
+    fontSize: 11,
+    lineHeight: 15,
   },
   tooltip: {
     flexDirection: 'row',
@@ -1459,12 +1493,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  tooltipTextVeryCompact: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     marginTop: 14,
+  },
+  paginationCompact: {
+    marginTop: 6,
+    marginBottom: 2,
   },
   dot: {
     height: 8,
@@ -1473,12 +1515,12 @@ const styles = StyleSheet.create({
   },
   swipeHintContainer: {
     width: '100%',
-    marginTop: 8,
+    marginTop: 'auto',
     zIndex: 1000,
     backgroundColor: 'transparent',
   },
   swipeHintContainerCompact: {
-    marginTop: 4,
+    marginTop: 'auto',
   },
   swipeIndicators: {
     flexDirection: 'row',
@@ -1588,5 +1630,9 @@ const styles = StyleSheet.create({
   navButtonTextCompact: {
     fontSize: 14,
     lineHeight: 18,
+  },
+  navButtonTextVeryCompact: {
+    fontSize: 13,
+    lineHeight: 16,
   },
 });

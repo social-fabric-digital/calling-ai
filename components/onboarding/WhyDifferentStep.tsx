@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_OPTIONS_GAP,
+} from './responsiveTokens';
 import { styles } from './styles';
 import { persistOnboardingAnswer, loadOnboardingAnswer } from './persistOnboardingAnswer';
 
@@ -13,6 +20,8 @@ const OPTIONS = ['committed', 'vision', 'honest', 'smallSteps', 'atlas'] as cons
 
 export default function WhyDifferentStep({ onContinue }: WhyDifferentStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [selected, setSelected] = useState<string>('');
 
   useEffect(() => {
@@ -34,14 +43,14 @@ export default function WhyDifferentStep({ onContinue }: WhyDifferentStepProps) 
   };
 
   return (
-    <View style={localStyles.container}>
-      <View style={localStyles.headerSlot}>
-        <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+    <View style={[localStyles.container, isNarrowScreen && { paddingTop: 16 }]}>
+      <View style={[localStyles.headerSlot, isNarrowScreen && { minHeight: 90 }]}>
+        <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}>
           {t('onboarding.yazioFlow.whyDifferentQuestion')}
         </Text>
       </View>
       <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        <View style={styles.lifeContextOptionsContainer}>
+        <View style={[styles.lifeContextOptionsContainer, isNarrowScreen && { gap: ONBOARDING_QUESTION_OPTIONS_GAP.narrow }]}>
           {OPTIONS.map((optionId) => {
             const isSelected = selected === optionId;
             return (
@@ -50,6 +59,7 @@ export default function WhyDifferentStep({ onContinue }: WhyDifferentStepProps) 
                 style={[
                   styles.lifeContextOptionButton,
                   localStyles.option,
+                  isNarrowScreen && localStyles.optionNarrow,
                   isSelected && styles.lifeContextOptionSelectedSoft,
                 ]}
                 onPress={() => onSelect(optionId)}
@@ -59,6 +69,7 @@ export default function WhyDifferentStep({ onContinue }: WhyDifferentStepProps) 
                   style={[
                     styles.lifeContextOptionText,
                     localStyles.optionText,
+                    isNarrowScreen && localStyles.optionTextNarrow,
                     isSelected && styles.lifeContextOptionTextSelectedSoft,
                   ]}
                 >
@@ -100,18 +111,30 @@ const localStyles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 0,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   option: {
     height: 'auto',
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: ONBOARDING_QUESTION_OPTION.minHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.paddingVertical,
+  },
+  optionNarrow: {
+    minHeight: ONBOARDING_QUESTION_OPTION.narrowMinHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.narrowPaddingVertical,
   },
   optionText: {
     flex: 0,
     lineHeight: 20,
+  },
+  optionTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
   },
   continueDisabled: {
     opacity: 0.45,

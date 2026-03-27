@@ -39,8 +39,8 @@ const WelcomeScreen = () => {
   /** Narrow portrait width — primary driver for login row + gutters (not screen height). */
   const IS_NARROW_WIDTH = SCREEN_WIDTH < 420;
   const IS_VERY_NARROW_WIDTH = SCREEN_WIDTH < 360;
-  /** Stack “Already have an account?” + Login on narrow widths so the row never clips. */
-  const IS_COMPACT_LOGIN_ROW = IS_NARROW_WIDTH;
+  /** Keep login CTA on same baseline across all phone widths. */
+  const IS_COMPACT_LOGIN_ROW = false;
   const IS_TABLET_LAYOUT = Platform.isPad || (Platform.OS === 'android' && SCREEN_WIDTH >= 768);
   const horizontalGutter = IS_TABLET_LAYOUT ? 40 : IS_VERY_NARROW_WIDTH ? 20 : IS_NARROW_WIDTH ? 28 : 40;
   const rawDeerWidth = SCREEN_WIDTH * 0.85 * 1.25 * 0.75 * 0.85;
@@ -653,9 +653,9 @@ const WelcomeScreen = () => {
                 IS_VERY_NARROW_WIDTH && styles.loginTextVeryNarrow,
               ]}
               maxFontSizeMultiplier={1.15}
-              numberOfLines={IS_VERY_NARROW_WIDTH ? 3 : 2}
+              numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.82}
+              minimumFontScale={0.75}
             >
               {t.loginText}
             </Text>
@@ -1107,8 +1107,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    flexWrap: 'wrap',
-    rowGap: 2,
+    flexWrap: 'nowrap',
     columnGap: 6,
     paddingHorizontal: 8,
   },

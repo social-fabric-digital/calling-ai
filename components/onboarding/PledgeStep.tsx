@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   PanResponder,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,6 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { capitalizeUserName } from '@/utils/nameFormat';
 import { PledgeStepProps } from './types';
+import { isOnboardingNarrowWidth } from './responsiveTokens';
 import { styles } from './styles';
 
 const FIREWORK_COLORS = ['#ff7eb6', '#ffd166', '#7bdff2', '#b8f2e6', '#f9a8ff', '#7dd3fc'];
@@ -36,6 +38,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
   const isSmallPhone = height < 760;
   const isVerySmallPhone = height < 700;
   const isTablet = width >= 768;
+  const isNarrowScreen = isOnboardingNarrowWidth(width);
   const [displayName, setDisplayName] = useState(name || '');
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState('');
@@ -173,23 +176,22 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
     [triggerCelebration]
   );
 
+  const signatureHeight = isVerySmallPhone ? 132 : isSmallPhone ? 152 : isTablet ? 180 : isNarrowScreen ? 160 : 212.5;
+
   return (
-    <View
-      style={[
-        styles.pledgeContainer,
-        styles.pledgeContentContainer,
-        {
-          paddingHorizontal: isTablet ? 40 : isSmallPhone ? 20 : 30,
-          paddingTop: isTablet ? 52 : isSmallPhone ? 12 : 25,
-          paddingBottom: isSmallPhone ? 16 : 40,
-        },
-      ]}
-    >
-      <View
-        style={[
-          localStyles.contentContainer,
-          { paddingBottom: (isSmallPhone ? 12 : 32) + safeAreaInsets.bottom },
+    <View style={styles.pledgeContainer}>
+      <ScrollView
+        style={localStyles.scrollView}
+        contentContainerStyle={[
+          styles.pledgeContentContainer,
+          {
+            paddingHorizontal: isTablet ? 40 : isSmallPhone ? 20 : isNarrowScreen ? 20 : 30,
+            paddingTop: isTablet ? 52 : isSmallPhone ? 12 : isNarrowScreen ? 16 : 25,
+            paddingBottom: (isSmallPhone ? 8 : isNarrowScreen ? 16 : 24) + safeAreaInsets.bottom,
+          },
         ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <Text
           style={[
@@ -201,7 +203,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
           {t('onboarding.step3Title')}
         </Text>
         <View style={[styles.pledgeContent, isTablet && localStyles.pledgeContentTablet]}>
-          <Text style={[styles.pledgeText, isSmallPhone && localStyles.pledgeTextSmall]}>
+          <Text style={[styles.pledgeText, isSmallPhone && localStyles.pledgeTextSmall, isNarrowScreen && !isSmallPhone && localStyles.pledgeTextNarrow]}>
             {t('onboarding.pledgeText', {
               name: (name && name.trim())
                 ? capitalizeUserName(name)
@@ -210,7 +212,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
                     : t('onboarding.pledgeNamePlaceholder'))
             })}
           </Text>
-          <Text style={[styles.pledgeSubtext, isSmallPhone && localStyles.pledgeSubtextSmall]}>
+          <Text style={[styles.pledgeSubtext, isSmallPhone && localStyles.pledgeSubtextSmall, isNarrowScreen && !isSmallPhone && localStyles.pledgeSubtextNarrow]}>
             {t('onboarding.pledgeSubtext')}
           </Text>
           
@@ -219,7 +221,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
             style={[
               styles.signatureContainer,
               {
-                marginTop: isSmallPhone ? 20 : 32,
+                marginTop: isSmallPhone ? 20 : isNarrowScreen ? 20 : 32,
               },
             ]}
           >
@@ -228,7 +230,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
                 styles.signatureWrapper,
                 localStyles.signaturePad,
                 {
-                  height: isVerySmallPhone ? 132 : isSmallPhone ? 152 : isTablet ? 180 : 212.5,
+                  height: signatureHeight,
                   maxWidth: isTablet ? 480 : 495,
                 },
               ]}
@@ -291,9 +293,9 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
           style={[
             localStyles.ctaContainer,
             {
-              paddingHorizontal: isTablet ? 80 : isSmallPhone ? 20 : 40,
-              paddingTop: isSmallPhone ? 12 : 24,
-              paddingBottom: (isSmallPhone ? 8 : 24) + safeAreaInsets.bottom,
+              paddingHorizontal: isTablet ? 80 : isSmallPhone ? 20 : isNarrowScreen ? 20 : 40,
+              paddingTop: isSmallPhone ? 12 : isNarrowScreen ? 16 : 24,
+              paddingBottom: isSmallPhone ? 8 : isNarrowScreen ? 12 : 24,
             },
           ]}
         >
@@ -309,7 +311,7 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
             <Text style={styles.continueButtonText}>{t('common.iVow')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
       {fireworkBursts.length > 0 ? (
         <View pointerEvents="none" style={localStyles.celebrationLayer}>
@@ -389,6 +391,9 @@ function PledgeStep({ name, signature, setSignature, onNext }: PledgeStepProps) 
 export default PledgeStep;
 
 const localStyles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   signaturePad: {
     borderWidth: 1,
     borderColor: '#d6d0dd',
@@ -421,9 +426,6 @@ const localStyles = StyleSheet.create({
     paddingTop: 24,
     zIndex: 2,
   },
-  contentContainer: {
-    flexGrow: 1,
-  },
   pledgeTitleSmall: {
     marginBottom: 16,
   },
@@ -440,7 +442,16 @@ const localStyles = StyleSheet.create({
     lineHeight: 21,
     marginBottom: 16,
   },
+  pledgeTextNarrow: {
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 16,
+  },
   pledgeSubtextSmall: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  pledgeSubtextNarrow: {
     fontSize: 14,
     lineHeight: 21,
   },

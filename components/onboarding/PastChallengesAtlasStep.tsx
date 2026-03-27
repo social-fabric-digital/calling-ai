@@ -4,6 +4,12 @@ import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDim
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { HeadingStyle, BodyStyle } from '@/constants/theme';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_SUBTITLE,
+} from './responsiveTokens';
 import { persistOnboardingAnswer } from './persistOnboardingAnswer';
 
 interface PastChallengesAtlasStepProps {
@@ -16,9 +22,10 @@ export default function PastChallengesAtlasStep({ onContinue }: PastChallengesAt
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const isRussian = i18n.language?.toLowerCase().startsWith('ru');
   const isCompactScreen = viewportHeight < 760;
-  const atlasImageSize = Math.min(358, Math.max(220, viewportWidth * (isCompactScreen ? 0.58 : 0.72)));
-  const atlasImageTopMargin = isCompactScreen ? -18 : -12;
-  const atlasImageBottomMargin = isCompactScreen ? 4 : 14;
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
+  const atlasImageSize = Math.min(280, Math.max(180, viewportWidth * (isNarrowScreen ? 0.52 : 0.68)));
+  const atlasImageTopMargin = isNarrowScreen ? -8 : isCompactScreen ? -18 : -12;
+  const atlasImageBottomMargin = isNarrowScreen ? 6 : isCompactScreen ? 4 : 14;
   const thoughtBubbleWidth = Math.min(viewportWidth - 40, 420);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const bubbleAnim = useRef(new Animated.Value(0.96)).current;
@@ -75,15 +82,15 @@ export default function PastChallengesAtlasStep({ onContinue }: PastChallengesAt
     : "Don't worry - if these challenges show up again, we will work through them together step by step.";
 
   return (
-    <Animated.View style={[localStyles.container, { opacity: fadeAnim }]}>
-      <Text style={localStyles.heading}>{heading}</Text>
-      <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
+    <Animated.View style={[localStyles.container, { opacity: fadeAnim, paddingTop: isNarrowScreen ? 16 : 30 }]}>
+      <Text style={[localStyles.heading, isNarrowScreen && localStyles.headingNarrow]}>{heading}</Text>
+      <Text style={[localStyles.headingSubtitle, isNarrowScreen && localStyles.headingSubtitleNarrow]}>{headingSubtitle}</Text>
 
-      <View style={localStyles.atlasStage}>
+      <View style={[localStyles.atlasStage, { marginBottom: isNarrowScreen ? 110 : 140 }]}>
         <View style={localStyles.atlasWrap}>
           <Animated.View style={[localStyles.thoughtBubbleWrap, { transform: [{ scale: bubbleAnim }] }]}>
             <View style={[localStyles.introField, { width: thoughtBubbleWidth, alignSelf: 'center' }]}>
-              <Text style={localStyles.subheading}>{message}</Text>
+              <Text style={[localStyles.subheading, isNarrowScreen && localStyles.subheadingNarrow]}>{message}</Text>
             </View>
             <View style={localStyles.tailBubbleStack}>
               <View style={[localStyles.tailBubble, localStyles.tailBubbleLarge]} />
@@ -133,6 +140,11 @@ const localStyles = StyleSheet.create({
     marginBottom: 6,
     textTransform: 'none',
   },
+  headingNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
+    marginBottom: 4,
+  },
   headingSubtitle: {
     ...BodyStyle,
     color: '#FFFFFF',
@@ -141,6 +153,11 @@ const localStyles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 8,
     paddingHorizontal: 14,
+  },
+  headingSubtitleNarrow: {
+    fontSize: ONBOARDING_QUESTION_SUBTITLE.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_SUBTITLE.narrowLineHeight,
+    marginBottom: 4,
   },
   atlasStage: {
     width: '100%',
@@ -152,6 +169,10 @@ const localStyles = StyleSheet.create({
     color: '#342846',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  subheadingNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize + 2,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight + 1,
   },
   thoughtBubbleWrap: {
     width: '100%',

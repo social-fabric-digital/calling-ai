@@ -333,7 +333,7 @@ const IkigaiVisualSwitcher = ({ scrollX, containerWidth }: { scrollX: Animated.V
     </View>
   );
 };
-const IkigaiQuestionCard = ({ 
+const IkigaiQuestionCard = ({
   item, 
   index, 
   scrollX,
@@ -344,6 +344,7 @@ const IkigaiQuestionCard = ({
   onInputFocus,
   onInputLayout,
   containerWidth,
+  density,
 }: { 
   item: { id: string; question: string; description: string; placeholder: string; color: string; icon: any; storageKey: string }; 
   index: number;
@@ -355,6 +356,7 @@ const IkigaiQuestionCard = ({
   onInputFocus: () => void;
   onInputLayout: (event: any) => void;
   containerWidth: number;
+  density: 'regular' | 'narrow' | 'small';
 }) => {
   const inputRange = [
     (index - 1) * containerWidth,
@@ -379,15 +381,33 @@ const IkigaiQuestionCard = ({
       <Animated.View 
         style={[
           styles.ikigaiQuestionCard, 
-          { transform: [{ scale }], opacity, width: containerWidth - 40 }
+          { transform: [{ scale }], opacity, width: containerWidth - 40 },
+          density === 'narrow' && { padding: 16 },
+          density === 'small' && { padding: 14 },
         ]}
       >
         <FrostedCardLayer />
         {/* Question */}
-        <Text style={styles.ikigaiQuestionText}>{item.question}</Text>
+        <Text
+          style={[
+            styles.ikigaiQuestionText,
+            density === 'narrow' && { fontSize: 18, lineHeight: 22, marginBottom: 8 },
+            density === 'small' && { fontSize: 16, lineHeight: 20, marginBottom: 6 },
+          ]}
+        >
+          {item.question}
+        </Text>
         
         {/* Description */}
-        <Text style={styles.ikigaiDescriptionText}>{item.description}</Text>
+        <Text
+          style={[
+            styles.ikigaiDescriptionText,
+            density === 'narrow' && { fontSize: 13, lineHeight: 18, marginBottom: 12 },
+            density === 'small' && { fontSize: 12, lineHeight: 16, marginBottom: 10 },
+          ]}
+        >
+          {item.description}
+        </Text>
 
         {/* Input Area */}
         <View 
@@ -396,11 +416,15 @@ const IkigaiQuestionCard = ({
           onLayout={onInputLayout}
         >
           <TextInput
-            style={styles.ikigaiTextInput}
+            style={[
+              styles.ikigaiTextInput,
+              density === 'narrow' && { minHeight: 96, fontSize: 14, lineHeight: 18 },
+              density === 'small' && { minHeight: 80, fontSize: 13, lineHeight: 16 },
+            ]}
             placeholder={item.placeholder}
             placeholderTextColor="#999"
             multiline
-            numberOfLines={4}
+            numberOfLines={density === 'small' ? 3 : 4}
             value={answer}
             onChangeText={onChangeAnswer}
             textAlignVertical="top"
@@ -428,9 +452,10 @@ function IkigaiForm({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
-  const isCompactScreen = viewportHeight < 760;
-  const isNarrowScreen = viewportWidth < 420;
-  const shouldUseShortNextLabel = isCompactScreen || isNarrowScreen;
+  const isSmallHeightScreen = viewportHeight < 780;
+  const isNarrowScreen = viewportWidth <= 390;
+  const screenDensity: 'regular' | 'narrow' | 'small' = isSmallHeightScreen ? 'small' : isNarrowScreen ? 'narrow' : 'regular';
+  const shouldUseShortNextLabel = isSmallHeightScreen || isNarrowScreen;
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -697,7 +722,7 @@ function IkigaiForm({
             style={styles.ikigaiScrollView}
             contentContainerStyle={[
               styles.ikigaiScrollContent,
-              isCompactScreen && {
+              isSmallHeightScreen && {
                 paddingTop: Math.max(6, insets.top * 0.25),
                 paddingBottom: 104,
               },
@@ -715,7 +740,13 @@ function IkigaiForm({
             }
           ]}
         >
-          <Text style={styles.ikigaiMainTitle}>
+          <Text
+            style={[
+              styles.ikigaiMainTitle,
+              screenDensity === 'narrow' && { fontSize: 22, lineHeight: 26 },
+              screenDensity === 'small' && { fontSize: 20, lineHeight: 24 },
+            ]}
+          >
             {`${t('onboarding.step4TitleLine1')} ${t('onboarding.step4TitleLine2')}`}
           </Text>
         </Animated.View>
@@ -724,8 +755,9 @@ function IkigaiForm({
         <Animated.View
           style={[
             styles.ikigaiVisualArea,
-            isCompactScreen && { height: 92, marginTop: 12, marginBottom: 6 },
-            { opacity: fadeAnim },
+            screenDensity === 'narrow' && { height: 92, marginTop: 20, marginBottom: 16 },
+            screenDensity === 'small' && { height: 76, marginTop: 14, marginBottom: 10 },
+            { opacity: fadeAnim, overflow: 'visible' },
           ]}
         >
           <IkigaiVisualSwitcher scrollX={scrollX} containerWidth={containerWidth} />
@@ -772,7 +804,8 @@ function IkigaiForm({
         <Animated.View 
           style={[
             styles.ikigaiCarouselContainer,
-            isCompactScreen && { minHeight: 330, marginTop: -12 },
+            screenDensity === 'narrow' && { minHeight: 320, marginTop: 6 },
+            screenDensity === 'small' && { minHeight: 270, marginTop: -8 },
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
@@ -795,6 +828,7 @@ function IkigaiForm({
                 onInputFocus={handleInputFocus(item.id)}
                 onInputLayout={handleInputLayout(item.id)}
                 containerWidth={containerWidth}
+                density={screenDensity}
               />
             )}
             keyExtractor={(item) => item.id}
@@ -825,14 +859,14 @@ function IkigaiForm({
               styles.ikigaiBottomNav,
               {
                 paddingBottom: Math.max(16, insets.bottom + 12),
-                paddingHorizontal: isCompactScreen ? 20 : 40,
-                paddingTop: isCompactScreen ? 10 : 16,
+                paddingHorizontal: screenDensity === 'small' ? 20 : screenDensity === 'narrow' ? 24 : 40,
+                paddingTop: screenDensity === 'small' ? 10 : 16,
               },
             ]}
           >
         {currentIndex > 0 && (
           <TouchableOpacity 
-            style={[styles.ikigaiBackButtonNav, isCompactScreen && { paddingHorizontal: 16, paddingVertical: 14 }]} 
+            style={[styles.ikigaiBackButtonNav, screenDensity === 'small' && { paddingHorizontal: 16, paddingVertical: 14 }]}
             onPressIn={() => {
               void hapticMedium();
             }}

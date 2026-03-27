@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_OPTIONS_GAP,
+} from './responsiveTokens';
 import { styles } from './styles';
 import { persistOnboardingAnswer, loadOnboardingAnswer } from './persistOnboardingAnswer';
 
@@ -13,6 +20,8 @@ const OPTIONS = ['lost', 'consistency', 'transition', 'fulfilled', 'curious'] as
 
 export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [selected, setSelected] = useState<string>('');
 
   useEffect(() => {
@@ -34,13 +43,13 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
   };
 
   return (
-    <View style={localStyles.container}>
+    <View style={[localStyles.container, isNarrowScreen && localStyles.containerNarrow]}>
       <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+      <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}>
         {t('onboarding.yazioFlow.whyHereQuestion')}
       </Text>
       <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        <View style={styles.lifeContextOptionsContainer}>
+        <View style={[styles.lifeContextOptionsContainer, isNarrowScreen && { gap: ONBOARDING_QUESTION_OPTIONS_GAP.narrow }]}>
           {OPTIONS.map((optionId) => {
             const isSelected = selected === optionId;
             return (
@@ -49,6 +58,7 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
                 style={[
                   styles.lifeContextOptionButton,
                   localStyles.option,
+                  isNarrowScreen && localStyles.optionNarrow,
                   isSelected && styles.lifeContextOptionSelectedSoft,
                 ]}
                 onPress={() => onSelect(optionId)}
@@ -58,6 +68,7 @@ export default function WhyHereStep({ onContinue }: WhyHereStepProps) {
                   style={[
                     styles.lifeContextOptionText,
                     localStyles.optionText,
+                    isNarrowScreen && localStyles.optionTextNarrow,
                     isSelected && styles.lifeContextOptionTextSelectedSoft,
                   ]}
                 >
@@ -89,6 +100,9 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 30,
   },
+  containerNarrow: {
+    paddingTop: 16,
+  },
   scrollContent: {
     paddingBottom: 120,
   },
@@ -96,25 +110,43 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
+    marginBottom: 0,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
     marginBottom: 0,
   },
   option: {
     height: 'auto',
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: ONBOARDING_QUESTION_OPTION.minHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.paddingVertical,
+  },
+  optionNarrow: {
+    minHeight: ONBOARDING_QUESTION_OPTION.narrowMinHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.narrowPaddingVertical,
   },
   optionText: {
     flex: 0,
     lineHeight: 20,
   },
+  optionTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
+  },
   continueDisabled: {
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingHorizontal: 40,
     paddingBottom: 40,
+    zIndex: 1000,
   },
 });

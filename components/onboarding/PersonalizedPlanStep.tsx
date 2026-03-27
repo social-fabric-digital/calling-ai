@@ -1,11 +1,16 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from './styles';
-import { HeadingStyle, BodyStyle } from '@/constants/theme';
+import { BodyStyle } from '@/constants/theme';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+} from './responsiveTokens';
 import { persistOnboardingAnswer } from './persistOnboardingAnswer';
 
 interface PersonalizedPlanStepProps {
@@ -26,6 +31,8 @@ function getRussianDayWord(days: number) {
 
 export default function PersonalizedPlanStep({ name, clarityEstimateDays = 30, onContinue }: PersonalizedPlanStepProps) {
   const { t, i18n } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [resolvedName, setResolvedName] = React.useState(name?.trim() || '');
 
   React.useEffect(() => {
@@ -70,14 +77,14 @@ export default function PersonalizedPlanStep({ name, clarityEstimateDays = 30, o
   };
 
   return (
-    <View style={localStyles.container}>
+    <View style={[localStyles.container, isNarrowScreen && localStyles.containerNarrow]}>
       <View style={localStyles.headerSlot}>
-        <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+        <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}>
           {t('onboarding.yazioFlow.personalizedPlanHeader')}
         </Text>
       </View>
       <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-        <Text style={localStyles.personalizedText}>
+        <Text style={[localStyles.personalizedText, isNarrowScreen && localStyles.personalizedTextNarrow]}>
           {personalizedText}
         </Text>
 
@@ -87,7 +94,9 @@ export default function PersonalizedPlanStep({ name, clarityEstimateDays = 30, o
               <View style={localStyles.benefitIconWrap}>
                 <MaterialIcons name="check" size={16} color="#FFFFFF" />
               </View>
-              <Text style={localStyles.benefitText}>{t(`onboarding.yazioFlow.personalizedPlanBenefits.${key}`)}</Text>
+              <Text style={[localStyles.benefitText, isNarrowScreen && localStyles.benefitTextNarrow]}>
+                {t(`onboarding.yazioFlow.personalizedPlanBenefits.${key}`)}
+              </Text>
             </View>
           ))}
         </View>
@@ -110,6 +119,9 @@ const localStyles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 40,
   },
+  containerNarrow: {
+    paddingTop: 16,
+  },
   headerSlot: {
     minHeight: 80,
     justifyContent: 'flex-start',
@@ -118,9 +130,13 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 0,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   personalizedText: {
     ...BodyStyle,
@@ -129,6 +145,10 @@ const localStyles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
     marginBottom: 16,
+  },
+  personalizedTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight + 2,
   },
   benefitsList: {
     gap: 10,
@@ -157,6 +177,10 @@ const localStyles = StyleSheet.create({
     color: '#342846',
     fontSize: 14,
     flex: 1,
+  },
+  benefitTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
   },
   bottomButtonWrap: {
     position: 'absolute',

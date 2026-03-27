@@ -753,7 +753,7 @@ export default function PathsAlignedStep({
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={[styles.loadingText, { marginTop: 20 }]}>{t('clarityMap.generatingPersonalizedPaths')}</Text>
+        <Text style={[styles.loadingText, { marginTop: 20, width: '100%', textAlign: 'center' }]}>{t('clarityMap.generatingPersonalizedPaths')}</Text>
       </View>
     );
   }

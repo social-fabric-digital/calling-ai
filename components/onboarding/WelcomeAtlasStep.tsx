@@ -1,10 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Keyboard, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from './styles';
 import { HeadingStyle, BodyStyle } from '@/constants/theme';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_SUBTITLE,
+} from './responsiveTokens';
 import { persistOnboardingAnswer } from './persistOnboardingAnswer';
 
 interface WelcomeAtlasStepProps {
@@ -15,6 +21,12 @@ const ATLAS_BLOCK_BOTTOM_OFFSET = 140;
 
 export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepProps) {
   const { t, i18n } = useTranslation();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
+  const isCompactScreen = viewportHeight < 800;
+  const atlasImageSize = Math.min(320, Math.max(180, viewportWidth * (isNarrowScreen ? 0.52 : 0.65)));
+  const atlasImageTopMargin = isNarrowScreen ? -8 : -12;
+  const atlasImageBottomMargin = isNarrowScreen ? 6 : 14;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [resolvedName, setResolvedName] = React.useState(name?.trim() || '');
 
@@ -67,17 +79,17 @@ export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepP
   };
 
   return (
-    <Animated.View style={[localStyles.container, { opacity: fadeAnim }]}>
+    <Animated.View style={[localStyles.container, { opacity: fadeAnim, paddingTop: isNarrowScreen ? 16 : 30 }]}>
       <View style={localStyles.centerContent}>
-        <Text style={localStyles.heading}>
+        <Text style={[localStyles.heading, isNarrowScreen && localStyles.headingNarrow]}>
           {displayName ? `${headingPrefix}\n${displayName}!` : t('onboarding.yazioFlow.welcomeAtlasTitle')}
         </Text>
-        <Text style={localStyles.headingSubtitle}>{headingSubtitle}</Text>
-        <View style={localStyles.atlasStage}>
+        <Text style={[localStyles.headingSubtitle, isNarrowScreen && localStyles.headingSubtitleNarrow]}>{headingSubtitle}</Text>
+        <View style={[localStyles.atlasStage, isCompactScreen && { marginBottom: 110 }]}>
           <View style={localStyles.atlasWrap}>
             <View style={localStyles.thoughtBubbleWrap}>
               <View style={localStyles.introField}>
-                <Text style={localStyles.subheading}>{introText}</Text>
+                <Text style={[localStyles.subheading, isNarrowScreen && localStyles.subheadingNarrow]}>{introText}</Text>
               </View>
               <View style={localStyles.tailBubbleStack}>
                 <View style={[localStyles.tailBubble, localStyles.tailBubbleLarge]} />
@@ -87,7 +99,15 @@ export default function WelcomeAtlasStep({ name, onContinue }: WelcomeAtlasStepP
             </View>
             <Image
               source={require('../../assets/images/full.deer.png')}
-              style={localStyles.atlasImage}
+              style={[
+                localStyles.atlasImage,
+                {
+                  width: atlasImageSize,
+                  height: atlasImageSize,
+                  marginTop: atlasImageTopMargin,
+                  marginBottom: atlasImageBottomMargin,
+                },
+              ]}
               resizeMode="contain"
             />
           </View>
@@ -146,6 +166,11 @@ const localStyles = StyleSheet.create({
     letterSpacing: 0,
     marginBottom: 6,
   },
+  headingNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
+    marginBottom: 4,
+  },
   headingSubtitle: {
     ...BodyStyle,
     color: '#FFFFFF',
@@ -155,11 +180,20 @@ const localStyles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 14,
   },
+  headingSubtitleNarrow: {
+    fontSize: ONBOARDING_QUESTION_SUBTITLE.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_SUBTITLE.narrowLineHeight,
+    marginBottom: 4,
+  },
   subheading: {
     ...BodyStyle,
     color: '#342846',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  subheadingNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize + 2,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight + 1,
   },
   introField: {
     width: '92%',

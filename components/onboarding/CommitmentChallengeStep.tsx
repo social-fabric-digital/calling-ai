@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { HeadingStyle } from '@/constants/theme';
+import { isOnboardingNarrowWidth, ONBOARDING_QUESTION_HEADER } from './responsiveTokens';
 import { loadOnboardingAnswer, persistOnboardingAnswer } from './persistOnboardingAnswer';
 
 interface CommitmentChallengeStepProps {
@@ -14,6 +15,8 @@ const OPTIONS = ['3days', '7days', '14days', '30days', 'flexible'] as const;
 
 export default function CommitmentChallengeStep({ onContinue }: CommitmentChallengeStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [selected, setSelected] = useState('');
   const pulseA = useRef(new Animated.Value(0)).current;
   const pulseB = useRef(new Animated.Value(0)).current;
@@ -85,10 +88,10 @@ export default function CommitmentChallengeStep({ onContinue }: CommitmentChalle
   };
 
   return (
-    <View style={localStyles.container}>
-      <View style={localStyles.headerSlot}>
+    <View style={[localStyles.container, isNarrowScreen && { paddingTop: 16 }]}>
+      <View style={[localStyles.headerSlot, isNarrowScreen && { minHeight: 90 }]}>
         <Text
-          style={[styles.aboutYouTitle, localStyles.screenHeader]}
+          style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}
         >
           {t('onboarding.yazioFlow.commitmentChallengeQuestion')}
         </Text>
@@ -175,9 +178,13 @@ const localStyles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 2,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   challengeHeader: {
     ...HeadingStyle,
@@ -259,8 +266,13 @@ const localStyles = StyleSheet.create({
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingHorizontal: 40,
     paddingBottom: 40,
+    zIndex: 1000,
   },
 });

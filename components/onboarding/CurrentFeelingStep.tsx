@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { styles } from './styles';
 import { persistOnboardingAnswer, loadOnboardingAnswer } from './persistOnboardingAnswer';
 import { MoodSlider } from '@/components/MoodSlider';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+} from './responsiveTokens';
 
 interface CurrentFeelingStepProps {
   onContinue: (value: string) => void;
@@ -29,6 +33,8 @@ const ORDERED_OPTIONS_FOR_SLIDER = [
 
 export default function CurrentFeelingStep({ onContinue }: CurrentFeelingStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [selected, setSelected] = useState<string>('');
   const [initialSliderValue, setInitialSliderValue] = useState<number>(50);
 
@@ -71,10 +77,10 @@ export default function CurrentFeelingStep({ onContinue }: CurrentFeelingStepPro
   };
 
   return (
-    <View style={localStyles.container}>
-      <View style={localStyles.headerSlot}>
+    <View style={[localStyles.container, isNarrowScreen && localStyles.containerNarrow]}>
+      <View style={[localStyles.headerSlot, isNarrowScreen && localStyles.headerSlotNarrow]}>
         <Text
-          style={[styles.aboutYouTitle, localStyles.screenHeader]}
+          style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}
         >
           {t('onboarding.yazioFlow.currentFeelingQuestion')}
         </Text>
@@ -116,6 +122,9 @@ const localStyles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 40,
   },
+  containerNarrow: {
+    paddingTop: 16,
+  },
   card: {
     marginTop: 8,
     minHeight: 230,
@@ -127,10 +136,17 @@ const localStyles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'flex-start',
   },
+  headerSlotNarrow: {
+    minHeight: 90,
+  },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 0,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
   },
   option: {
     height: 'auto',

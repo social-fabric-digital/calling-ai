@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import {
+  isOnboardingNarrowWidth,
+  ONBOARDING_QUESTION_HEADER,
+  ONBOARDING_QUESTION_OPTION,
+  ONBOARDING_QUESTION_OPTION_TEXT,
+  ONBOARDING_QUESTION_OPTIONS_GAP,
+  ONBOARDING_QUESTION_SUBTITLE,
+} from './responsiveTokens';
 import { styles } from './styles';
 import { persistOnboardingAnswer, loadOnboardingAnswer } from './persistOnboardingAnswer';
 
@@ -13,6 +21,8 @@ const OPTIONS = ['clarity', 'fear', 'motivation', 'responsibilities', 'selfTalk'
 
 export default function WhatHeldBackStep({ onContinue }: WhatHeldBackStepProps) {
   const { t } = useTranslation();
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowScreen = isOnboardingNarrowWidth(viewportWidth);
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -36,28 +46,33 @@ export default function WhatHeldBackStep({ onContinue }: WhatHeldBackStepProps) 
   };
 
   return (
-    <View style={localStyles.container}>
+    <View style={[localStyles.container, isNarrowScreen && localStyles.containerNarrow]}>
       <ScrollView contentContainerStyle={localStyles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={localStyles.headerSlot}>
-          <Text style={[styles.aboutYouTitle, localStyles.screenHeader]}>
+        <View style={[localStyles.headerSlot, isNarrowScreen && localStyles.headerSlotNarrow]}>
+          <Text style={[styles.aboutYouTitle, localStyles.screenHeader, isNarrowScreen && localStyles.screenHeaderNarrow]}>
             {t('onboarding.yazioFlow.whatHeldBackQuestion')}
           </Text>
-          <Text style={[styles.lifeContextSubtitleText, localStyles.screenSubtitle]}>
+          <Text style={[styles.lifeContextSubtitleText, localStyles.screenSubtitle, isNarrowScreen && localStyles.screenSubtitleNarrow]}>
             {t('onboarding.yazioFlow.selectAllThatApply')}
           </Text>
         </View>
         <View style={[styles.lifeContextQuestionCard, localStyles.card]}>
-          <View style={styles.lifeContextOptionsContainer}>
+          <View style={[styles.lifeContextOptionsContainer, isNarrowScreen && localStyles.optionsContainerNarrow]}>
             {OPTIONS.map((optionId) => {
               const isSelected = selected.includes(optionId);
               return (
                 <TouchableOpacity
                   key={optionId}
-                  style={[styles.lifeContextOptionButton, localStyles.option, isSelected && localStyles.optionSelected]}
+                  style={[
+                    styles.lifeContextOptionButton,
+                    localStyles.option,
+                    isNarrowScreen && localStyles.optionNarrow,
+                    isSelected && localStyles.optionSelected,
+                  ]}
                   onPress={() => toggleOption(optionId)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.lifeContextOptionText, localStyles.optionText]}>
+                  <Text style={[styles.lifeContextOptionText, localStyles.optionText, isNarrowScreen && localStyles.optionTextNarrow]}>
                     {t(`onboarding.yazioFlow.whatHeldBackOptions.${optionId}`)}
                   </Text>
                 </TouchableOpacity>
@@ -86,6 +101,9 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 30,
   },
+  containerNarrow: {
+    paddingTop: 16,
+  },
   scrollContent: {
     paddingBottom: 120,
   },
@@ -96,20 +114,40 @@ const localStyles = StyleSheet.create({
     minHeight: 80,
     justifyContent: 'flex-start',
   },
+  headerSlotNarrow: {
+    minHeight: 60,
+  },
   screenHeader: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: ONBOARDING_QUESTION_HEADER.fontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.lineHeight,
     marginBottom: 4,
+  },
+  screenHeaderNarrow: {
+    fontSize: ONBOARDING_QUESTION_HEADER.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_HEADER.narrowLineHeight,
+    marginBottom: 2,
   },
   screenSubtitle: {
     marginBottom: 0,
   },
+  screenSubtitleNarrow: {
+    fontSize: ONBOARDING_QUESTION_SUBTITLE.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_SUBTITLE.narrowLineHeight,
+    marginBottom: 0,
+  },
+  optionsContainerNarrow: {
+    gap: ONBOARDING_QUESTION_OPTIONS_GAP.narrow,
+  },
   option: {
     height: 'auto',
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: ONBOARDING_QUESTION_OPTION.minHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.paddingVertical,
     justifyContent: 'center',
     paddingHorizontal: 14,
+  },
+  optionNarrow: {
+    minHeight: ONBOARDING_QUESTION_OPTION.narrowMinHeight,
+    paddingVertical: ONBOARDING_QUESTION_OPTION.narrowPaddingVertical,
   },
   optionSelected: {
     backgroundColor: 'rgba(186, 172, 202, 0.72)',
@@ -125,12 +163,21 @@ const localStyles = StyleSheet.create({
     flex: 0,
     lineHeight: 20,
   },
+  optionTextNarrow: {
+    fontSize: ONBOARDING_QUESTION_OPTION_TEXT.narrowFontSize,
+    lineHeight: ONBOARDING_QUESTION_OPTION_TEXT.narrowLineHeight,
+  },
   continueDisabled: {
     opacity: 0.45,
   },
   bottomButtonWrap: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingHorizontal: 40,
     paddingBottom: 40,
+    zIndex: 1000,
   },
 });
